@@ -1,30 +1,15 @@
-// Proxy para serie histórica de data912
-// data912 endpoint: GET /historical/bonds/{ticker}
-// Returns: [{date, close, open, high, low, volume}, ...]
-exports.handler = async (event) => {
-  const { ticker } = event.queryStringParameters || {};
-  if (!ticker) {
-    return {
-      statusCode: 400,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: "ticker requerido" }),
-    };
-  }
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { ticker } = req.query;
+  if (!ticker) return res.status(400).json({ error: "ticker requerido" });
   try {
     const url = `https://data912.com/historical/bonds/${encodeURIComponent(ticker)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`data912 HTTP ${res.status} — ${url}`);
-    const data = await res.json();
-    return {
-      statusCode: 200,
-      headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    };
-  } catch (e) {
-    return {
-      statusCode: 502,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: e.message }),
-    };
+    const data = await fetch(url).then(r => {
+      if (!r.ok) throw new Error(`data912 HTTP ${r.status}`);
+      return r.json();
+    });
+    res.json(data);
+  } catch(e) {
+    res.status(502).json({ error: e.message });
   }
-};
+}
