@@ -622,7 +622,16 @@ let PROXY_URL = ''; // Netlify Functions — mismo dominio
 // Estructura: { ticker, vto(Date), cashflows:[{t,cf}], vt, vr, ic, cupon, pago }
 // t = años desde liquidación (T+1 = 2026-04-10)
 // ═══════════════════════════════════════════════════════════════
-const LIQ = new Date('2026-04-10'); // T+1
+// T+1 settlement: compute dynamically as next business day
+function getT1() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  // Skip weekends
+  if (d.getDay() === 6) d.setDate(d.getDate() + 2);
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  return d;
+}
+const LIQ = getT1(); // T+1 settlement date (dynamic)
 
 function daysFrom(d) {
   return Math.round((new Date(d) - LIQ) / 86400000);
@@ -1513,9 +1522,10 @@ function processBonds(rawArr) {
     const vt = def.vr; // technical value ≈ face for display
     const paridad = precio / vr;
 
-    const rec = {ticker, nombre:def.nombre, grupo:def.grupo, vr, vt, precio, tir, tna, macaulay, modified, convex, paridad, live: !!livePrice, def};
+    const rec = {ticker, nombre:def.nombre, grupo:def.grupo, cupon:def.cupon, vr, vt, precio, tir, tna, macaulay, modified, convex, paridad, live: !!livePrice, def};
     if (def.grupo === 'Bonares') STATE.bonares.push(rec);
     else if (def.grupo === 'Globales') STATE.globales.push(rec);
+    else if (def.grupo === 'Tasa Fija $') STATE.pesos.push(rec);
     else STATE.bopreales.push(rec);
   }
 
@@ -1545,15 +1555,17 @@ function computeTC(map) {
 
 function processLecaps(rawArr) {
   const lecMap = priceMap(rawArr);
-  // BONCAPs (T-prefix) live in the bonds endpoint — merge from STATE.bonds if available
   const bondsMap = priceMap(STATE.bonds || []);
   STATE.lecapCalc = LECAP_DEFS.map(def => {
-    // Try notes map first, then bonds map for BONCAPs
     const item = lecMap[def.ticker.toUpperCase()] || bondsMap[def.ticker.toUpperCase()];
     const precio = item ? parseFloat(item.c || item.px_bid || 0) : null;
     if (!precio) return {...def, precio: null, tir:null, tem:null, tna:null, tePlazo:null, live:false};
-    const {tir, tem, tna, tePlazo} = calcLecapMetrics(precio, def.vpv, def.dias);
-    return {...def, precio, tir, tem, tna, tePlazo, live: true};
+    // Compute dias dynamically from vto and current LIQ (not hardcoded)
+    const diasDyn = Math.round((new Date(def.vto) - LIQ) / 86400000);
+    // VPV formula: 100 * (1+tLic)^(diasTotal/30) where diasTotal = days from emission to vto
+    // We keep vpv hardcoded from Excel (exact) but recompute tir from current price/dias
+    const {tir, tem, tna, tePlazo} = calcLecapMetrics(precio, def.vpv, diasDyn > 0 ? diasDyn : def.dias);
+    return {...def, precio, tir, tem, tna, tePlazo, dias: diasDyn > 0 ? diasDyn : def.dias, live: true};
   });
 }
 
@@ -1757,7 +1769,7 @@ function renderPesosTable() {
     return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
       <td><span class="ticker">${b.ticker}</span><span class="bond-name">${b.nombre}</span><span class="tag tag-pes">ARS</span></td>
       <td>${b.cupon ? pct(b.cupon) : '—'}</td>
-      <td>${f2(b.vt)}</td>
+      <td>${f2(b.precio)}</td>
       <td ${hcp}>${pct(tir)}</td>
       <td>${pct(tna)}</td>
       <td>${f4(macaulay)}</td>
@@ -2569,13 +2581,6 @@ function renderBondCFModal(ticker, bond, def) {
     <div class="bms-item"><div class="bms-lbl">Convexidad</div><div class="bms-val">${convex.toFixed(2)}</div></div>
     <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${new Date(vto).toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>
   `;
-  // Show/hide past toggle based on whether there are past rows
-  setTimeout(() => {
-    const pastTbody = document.getElementById('bond-modal-past');
-    const pastBtn = document.getElementById('bond-toggle-past');
-    if (pastBtn) pastBtn.style.display = (pastRows && pastRows.length > 0) ? '' : 'none';
-  }, 10);
-
   // Liq row (row 0: the price outflow)
   const liqRow = `<tr style="background:rgba(79,142,247,.08)">
     <td style="text-align:left;font-family:var(--font);font-weight:700;color:var(--accent)">${LIQ.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})}</td>
@@ -2588,8 +2593,12 @@ function renderBondCFModal(ticker, bond, def) {
 
   const {pastRows, futureRows, totAmort, totInteres, totCF, totDur, totConv} = buildBondCFRows(def, tir, LIQ);
 
-  document.getElementById('bond-modal-past').innerHTML = pastRows.map(cfRowHtml).join('');
-  document.getElementById('bond-modal-past').style.display = 'none';
+  const pastEl = document.getElementById('bond-modal-past');
+  pastEl.innerHTML = pastRows.map(cfRowHtml).join('');
+  pastEl.style.display = 'none';
+  // Show/hide toggle based on whether past rows exist
+  const pastBtn2 = document.getElementById('bond-toggle-past');
+  if (pastBtn2) pastBtn2.style.display = pastRows.length > 0 ? '' : 'none';
   document.getElementById('bond-modal-tbody').innerHTML = liqRow + futureRows.map(cfRowHtml).join('') +
     `<tr class="cf-totals">
       <td colspan="2" style="text-align:left;font-family:var(--font)">*Fecha de liquidación de la operación</td>
@@ -2751,17 +2760,13 @@ function runCalc() {
   const liqDate = liqStr ? new Date(liqStr+'T00:00:00') : new Date(LIQ);
 
   const def = BOND_DEFS[calcSelected];
-  const pesosDef = PESOS_DEFS.find(p=>p.ticker===calcSelected);
   const lecDef = LECAP_DEFS.find(l=>l.ticker===calcSelected);
-  const activeDef = def||pesosDef;
+  const activeDef = def; // all bonds now in BOND_DEFS
 
   let tirCalc, macCalc, modCalc, vtoStr, cuponStr, liveRefTir;
 
   if (activeDef) {
-    // Recalc TIR with custom liqDate
-    const cfs = activeDef.cfs.filter(cf=>new Date(cf.d)>liqDate);
-    if (!cfs.length) { alert('Sin flujos futuros para esa fecha'); return; }
-    // Use exact Excel formulas via computeBondRows
+    // Use exact Excel formulas via computeBondRows + futureCFs
     const bondFlows = futureCFs(activeDef, liqDate);
     if (!bondFlows.length) { alert('Sin flujos futuros para esa fecha'); return; }
     tirCalc = calcTIRFromFlows(bondFlows, priceRaw);
