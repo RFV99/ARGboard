@@ -1846,7 +1846,7 @@ function buildCharts() {
     const coef = polyFit(xs, ys);
     const curve = polyLine(coef, Math.min(...xs)-.1, Math.max(...xs)+.1);
     makeScatterChart('c-bonares', [
-      {label:'Poly fit',data:curve,type:'line',borderColor:'#4f8ef7',borderWidth:1.5,pointRadius:0,fill:false},
+      {label:'Curva',data:curve,type:'line',borderColor:'#4f8ef7',borderWidth:1.5,pointRadius:0,fill:false},
       {label:'Bonares',data:bon.map(b=>({x:b.modified,y:b.tir*100,ticker:b.ticker})),
        backgroundColor:'#4f8ef7',borderColor:'#4f8ef7',pointRadius:5,pointHoverRadius:7}
     ]);
@@ -1859,7 +1859,7 @@ function buildCharts() {
     const coef = polyFit(xs, ys);
     const curve = polyLine(coef, Math.min(...xs)-.1, Math.max(...xs)+.1);
     makeScatterChart('c-globales', [
-      {label:'Poly fit',data:curve,type:'line',borderColor:'#2dd4bf',borderWidth:1.5,pointRadius:0,fill:false},
+      {label:'Curva',data:curve,type:'line',borderColor:'#2dd4bf',borderWidth:1.5,pointRadius:0,fill:false},
       {label:'Globales',data:glo.map(b=>({x:b.modified,y:b.tir*100,ticker:b.ticker})),
        backgroundColor:'#2dd4bf',borderColor:'#2dd4bf',pointRadius:5,pointHoverRadius:7}
     ]);
@@ -1876,7 +1876,7 @@ function buildCharts() {
     if (ctx) charts['c-lecaps'] = new Chart(ctx, {
       type: 'scatter',
       data: { datasets: [
-        {label:'Poly fit',data:curve,type:'line',borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,fill:false},
+        {label:'Curva',data:curve,type:'line',borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,fill:false},
         {label:'LECAPS',data:lec.map(l=>({x:l.dias,y:l.tem*100,ticker:l.ticker})),
          backgroundColor:'#a78bfa',borderColor:'#a78bfa',pointRadius:5,pointHoverRadius:7}
       ]},
@@ -1903,7 +1903,7 @@ function buildCharts() {
     const hdXs = allHDPts.map(b=>b.modified), hdYs = allHDPts.map(b=>b.tir*100);
     const hdCoef = polyFit(hdXs, hdYs);
     const hdCurve = polyLine(hdCoef, Math.min(...hdXs)-.1, Math.max(...hdXs)+.1);
-    allHDDatasets.unshift({label:'Poly fit',data:hdCurve,type:'line',borderColor:'rgba(255,255,255,0.35)',borderWidth:1.5,pointRadius:0,fill:false,order:0});
+    allHDDatasets.unshift({label:'Curva',data:hdCurve,type:'line',borderColor:'rgba(255,255,255,0.35)',borderWidth:1.5,pointRadius:0,fill:false,order:0});
   }
   destroyChart('c-scatter');
   const scatterCtx = document.getElementById('c-scatter');
