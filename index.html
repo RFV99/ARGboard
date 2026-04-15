@@ -1823,7 +1823,57 @@ function toggleTheme() {
 // ═══════════════════════════════════════════════════════════════
 const miniCharts = {};
 let kpiHistCache = {}; // { rp: [{date,value}], mep: [...], cable: [...] }
+/**
+ * Carga los datos históricos de un KPI (Riesgo País, MEP, etc.)
+ * y actualiza el caché y el gráfico del modal.
+ */
+async function loadKpiHistData(key) {
+    // Si ya tenemos los datos en caché, no volvemos a llamar al proxy
+    if (kpiHistCache[key]) {
+        buildModalChart();
+        return;
+    }
 
+    try {
+        // Mostramos un estado de carga en el modal si fuera necesario
+        const response = await fetch(`http://localhost:5000/api/kpi-hist/${key}`);
+        if (!response.ok) throw new Error('Error en la respuesta del proxy');
+        
+        const data = await response.json();
+        
+        // Guardamos en el caché global
+        kpiHistCache[key] = data;
+        
+        // Renderizamos el gráfico con los nuevos datos
+        buildModalChart();
+    } catch (err) {
+        console.error(`Error cargando historial para ${key}:`, err);
+        showError(`No se pudo conectar con el proxy para obtener datos de ${key}.`);
+    }
+}
+
+/**
+ * Función que abre el modal y dispara la carga de datos
+ */
+function openModal(key) {
+    const modal = document.getElementById('kpi-modal');
+    if (!modal) return;
+
+    modalState.key = key;
+    modal.classList.add('open');
+    
+    // Seteamos el título según el KPI
+    const titles = { 
+        'rp': 'Riesgo País (EMBI)', 
+        'mep': 'Dólar MEP (AL30)', 
+        'cable': 'Dólar Cable (AL30)', 
+        'canje': 'Canje AL30' 
+    };
+    document.getElementById('modal-title').textContent = titles[key] || 'Detalle';
+
+    // Llamamos a la función que estaba dando el error
+    loadKpiHistData(key);
+}
 function getChartColors() {
   const isLight = document.documentElement.classList.contains('light');
   return {
