@@ -292,6 +292,84 @@
   }
   .modal-stat .s-lbl { font-size: 9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:4px; }
   .modal-stat .s-val { font-size: 15px; font-weight:700; font-family:var(--mono); }
+
+  /* ── Bond detail modal ──────────────────────── */
+  .bond-modal-box {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 14px; width: min(900px, 97vw); max-height: 90vh;
+    overflow-y: auto; box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    animation: modalIn .18s ease;
+  }
+  .bond-modal-summary {
+    display: grid; grid-template-columns: repeat(6,1fr); gap: 8px;
+    padding: 1rem 1.2rem; border-bottom: 1px solid var(--border);
+  }
+  @media(max-width:600px){ .bond-modal-summary { grid-template-columns: repeat(3,1fr); } }
+  .bms-item { text-align:center; }
+  .bms-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:3px; }
+  .bms-val { font-size:14px; font-weight:700; font-family:var(--mono); }
+  .cf-table-wrap { padding: 0 1.2rem 1.2rem; overflow-x:auto; }
+  .cf-totals td { font-weight:700; border-top: 2px solid var(--border2); color:var(--text); }
+  .cf-amort { color: var(--accent); font-weight:700; }
+
+  /* ── Calculadora ──────────────────────────── */
+  .calc-layout {
+    display: grid; grid-template-columns: 340px 1fr; gap: 1.5rem;
+    align-items: start;
+  }
+  @media(max-width:800px){ .calc-layout { grid-template-columns:1fr; } }
+  .calc-left { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:1.25rem; }
+  .calc-section-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:1rem; }
+  .calc-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); display:block; margin-bottom:5px; }
+  .calc-input {
+    width:100%; background:var(--bg3); border:1px solid var(--border2); color:var(--text);
+    padding:.55rem .75rem; border-radius:8px; font-family:var(--mono); font-size:13px;
+    outline:none; transition:border-color .15s;
+  }
+  .calc-input:focus { border-color:var(--accent); }
+  .calc-dropdown {
+    position:absolute; top:100%; left:0; right:0; z-index:200;
+    background:var(--bg2); border:1px solid var(--border2); border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4); display:none; max-height:220px; overflow-y:auto;
+  }
+  .calc-dropdown-item {
+    padding:.6rem .85rem; cursor:pointer; font-size:12px; border-bottom:1px solid var(--border);
+    transition:background .1s;
+  }
+  .calc-dropdown-item:last-child { border-bottom:none; }
+  .calc-dropdown-item:hover, .calc-dropdown-item.selected { background:var(--bg3); color:var(--accent); }
+  .calc-dropdown-item .dd-ticker { font-weight:700; font-family:var(--mono); }
+  .calc-dropdown-item .dd-name { color:var(--muted); font-size:11px; margin-left:6px; }
+  .calc-pill {
+    background:rgba(79,142,247,.15); border:1px solid rgba(79,142,247,.3); color:var(--accent);
+    padding:.35rem .75rem; border-radius:6px; font-size:12px; font-family:var(--mono);
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:.5rem;
+  }
+  .calc-pill-x { cursor:pointer; font-size:16px; line-height:1; opacity:.6; transition:opacity .1s; }
+  .calc-pill-x:hover { opacity:1; }
+  .calc-btn {
+    width:100%; margin-top:1rem; padding:.7rem; border-radius:8px;
+    background:var(--green); border:none; color:#fff; font-size:13px; font-weight:700;
+    cursor:pointer; transition:all .15s; letter-spacing:.02em;
+  }
+  html.light .calc-btn { color:#fff; }
+  .calc-btn:hover { filter:brightness(1.1); }
+  .calc-btn:active { transform:scale(.98); }
+  .calc-result-card {
+    margin-top:1rem; background:rgba(79,142,247,.08); border:1px solid rgba(79,142,247,.2);
+    border-radius:10px; padding:1rem;
+  }
+  .calc-r-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:4px; }
+  .calc-r-tir { font-size:36px; font-weight:800; font-family:var(--mono); color:var(--green); letter-spacing:-.02em; }
+  .calc-r-diff { font-size:11px; border-radius:20px; padding:3px 10px; display:inline-flex; align-items:center; gap:4px; margin:6px 0; }
+  .calc-r-diff.up { background:rgba(248,113,113,.15); color:var(--red); }
+  .calc-r-diff.dn { background:rgba(52,211,153,.15); color:var(--green); }
+  .calc-r-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:.85rem; }
+  .calc-r-sub { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
+  .calc-r-val { font-size:13px; font-weight:700; font-family:var(--mono); color:var(--text); }
+  .calc-right { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:1.25rem; }
+  .calc-cf-header { font-size:14px; font-weight:700; color:var(--text); }
+  .calc-cf-subheader { font-size:11px; color:var(--muted); margin-top:4px; }
 </style>
 </head>
 <body>
@@ -362,9 +440,9 @@
       <div class="kpi-mini-chart"><canvas id="mini-c-cable"></canvas></div>
       <div class="kpi-open-hint">Abrir Cable →</div>
     </div>
-    <div class="kpi amber">
-      <div class="kpi-label">Canje</div>
-      <div style="display:flex;gap:16px;align-items:baseline;margin-top:4px;">
+    <div class="kpi amber kpi-interactive" id="kpi-canje" onclick="openModal('canje')">
+      <div class="kpi-label">Canje · AL30</div>
+      <div style="display:flex;gap:16px;align-items:baseline;margin-top:2px;">
         <div>
           <div style="font-size:9px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em;">IN</div>
           <div class="kpi-value pos" id="k-canje-in" style="font-size:16px;">—</div>
@@ -374,7 +452,14 @@
           <div class="kpi-value neg" id="k-canje-out" style="font-size:16px;">—</div>
         </div>
       </div>
-      <div class="kpi-sub">en base a AL30</div>
+      <div class="kpi-changes">
+        <span class="kpi-chg-item"><span class="lbl">1D</span><span class="val neu" id="chg-canje-1d">—</span></span>
+        <span class="kpi-chg-item"><span class="lbl">1S</span><span class="val neu" id="chg-canje-1w">—</span></span>
+        <span class="kpi-chg-item"><span class="lbl">1M</span><span class="val neu" id="chg-canje-1m">—</span></span>
+        <span class="kpi-chg-item"><span class="lbl">1A</span><span class="val neu" id="chg-canje-1y">—</span></span>
+      </div>
+      <div class="kpi-mini-chart"><canvas id="mini-c-canje"></canvas></div>
+      <div class="kpi-open-hint">Abrir Canje →</div>
     </div>
   </div>
 
@@ -389,9 +474,70 @@
   <!-- Tabs -->
   <div class="tabs">
     <button class="tab active" onclick="switchTab('curvas',this)">Curvas</button>
+    <button class="tab" onclick="switchTab('calculadora',this)">Calculadora</button>
     <button class="tab" onclick="switchTab('harddollar',this)">Hard Dollar</button>
     <button class="tab" onclick="switchTab('capitalizables',this)">Capitalizables</button>
     <button class="tab" onclick="switchTab('pesos',this)">Tasa fija $</button>
+  </div>
+
+  <div class="panel" id="panel-calculadora">
+    <div class="calc-layout">
+      <!-- LEFT: inputs -->
+      <div class="calc-left">
+        <div class="calc-section-title">Calculadora Precio → TIR</div>
+
+        <label class="calc-label">BUSCAR INSTRUMENTO (TICKER O NOMBRE)</label>
+        <div style="position:relative;margin-bottom:.75rem;">
+          <input id="calc-search" type="text" class="calc-input" placeholder="Ej: AL30D, Bonar, LECAP..." autocomplete="off"
+            oninput="calcSearchInput()" onblur="setTimeout(()=>document.getElementById('calc-dropdown').style.display='none',150)">
+          <div id="calc-dropdown" class="calc-dropdown"></div>
+        </div>
+
+        <div id="calc-selected-pill" class="calc-pill" style="display:none"></div>
+
+        <label class="calc-label" style="margin-top:.75rem;">PRECIO DE COMPRA (%)</label>
+        <input id="calc-price" type="number" class="calc-input" placeholder="Ej: 68.50" step="0.01" min="0.01">
+
+        <label class="calc-label" style="margin-top:.75rem;">FECHA DE LIQUIDACIÓN</label>
+        <input id="calc-liq" type="date" class="calc-input">
+
+        <button class="calc-btn" onclick="runCalc()">Calcular</button>
+
+        <div id="calc-result" style="display:none">
+          <div class="calc-result-card">
+            <div class="calc-r-label">TIR CALCULADA</div>
+            <div class="calc-r-tir" id="calc-r-tir">—</div>
+            <div id="calc-r-diff" class="calc-r-diff" style="display:none"></div>
+            <div class="calc-r-grid">
+              <div><div class="calc-r-sub">Duration</div><div class="calc-r-val" id="calc-r-mac">—</div></div>
+              <div><div class="calc-r-sub">M. Duration</div><div class="calc-r-val" id="calc-r-mod">—</div></div>
+              <div><div class="calc-r-sub">Vencimiento</div><div class="calc-r-val" id="calc-r-vto">—</div></div>
+              <div><div class="calc-r-sub">Cupón</div><div class="calc-r-val" id="calc-r-cup">—</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: cashflow table -->
+      <div class="calc-right" id="calc-cf-wrap" style="display:none">
+        <div class="calc-cf-header" id="calc-cf-header">Flujos de Fondos</div>
+        <div class="calc-cf-subheader" id="calc-cf-sub"></div>
+        <div class="tbl-wrap" style="margin-top:.75rem;">
+          <table>
+            <thead><tr>
+              <th style="text-align:left">Fecha Pago</th>
+              <th>Días</th>
+              <th>VR%</th>
+              <th>VR Cartera</th>
+              <th>Renta</th>
+              <th>Amortización</th>
+              <th>R+A</th>
+            </tr></thead>
+            <tbody id="calc-cf-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="panel" id="panel-harddollar">
@@ -1115,16 +1261,54 @@ function renderAllTables() {
   renderPesosTable();
 }
 
+function tirHeatColor(tir, allTirs) {
+  // Returns inline style for TIR cell — red(low)→yellow(mid)→green(high)
+  const valid = allTirs.filter(t => isFinite(t) && t !== null);
+  if (valid.length < 2) return '';
+  const mn = Math.min(...valid), mx = Math.max(...valid);
+  if (mx === mn) return '';
+  const t = (tir - mn) / (mx - mn); // 0=low(red) 1=high(green)
+  // interpolate r->y->g
+  let r, g, b2;
+  if (t < 0.5) {
+    const u = t * 2;
+    r = Math.round(248 - (248-251)*u);   // 248→251
+    g = Math.round(113 + (191-113)*u);   // 113→191
+    b2 = Math.round(113 + (36-113)*u);   // 113→36
+  } else {
+    const u = (t - 0.5) * 2;
+    r = Math.round(251 + (52-251)*u);    // 251→52
+    g = Math.round(191 + (211-191)*u);   // 191→211
+    b2 = Math.round(36 + (153-36)*u);    // 36→153
+  }
+  return `style="color:rgb(${r},${g},${b2});font-weight:700"`;
+}
+
+function tirHeatColorLec(tem, allTems) {
+  const valid = allTems.filter(t => isFinite(t) && t !== null);
+  if (valid.length < 2) return '';
+  const mn = Math.min(...valid), mx = Math.max(...valid);
+  if (mx === mn) return '';
+  const t = (tem - mn) / (mx - mn);
+  let r, g, b2;
+  if (t < 0.5) { const u=t*2; r=Math.round(248-(248-251)*u); g=Math.round(113+(191-113)*u); b2=Math.round(113+(36-113)*u); }
+  else { const u=(t-0.5)*2; r=Math.round(251+(52-251)*u); g=Math.round(191+(211-191)*u); b2=Math.round(36+(153-36)*u); }
+  return `style="color:rgb(${r},${g},${b2});font-weight:700"`;
+}
+
 function renderHardDollarTable(tbodyId, data) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   if (!data.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">Sin datos — presioná Actualizar</td></tr>'; return; }
-  tbody.innerHTML = data.map(b => `<tr>
+  const allTirs = data.map(b => b.tir);
+  tbody.innerHTML = data.map(b => {
+    const hc = tirHeatColor(b.tir, allTirs);
+    return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
     <td><span class="ticker">${b.ticker} ${b.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
         <span class="bond-name">${b.nombre}</span>
         <span class="tag ${b._tag}">${b.grupo}</span></td>
     <td>${f2(b.precio)}</td>
-    <td class="${b.tir < 0 ? 'neg' : (b.tir > 0.09 ? 'neg' : 'pos')}">${pct(b.tir)}</td>
+    <td ${hc}>${pct(b.tir)}</td>
     <td>${pct(b.tna)}</td>
     <td>${f4(b.macaulay)}</td>
     <td>${f4(b.modified)}</td>
@@ -1132,7 +1316,8 @@ function renderHardDollarTable(tbodyId, data) {
     <td>${f2(b.vt)}</td>
     <td>${f2(b.vr)}</td>
     <td class="${b.paridad < 1 ? 'neg' : 'pos'}">${f4(b.paridad)}</td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 }
 
 function renderCapitalizablesTable() {
@@ -1140,20 +1325,22 @@ function renderCapitalizablesTable() {
   if (!tbody) return;
   const data = STATE.lecapCalc;
   if (!data.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sin datos — presioná Actualizar</td></tr>'; return; }
+  const allTems = data.map(l => l.tem);
   tbody.innerHTML = data.map(l => {
     // S = LECAP, T = BONCAP
     const tipo = l.ticker.startsWith('T') ? 'BONCAP' : 'LECAP';
     const tagCls = l.ticker.startsWith('T') ? 'tag-bon' : 'tag-lec';
-    return `<tr>
+    const hc = tirHeatColorLec(l.tem, allTems);
+    return `<tr style="cursor:pointer" onclick="openBondModal('${l.ticker}')">
     <td><span class="ticker">${l.ticker} ${l.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
         <span class="tag ${tagCls}">${tipo}</span></td>
     <td>${l.vto.slice(5).replace('-','/')}</td>
     <td>${l.dias}</td>
     <td>${l.precio ? f2(l.precio) : '—'}</td>
     <td>${f2(l.vpv)}</td>
-    <td class="pos">${pct(l.tir)}</td>
+    <td ${hc}>${pct(l.tir)}</td>
     <td>${pct(l.tna)}</td>
-    <td class="pos">${pct3(l.tem)}</td>
+    <td ${hc}>${pct3(l.tem)}</td>
     <td>${pct(l.tePlazo)}</td>
   </tr>`;
   }).join('');
@@ -1163,17 +1350,19 @@ function renderPesosTable() {
   const tbody = document.getElementById('tbody-pesos');
   if (!tbody) return;
   const data = STATE.pesos;
-  tbody.innerHTML = data.map(b => {
+  const allPesosTirs = data.map(b => { try { return calcTIR(b.cfs, b.vt); } catch(e){ return null; } });
+  tbody.innerHTML = data.map((b, idx) => {
     const cfs = b.cfs;
     const tir = calcTIR(cfs, b.vt); // use VT as proxy price until live feed
     const {macaulay, modified} = calcDuration(cfs, b.vt, tir);
     const convex = calcConvexity(cfs, b.vt, tir);
     const tna = (Math.pow(1+tir,180/365)-1)*2;
-    return `<tr>
+    const hcp = tirHeatColor(tir, allPesosTirs.filter(t=>t!==null));
+    return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
       <td><span class="ticker">${b.ticker}</span><span class="bond-name">${b.nombre}</span><span class="tag tag-pes">ARS</span></td>
       <td>${pct(b.cupon)}</td>
       <td>${f2(b.vt)}</td>
-      <td class="pos">${pct(tir)}</td>
+      <td ${hcp}>${pct(tir)}</td>
       <td>${pct(tna)}</td>
       <td>${f4(macaulay)}</td>
       <td>${f4(modified)}</td>
@@ -1764,10 +1953,26 @@ function buildMiniCharts() {
   if (document.documentElement.classList.contains('light')) {
     colors.rp = '#dc2626'; colors.mep = '#059669'; colors.cable = '#0d9488';
   }
-  ['rp','mep','cable'].forEach(key => {
+  // compute canje series from mep + cable
+  if (kpiHistCache.mep && kpiHistCache.cable) {
+    const cableMap = {};
+    kpiHistCache.cable.forEach(d => { cableMap[d.date] = d.value; });
+    kpiHistCache.canje = kpiHistCache.mep
+      .map(d => {
+        const cabV = cableMap[d.date];
+        if (!cabV || !d.value) return null;
+        return { date: d.date, value: (cabV / d.value - 1) * 100 }; // canje IN %
+      })
+      .filter(Boolean);
+  }
+
+  ['rp','mep','cable','canje'].forEach(key => {
     const series = kpiHistCache[key];
     if (!series || series.length === 0) return;
-    buildMiniChart('mini-c-' + key, series, colors[key]);
+    const col = key === 'canje'
+      ? (document.documentElement.classList.contains('light') ? '#d97706' : '#fbbf24')
+      : colors[key];
+    buildMiniChart('mini-c-' + key, series, col);
     computeChanges(key, series);
   });
 }
@@ -1789,6 +1994,7 @@ function computeChanges(key, series) {
     return best;
   }
 
+  const isCanje = key === 'canje';
   const targets = { '1d': 1, '1w': 7, '1m': 30, '1y': 365 };
   Object.entries(targets).forEach(([label, days]) => {
     const ref = findNearest(days);
@@ -1799,6 +2005,11 @@ function computeChanges(key, series) {
       const diff = Math.round(latest.value - ref.value);
       el.textContent = (diff >= 0 ? '+' : '') + diff + ' pb';
       el.className = 'val ' + (diff < 0 ? 'pos' : diff > 0 ? 'neg' : 'neu');
+    } else if (isCanje) {
+      // canje is already in %, show difference in pp
+      const diff = latest.value - ref.value;
+      el.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2) + ' pp';
+      el.className = 'val ' + (diff > 0 ? 'pos' : diff < 0 ? 'neg' : 'neu');
     } else {
       const pct = ((latest.value / ref.value) - 1) * 100;
       el.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
@@ -1818,6 +2029,7 @@ const MODAL_META = {
   rp:    { title: 'Riesgo País (EMBI)', unit: 'pb', color: '#f87171', labelY: 'bps' },
   mep:   { title: 'Dólar MEP · AL30',   unit: '%',  color: '#34d399', labelY: 'ARS/USD' },
   cable: { title: 'Dólar Cable · AL30', unit: '%',  color: '#2dd4bf', labelY: 'ARS/USD' },
+  canje: { title: 'Canje IN · AL30 (Cable/MEP−1)', unit: '%', color: '#fbbf24', labelY: 'Canje IN (%)' },
 };
 
 function openModal(key) {
@@ -1931,7 +2143,9 @@ function buildModalChart() {
           callbacks: {
             label: ctx => {
               const v = ctx.parsed.y;
-              return key === 'rp' ? ` ${Math.round(v).toLocaleString('es-AR')} pb` : ` $${v.toFixed(0).toLocaleString('es-AR')}`;
+              if (key === 'rp') return ` ${Math.round(v).toLocaleString('es-AR')} pb`;
+              if (key === 'canje') return ` ${v.toFixed(2)}%`;
+              return ` $${v.toFixed(0).toLocaleString('es-AR')}`;
             }
           }
         }
@@ -1951,7 +2165,7 @@ function buildModalChart() {
           grid: { color: gridC },
           ticks: {
             color: tickC, font: { size: 10 },
-            callback: v => key === 'rp' ? Math.round(v) + ' pb' : '$' + Math.round(v).toLocaleString('es-AR')
+            callback: v => key === 'rp' ? Math.round(v) + ' pb' : key === 'canje' ? v.toFixed(2)+'%' : '$' + Math.round(v).toLocaleString('es-AR')
           },
           position: 'right'
         }
@@ -1964,11 +2178,14 @@ function buildModalChart() {
   const maxDate = data[values.indexOf(maxV)].date;
   const minDate = data[values.indexOf(minV)].date;
   const isRp = key === 'rp';
-  const fmt = v => isRp ? Math.round(v).toLocaleString('es-AR') + ' pb' : '$' + Math.round(v).toLocaleString('es-AR');
-  const fmtChg = (abs, pct) => isRp
+  const isCanje = key === 'canje';
+  const fmt = v => isRp ? Math.round(v).toLocaleString('es-AR') + ' pb' : isCanje ? v.toFixed(2)+'%' : '$' + Math.round(v).toLocaleString('es-AR');
+  const fmtChg = (abs, pct2) => isRp
     ? (abs >= 0 ? '+' : '') + Math.round(abs) + ' pb'
-    : (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
-  const clsChg = chgAbs < 0 ? 'pos' : chgAbs > 0 ? 'neg' : 'neu';
+    : isCanje
+    ? (abs >= 0 ? '+' : '') + abs.toFixed(2) + ' pp'
+    : (pct2 >= 0 ? '+' : '') + pct2.toFixed(1) + '%';
+  const clsChg = (isRp||isCanje) ? (chgAbs < 0 ? 'pos' : chgAbs > 0 ? 'neg' : 'neu') : (chgAbs < 0 ? 'pos' : chgAbs > 0 ? 'neg' : 'neu');
 
   document.getElementById('modal-stats').innerHTML = `
     <div class="modal-stat"><div class="s-lbl">Último</div><div class="s-val">${fmt(latest)}</div></div>
@@ -1979,7 +2196,410 @@ function buildModalChart() {
 }
 
 // ESC key closes modal
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeBondModal();
+    closeModal();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// BOND DETAIL MODAL
+// ═══════════════════════════════════════════════════════════════
+
+function openBondModal(ticker) {
+  // Find the bond in all datasets
+  let bond = null;
+  const allBonds = [...STATE.bonares, ...STATE.globales, ...STATE.bopreales, ...STATE.pesos];
+  bond = allBonds.find(b => b.ticker === ticker);
+  // Also check lecapCalc
+  if (!bond) bond = STATE.lecapCalc.find(l => l.ticker === ticker);
+  // Fallback to BOND_DEFS static def
+  const def = BOND_DEFS[ticker];
+  const lecDef = !def ? LECAP_DEFS.find(l => l.ticker === ticker) : null;
+
+  if (!def && !lecDef) return;
+
+  const modal = document.getElementById('bond-modal');
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  if (def) {
+    renderBondDetailModal(ticker, bond, def);
+  } else if (lecDef) {
+    renderLecapDetailModal(ticker, bond, lecDef);
+  }
+}
+
+function closeBondModal() {
+  document.getElementById('bond-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function handleBondModalClick(e) {
+  if (e.target === document.getElementById('bond-modal')) closeBondModal();
+}
+
+function renderBondDetailModal(ticker, bond, def) {
+  const precio = bond?.precio || def.vt;
+  const tir = bond?.tir ?? calcTIR(def.cfs, precio);
+  const {macaulay, modified} = bond ? {macaulay:bond.macaulay, modified:bond.modified} : calcDuration(def.cfs, precio, tir);
+  const convex = bond?.convex ?? calcConvexity(def.cfs, precio, tir);
+  const vto = def.cfs[def.cfs.length - 1].d;
+
+  document.getElementById('bond-modal-title').textContent = `${ticker} — ${def.nombre}`;
+  document.getElementById('bond-modal-meta').textContent = `${def.grupo} · Liq: ${LIQ.toLocaleDateString('es-AR')} · Precio: ${precio.toFixed(4)} · TIR: ${(tir*100).toFixed(2)}%`;
+
+  // Summary strip
+  document.getElementById('bond-modal-summary').innerHTML = `
+    <div class="bms-item"><div class="bms-lbl">Precio</div><div class="bms-val">${precio.toFixed(2)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">TIR e.a.</div><div class="bms-val pos">${(tir*100).toFixed(2)}%</div></div>
+    <div class="bms-item"><div class="bms-lbl">Duration</div><div class="bms-val">${macaulay.toFixed(3)} a</div></div>
+    <div class="bms-item"><div class="bms-lbl">Mod. Duration</div><div class="bms-val">${modified.toFixed(3)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">Convexidad</div><div class="bms-val">${convex.toFixed(2)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${new Date(vto).toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>
+  `;
+
+  // Build cashflow schedule
+  // We need to decompose each cf into amortization + interest
+  // We'll use the VR schedule: for bonds with known amortization, deduce interest
+  // Strategy: compute cumulative amortization consumed and infer interest
+  // For simplicity: interest = cf - amortization_this_period
+  // We approximate amortization by the portion reducing principal
+
+  // Build VR schedule
+  const cfs = def.cfs;
+  const vr0 = def.vr; // starting residual value (face)
+  // For bonds: VR reduces only on amortization dates
+  // We detect amortization by whether cf > typical coupon period (heuristic: if cf > 5 * min(cf))
+  // Better: use the difference between consecutive VT values if available
+  // Since we don't have explicit amortization schedule, we derive it:
+  // For step-up bonds the last cashflow usually contains principal
+  // Approach: sum of all cfs > total_interest → residual = vr0, amort_i = cf_i - interest_i
+
+  // Approximate: interest rate per period from TIR
+  // interest_i = vr_i * tir^(t_i - t_{i-1})
+  // amort_i = cf_i - interest_i
+  // vr_{i+1} = vr_i - amort_i (floored at 0)
+
+  let vr = vr0;
+  const today = LIQ;
+  let totalRenta = 0, totalAmort = 0;
+
+  const rows = cfs.map((cf, idx) => {
+    const date = new Date(cf.d);
+    const dias = Math.round((date - today) / 86400000);
+    const t = dias / 365;
+    const tPrev = idx === 0 ? 0 : Math.round((new Date(cfs[idx-1].d) - today) / 86400000) / 365;
+    const dt = t - tPrev;
+    // Interest accrued on current residual over dt years
+    const interes = vr * (Math.pow(1 + tir, dt) - 1);
+    let amort = cf.cf - interes;
+    if (amort < -0.001) amort = 0; // if negative, treat as pure coupon
+    const amortRound = Math.max(0, Math.min(amort, vr)); // can't amortize more than remaining
+    const vrPrev = vr;
+    vr = Math.max(0, vr - amortRound);
+    const vrPct = (vrPrev / vr0) * 100;
+    totalRenta += interes;
+    totalAmort += amortRound;
+    return { date: cf.d, dias, vrPct: vrPrev/vr0*100, vrCartera: vrPrev.toFixed(2), renta: interes.toFixed(4), amort: amortRound > 0.001 ? amortRound.toFixed(4) : '0.0000', ra: cf.cf.toFixed(4), isAmort: amortRound > 0.001 };
+  });
+
+  document.getElementById('bond-modal-tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td style="text-align:left;font-family:var(--font)">${new Date(r.date).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})}</td>
+      <td>${r.dias}</td>
+      <td>${r.vrPct.toFixed(2)}</td>
+      <td>${r.vrCartera}</td>
+      <td>${r.renta}</td>
+      <td class="${r.isAmort ? 'cf-amort' : ''}">${r.amort}</td>
+      <td style="font-weight:600">${r.ra}</td>
+    </tr>
+  `).join('') + `
+    <tr class="cf-totals">
+      <td style="text-align:left;font-family:var(--font)">Totales</td>
+      <td></td><td></td>
+      <td></td>
+      <td>${totalRenta.toFixed(4)}</td>
+      <td class="cf-amort">${totalAmort.toFixed(4)}</td>
+      <td>${(totalRenta+totalAmort).toFixed(4)}</td>
+    </tr>
+  `;
+}
+
+function renderLecapDetailModal(ticker, bond, lecDef) {
+  const precio = bond?.precio || lecDef.vpv * 0.95;
+  const tir = bond?.tir ?? (Math.pow(lecDef.vpv / precio, 365 / lecDef.dias) - 1);
+  const tem = Math.pow(1 + tir, 30/365) - 1;
+  const vto = lecDef.vto;
+
+  document.getElementById('bond-modal-title').textContent = `${ticker} — ${lecDef.isBoncap ? 'BONCAP' : 'LECAP'}`;
+  document.getElementById('bond-modal-meta').textContent = `Capitalizable · Vto: ${vto} · Precio: ${precio ? precio.toFixed(4) : '—'} · TIR: ${(tir*100).toFixed(2)}%`;
+
+  document.getElementById('bond-modal-summary').innerHTML = `
+    <div class="bms-item"><div class="bms-lbl">Precio</div><div class="bms-val">${precio ? precio.toFixed(2) : '—'}</div></div>
+    <div class="bms-item"><div class="bms-lbl">TIR e.a.</div><div class="bms-val pos">${(tir*100).toFixed(2)}%</div></div>
+    <div class="bms-item"><div class="bms-lbl">TEM</div><div class="bms-val pos">${(tem*100).toFixed(3)}%</div></div>
+    <div class="bms-item"><div class="bms-lbl">Días</div><div class="bms-val">${lecDef.dias}</div></div>
+    <div class="bms-item"><div class="bms-lbl">VPV</div><div class="bms-val">${lecDef.vpv.toFixed(4)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${new Date(vto).toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>
+  `;
+
+  // Single cashflow at VPV
+  const dias = lecDef.dias;
+  document.getElementById('bond-modal-tbody').innerHTML = `
+    <tr>
+      <td style="text-align:left;font-family:var(--font)">${new Date(vto).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})}</td>
+      <td>${dias}</td>
+      <td>100.00</td>
+      <td>100.00</td>
+      <td>${(lecDef.vpv - 100).toFixed(4)}</td>
+      <td class="cf-amort">100.0000</td>
+      <td style="font-weight:600">${lecDef.vpv.toFixed(4)}</td>
+    </tr>
+    <tr class="cf-totals">
+      <td style="text-align:left;font-family:var(--font)">Totales</td>
+      <td></td><td></td><td></td>
+      <td>${(lecDef.vpv - 100).toFixed(4)}</td>
+      <td class="cf-amort">100.0000</td>
+      <td>${lecDef.vpv.toFixed(4)}</td>
+    </tr>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALCULADORA
+// ═══════════════════════════════════════════════════════════════
+
+// Build instrument list from BOND_DEFS + LECAP_DEFS + PESOS_DEFS
+function calcInstruments() {
+  const list = [];
+  for (const [ticker, def] of Object.entries(BOND_DEFS)) {
+    list.push({ ticker, nombre: def.nombre, grupo: def.grupo, type: 'bond' });
+  }
+  for (const l of LECAP_DEFS) {
+    list.push({ ticker: l.ticker, nombre: l.isBoncap ? 'BONCAP' : 'LECAP', grupo: 'Capitalizables', type: 'lecap', def: l });
+  }
+  for (const p of PESOS_DEFS) {
+    list.push({ ticker: p.ticker, nombre: p.nombre, grupo: 'Tasa Fija $', type: 'pesos' });
+  }
+  return list;
+}
+
+let calcSelected = null;
+
+function calcSearchInput() {
+  const q = document.getElementById('calc-search').value.trim().toLowerCase();
+  const dd = document.getElementById('calc-dropdown');
+  if (!q) { dd.style.display = 'none'; return; }
+  const instr = calcInstruments();
+  const matches = instr.filter(i => i.ticker.toLowerCase().includes(q) || i.nombre.toLowerCase().includes(q)).slice(0, 12);
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.innerHTML = matches.map(m => `
+    <div class="calc-dropdown-item" onclick="calcSelect('${m.ticker}')">
+      <span class="dd-ticker">${m.ticker}</span>
+      <span class="dd-name">${m.nombre}</span>
+    </div>
+  `).join('');
+  dd.style.display = 'block';
+}
+
+function calcSelect(ticker) {
+  calcSelected = ticker;
+  const instr = calcInstruments().find(i => i.ticker === ticker);
+  const livePrice = getLivePrice(ticker);
+
+  document.getElementById('calc-search').value = ticker;
+  document.getElementById('calc-dropdown').style.display = 'none';
+
+  const pill = document.getElementById('calc-selected-pill');
+  pill.innerHTML = `${ticker} — ${instr?.nombre || ''} | Px ref: ${livePrice ? livePrice.toFixed(2) : '—'} <span class="calc-pill-x" onclick="calcClear()">×</span>`;
+  pill.style.display = 'flex';
+
+  // Pre-fill price with live price
+  if (livePrice) document.getElementById('calc-price').value = livePrice.toFixed(4);
+
+  // Set default liq date
+  const liq = document.getElementById('calc-liq');
+  if (!liq.value) {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    liq.value = d.toISOString().slice(0, 10);
+  }
+}
+
+function getLivePrice(ticker) {
+  const bond = [...STATE.bonares, ...STATE.globales, ...STATE.bopreales, ...STATE.pesos].find(b => b.ticker === ticker);
+  if (bond?.precio) return bond.precio;
+  const lec = STATE.lecapCalc.find(l => l.ticker === ticker);
+  if (lec?.precio) return lec.precio;
+  const def = BOND_DEFS[ticker];
+  if (def) return def.vt;
+  return null;
+}
+
+function calcClear() {
+  calcSelected = null;
+  document.getElementById('calc-search').value = '';
+  document.getElementById('calc-selected-pill').style.display = 'none';
+  document.getElementById('calc-result').style.display = 'none';
+  document.getElementById('calc-cf-wrap').style.display = 'none';
+}
+
+function runCalc() {
+  if (!calcSelected) { alert('Seleccioná un instrumento primero'); return; }
+  const priceRaw = parseFloat(document.getElementById('calc-price').value);
+  if (!priceRaw || priceRaw <= 0) { alert('Ingresá un precio válido'); return; }
+
+  const liqStr = document.getElementById('calc-liq').value;
+  const liqDate = liqStr ? new Date(liqStr) : new Date(LIQ);
+
+  // Override LIQ temporarily for calculation
+  const origLiq = LIQ;
+  // We'll recalculate t values inline using liqDate
+  function tFromDate(d) {
+    return Math.round((new Date(d) - liqDate) / 86400000) / 365;
+  }
+
+  const def = BOND_DEFS[calcSelected];
+  const lecDef = def ? null : LECAP_DEFS.find(l => l.ticker === calcSelected);
+  const pesosDef = (!def && !lecDef) ? PESOS_DEFS.find(p => p.ticker === calcSelected) : null;
+  const activeDef = def || pesosDef;
+
+  let tirCalc, macCalc, modCalc, vtoStr, cuponStr, liveRefTir;
+
+  if (activeDef) {
+    const cfs = activeDef.cfs.filter(cf => new Date(cf.d) > liqDate);
+    if (!cfs.length) { alert('No hay cashflows futuros para esta fecha de liquidación'); return; }
+    // Recalculate with custom liq
+    const flows = cfs.map(cf => ({ t: tFromDate(cf.d), cf: cf.cf }));
+    function calcTIRCustom(flows, precio) {
+      let r = 0.08;
+      for (let i = 0; i < 200; i++) {
+        let pv = -precio, dpv = 0;
+        for (const {t, cf} of flows) {
+          const disc = Math.pow(1+r, t);
+          pv += cf/disc;
+          dpv -= t*cf/(disc*(1+r));
+        }
+        const delta = pv/dpv;
+        r -= delta;
+        if (Math.abs(delta) < 1e-10) break;
+      }
+      return r;
+    }
+    tirCalc = calcTIRCustom(flows, priceRaw);
+    // Duration
+    let mac=0, sumPV=0;
+    for (const {t,cf} of flows) { const pv=cf/Math.pow(1+tirCalc,t); mac+=t*pv; sumPV+=pv; }
+    macCalc = mac/sumPV;
+    modCalc = macCalc/(1+tirCalc);
+    vtoStr = activeDef.cfs[activeDef.cfs.length-1].d;
+    cuponStr = activeDef.cupon ? (activeDef.cupon*100).toFixed(2)+'%' : '—';
+
+    // Get live TIR for reference
+    const liveB = [...STATE.bonares,...STATE.globales,...STATE.bopreales,...STATE.pesos].find(b=>b.ticker===calcSelected);
+    liveRefTir = liveB?.tir ?? null;
+  } else if (lecDef) {
+    const diasCalc = Math.round((new Date(lecDef.vto) - liqDate) / 86400000);
+    if (diasCalc <= 0) { alert('El instrumento ya venció'); return; }
+    tirCalc = Math.pow(lecDef.vpv / priceRaw, 365 / diasCalc) - 1;
+    const tem = Math.pow(1+tirCalc, 30/365) - 1;
+    macCalc = diasCalc / 365;
+    modCalc = macCalc / (1 + tirCalc);
+    vtoStr = lecDef.vto;
+    cuponStr = (lecDef.tLic*100).toFixed(2)+'% (tasa lic.)';
+    const liveL = STATE.lecapCalc.find(l=>l.ticker===calcSelected);
+    liveRefTir = liveL?.tir ?? null;
+  }
+
+  // Display results
+  document.getElementById('calc-result').style.display = 'block';
+  document.getElementById('calc-r-tir').textContent = (tirCalc*100).toFixed(2)+'%';
+
+  const diffEl = document.getElementById('calc-r-diff');
+  if (liveRefTir !== null && liveRefTir !== undefined) {
+    const diff = (tirCalc - liveRefTir) * 100;
+    diffEl.style.display = 'inline-flex';
+    diffEl.className = 'calc-r-diff ' + (diff > 0 ? 'up' : 'dn');
+    diffEl.innerHTML = `${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(2)}% vs TIR original (${(liveRefTir*100).toFixed(2)}%)`;
+  } else {
+    diffEl.style.display = 'none';
+  }
+
+  document.getElementById('calc-r-mac').textContent = macCalc.toFixed(3) + ' años';
+  document.getElementById('calc-r-mod').textContent = modCalc.toFixed(3);
+  document.getElementById('calc-r-vto').textContent = new Date(vtoStr).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('calc-r-cup').textContent = cuponStr;
+
+  // Cashflow table
+  buildCalcCFTable(calcSelected, priceRaw, liqDate, activeDef, lecDef, tirCalc);
+}
+
+function buildCalcCFTable(ticker, precio, liqDate, def, lecDef, tir) {
+  const wrap = document.getElementById('calc-cf-wrap');
+  wrap.style.display = 'block';
+  document.getElementById('calc-cf-header').textContent = 'Flujos de Fondos';
+  document.getElementById('calc-cf-sub').innerHTML =
+    `<span style="color:var(--accent);font-weight:600">${ticker}</span> &nbsp;|&nbsp; Liq: ${liqDate.toLocaleDateString('es-AR')} &nbsp;|&nbsp; Precio: ${precio.toFixed(4)} &nbsp;|&nbsp; TIR: <span style="color:var(--green);font-weight:700">${(tir*100).toFixed(2)}%</span>`;
+
+  const tbody = document.getElementById('calc-cf-tbody');
+  if (lecDef) {
+    const diasCalc = Math.round((new Date(lecDef.vto) - liqDate) / 86400000);
+    tbody.innerHTML = `
+      <tr>
+        <td style="text-align:left;font-family:var(--font)">${new Date(lecDef.vto).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})}</td>
+        <td>${diasCalc}</td><td>100.00</td><td>100.00</td>
+        <td>${(lecDef.vpv-100).toFixed(4)}</td>
+        <td class="cf-amort">100.0000</td>
+        <td style="font-weight:600">${lecDef.vpv.toFixed(4)}</td>
+      </tr>
+      <tr class="cf-totals">
+        <td style="text-align:left;font-family:var(--font)">Totales</td>
+        <td></td><td></td><td></td>
+        <td>${(lecDef.vpv-100).toFixed(4)}</td>
+        <td class="cf-amort">100.0000</td>
+        <td>${lecDef.vpv.toFixed(4)}</td>
+      </tr>`;
+    return;
+  }
+
+  const cfs = def.cfs.filter(cf => new Date(cf.d) > liqDate);
+  const vr0 = def.vr;
+  let vr = vr0;
+  let totalRenta = 0, totalAmort = 0;
+
+  const rows = cfs.map((cf, idx) => {
+    const date = new Date(cf.d);
+    const dias = Math.round((date - liqDate) / 86400000);
+    const tPrev = idx === 0 ? 0 : Math.round((new Date(cfs[idx-1].d) - liqDate) / 86400000) / 365;
+    const t = dias / 365;
+    const dt = t - tPrev;
+    const interes = vr * (Math.pow(1+tir, dt) - 1);
+    let amort = Math.max(0, cf.cf - interes);
+    amort = Math.min(amort, vr);
+    const vrPrev = vr;
+    vr = Math.max(0, vr - amort);
+    totalRenta += interes;
+    totalAmort += amort;
+    return { date: cf.d, dias, vrPct: vrPrev/vr0*100, vrCartera: vrPrev.toFixed(2), renta: interes.toFixed(4), amort: amort > 0.001 ? amort.toFixed(4) : '0.0000', ra: cf.cf.toFixed(4), isAmort: amort > 0.001 };
+  });
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td style="text-align:left;font-family:var(--font)">${new Date(r.date).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})}</td>
+      <td>${r.dias}</td><td>${r.vrPct.toFixed(2)}</td><td>${r.vrCartera}</td>
+      <td>${r.renta}</td>
+      <td class="${r.isAmort?'cf-amort':''}">${r.amort}</td>
+      <td style="font-weight:600">${r.ra}</td>
+    </tr>
+  `).join('') + `
+    <tr class="cf-totals">
+      <td style="text-align:left;font-family:var(--font)">Totales</td>
+      <td></td><td></td><td></td>
+      <td>${totalRenta.toFixed(4)}</td>
+      <td class="cf-amort">${totalAmort.toFixed(4)}</td>
+      <td>${(totalRenta+totalAmort).toFixed(4)}</td>
+    </tr>`;
+}
 </script>
 
 <!-- ══════════════════════════════════════════ MODAL -->
@@ -2006,6 +2626,34 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
         <canvas id="modal-chart"></canvas>
       </div>
       <div class="modal-stats" id="modal-stats"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ BOND DETAIL MODAL -->
+<div class="modal-overlay" id="bond-modal" onclick="handleBondModalClick(event)">
+  <div class="bond-modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="bond-modal-title">—</div>
+        <div class="modal-meta" id="bond-modal-meta">—</div>
+      </div>
+      <button class="modal-close" onclick="closeBondModal()">×</button>
+    </div>
+    <div class="bond-modal-summary" id="bond-modal-summary"></div>
+    <div class="cf-table-wrap">
+      <table>
+        <thead><tr>
+          <th style="text-align:left">Fecha Pago</th>
+          <th>Días</th>
+          <th>VR%</th>
+          <th>VR Cartera</th>
+          <th>Renta</th>
+          <th>Amortización</th>
+          <th>R+A (Flujo)</th>
+        </tr></thead>
+        <tbody id="bond-modal-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
