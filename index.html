@@ -303,7 +303,8 @@
   .cf-table-wrap { padding:0 1.2rem .75rem;overflow-x:auto; }
   .cf-totals td { font-weight:700;border-top:2px solid var(--border2);color:var(--text); }
   .cf-amort { color:var(--accent);font-weight:700; }
-  .calc-past-rows { opacity:.5; }
+  .calc-past-rows { display:none; }
+  .cf-past-row { opacity:.55; font-style:italic; }
   .calc-past-rows td { font-style:italic; }
 
   /* ── Calculadora ──────────────────────────── */
@@ -628,217 +629,636 @@ function daysFrom(d) {
 }
 function tFrom(d) { return daysFrom(d) / 365; }
 
+// Compute cashflow rows from new BOND_DEFS format (exact Excel formulas)
+// Returns [{pago, corte, dias, amort, cupon, interes, vr, cf, t, isPast}]
+function computeBondRows(def, liqDate) {
+  const cfs = def.cfs;
+  let vr = def.vr; // start with face value = 100
+  const liq = liqDate || LIQ;
+  const rows = [];
+  for (let i = 0; i < cfs.length; i++) {
+    const row = cfs[i];
+    const pagoDt = new Date(row.pago);
+    const isPast = pagoDt <= liq;
+    // Días = hardcoded from Excel (row.dias). First row (emision) has null.
+    const dias = row.dias || 0;
+    // Interés = VR_prev * cupon% * dias / 360  (exact Excel formula)
+    const interes = vr * row.cupon * dias / 360;
+    // Amortización = data from Excel
+    const amort = row.amort;
+    // VR = VR_prev - amortizacion
+    const vrPrev = vr;
+    vr = Math.max(0, vr - amort);
+    // CF = IF(pago > liq, amort + interes, 0)
+    const cf = isPast ? 0 : (amort + interes);
+    // t = IF(pago > liq, (pago - liq)/365, 0)
+    const t = isPast ? 0 : (pagoDt - liq) / (365 * 86400000);
+    rows.push({ pago: row.pago, corte: row.corte, dias, amort, cupon: row.cupon, interes, vr: vrPrev, cf, t, isPast });
+  }
+  return rows;
+}
+
+// Get future cashflows as [{t, cf}] for TIR/Duration/Convexity calcs
+function futureCFs(def, liqDate) {
+  return computeBondRows(def, liqDate)
+    .filter(r => !r.isPast && r.cf > 0)
+    .map(r => ({t: r.t, cf: r.cf}));
+}
+
 // Flujos estáticos del Excel (precio se reemplaza con el live)
 const BOND_DEFS = {
-  // ── Bonares ────────────────────────────────────────────────────
+  // ── AO27D ──────────────────────────────────────────────────
   AO27D: {
-    grupo:'Bonares', nombre:'Bonar 2027',
-    vt:100.1667, vr:100, ic:0.1667,
+    grupo:'Bonares', nombre:'Bonar 2027 6%', vr:100, cupon:0.06,
     cfs:[
-      {d:'2026-04-30',cf:0.5},{d:'2026-05-29',cf:0.4833},{d:'2026-06-30',cf:0.5167},
-      {d:'2026-07-31',cf:0.5},{d:'2026-08-31',cf:0.5},{d:'2026-09-30',cf:0.5},
-      {d:'2026-10-30',cf:0.5},{d:'2026-11-30',cf:0.5},{d:'2026-12-30',cf:0.5},
-      {d:'2027-01-29',cf:0.4833},{d:'2027-02-26',cf:0.45},{d:'2027-03-31',cf:0.5833},
-      {d:'2027-04-30',cf:0.5},{d:'2027-05-31',cf:0.5},{d:'2027-06-30',cf:0.5},
-      {d:'2027-07-30',cf:0.5},{d:'2027-08-31',cf:0.5},{d:'2027-09-30',cf:0.5},
-      {d:'2027-10-29',cf:100.4833}
+      {pago:'2026-02-27',corte:'2026-02-27',dias:null,amort:0,cupon:0.06},
+      {pago:'2026-03-31',corte:'2026-03-31',dias:34,amort:0,cupon:0.06},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-05-29',corte:'2026-05-29',dias:29,amort:0,cupon:0.06},
+      {pago:'2026-06-30',corte:'2026-06-30',dias:31,amort:0,cupon:0.06},
+      {pago:'2026-07-31',corte:'2026-07-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-08-31',corte:'2026-08-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-09-30',corte:'2026-09-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-10-30',corte:'2026-10-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-11-30',corte:'2026-11-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-12-30',corte:'2026-12-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-01-29',corte:'2027-01-29',dias:29,amort:0,cupon:0.06},
+      {pago:'2027-02-26',corte:'2027-02-26',dias:27,amort:0,cupon:0.06},
+      {pago:'2027-03-31',corte:'2027-03-31',dias:35,amort:0,cupon:0.06},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-05-31',corte:'2027-05-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-06-30',corte:'2027-06-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-07-30',corte:'2027-07-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-08-31',corte:'2027-08-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-09-30',corte:'2027-09-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-10-29',corte:'2027-10-29',dias:29,amort:100,cupon:0.06},
     ]
   },
+  // ── AL29D ──────────────────────────────────────────────────
   AL29D: {
-    grupo:'Bonares', nombre:'Bonar 2029 1%',
-    vt:70.1769, vr:70, ic:0.1769,
+    grupo:'Bonares', nombre:'Bonar 2029 1%', vr:100, cupon:0.01,
     cfs:[
-      {d:'2026-07-13',cf:10.35},{d:'2027-01-11',cf:10.3},{d:'2027-07-12',cf:10.25},
-      {d:'2028-01-10',cf:10.2},{d:'2028-07-10',cf:10.15},{d:'2029-01-09',cf:10.1},
-      {d:'2029-07-10',cf:10.05}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.01},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.01},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:10,cupon:0.01},
     ]
   },
+  // ── AN29D ──────────────────────────────────────────────────
   AN29D: {
-    grupo:'Bonares', nombre:'Bonar 2029 6.5%',
-    vt:102.1306, vr:100, ic:2.1306,
+    grupo:'Bonares', nombre:'Bonar 2029 6.5%', vr:100, cupon:0.065,
     cfs:[
-      {d:'2026-06-01',cf:3.0333},{d:'2026-11-30',cf:3.25},{d:'2027-05-31',cf:3.25},
-      {d:'2027-11-30',cf:3.25},{d:'2028-05-30',cf:3.25},{d:'2028-11-30',cf:3.25},
-      {d:'2029-05-30',cf:3.25},{d:'2029-11-30',cf:103.25}
+      {pago:'2025-12-12',corte:'2025-12-12',dias:null,amort:0,cupon:0.065},
+      {pago:'2026-06-01',corte:'2026-05-30',dias:168,amort:0,cupon:0.065},
+      {pago:'2026-11-30',corte:'2026-11-30',dias:180,amort:0,cupon:0.065},
+      {pago:'2027-05-31',corte:'2027-05-30',dias:180,amort:0,cupon:0.065},
+      {pago:'2027-11-30',corte:'2027-11-30',dias:180,amort:0,cupon:0.065},
+      {pago:'2028-05-30',corte:'2028-05-30',dias:180,amort:0,cupon:0.065},
+      {pago:'2028-11-30',corte:'2028-11-30',dias:180,amort:0,cupon:0.065},
+      {pago:'2029-05-30',corte:'2029-05-30',dias:180,amort:0,cupon:0.065},
+      {pago:'2029-11-30',corte:'2029-11-30',dias:180,amort:100,cupon:0.065},
     ]
   },
+  // ── AL30D ──────────────────────────────────────────────────
   AL30D: {
-    grupo:'Bonares', nombre:'Bonar 2030 Step-Up',
-    vt:72.1365, vr:72, ic:0.1365,
+    grupo:'Bonares', nombre:'Bonar 2030 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:8.27},{d:'2027-01-11',cf:8.24},{d:'2027-07-12',cf:8.21},
-      {d:'2028-01-10',cf:8.42},{d:'2028-07-10',cf:8.35},{d:'2029-01-09',cf:8.28},
-      {d:'2029-07-10',cf:8.21},{d:'2030-01-09',cf:8.14},{d:'2030-07-10',cf:8.07}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.0075},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:4,cupon:0.0075},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:8,cupon:0.0175},
     ]
   },
+  // ── AL35D ──────────────────────────────────────────────────
   AL35D: {
-    grupo:'Bonares', nombre:'Bonar 2035 Step-Up',
-    vt:101.0427, vr:100, ic:1.0427,
+    grupo:'Bonares', nombre:'Bonar 2035 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:2.0625},{d:'2027-01-11',cf:2.0625},{d:'2027-07-12',cf:2.0625},
-      {d:'2028-01-10',cf:2.375},{d:'2028-07-10',cf:2.375},{d:'2029-01-09',cf:2.5},
-      {d:'2029-07-10',cf:2.5},{d:'2030-01-09',cf:2.5},{d:'2030-07-10',cf:2.5},
-      {d:'2031-01-09',cf:12.5},{d:'2031-07-10',cf:12.25},{d:'2032-01-09',cf:12.0},
-      {d:'2032-07-12',cf:11.75},{d:'2033-01-10',cf:11.5},{d:'2033-07-11',cf:11.25},
-      {d:'2034-01-09',cf:11.0},{d:'2034-07-10',cf:10.75},{d:'2035-01-09',cf:10.5},
-      {d:'2035-07-10',cf:10.25}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.01125},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.01125},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.015},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.015},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.03625},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.03625},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:0,cupon:0.0475},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:0,cupon:0.0475},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2031-01-09',corte:'2031-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2031-07-10',corte:'2031-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2032-01-09',corte:'2032-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2032-07-12',corte:'2032-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2033-01-10',corte:'2033-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2033-07-11',corte:'2033-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2034-01-09',corte:'2034-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2034-07-10',corte:'2034-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2035-01-09',corte:'2035-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2035-07-10',corte:'2035-07-09',dias:180,amort:10,cupon:0.05},
     ]
   },
+  // ── AE38D ──────────────────────────────────────────────────
   AE38D: {
-    grupo:'Bonares', nombre:'Bonar 2038 Step-Up',
-    vt:101.2639, vr:100, ic:1.2639,
+    grupo:'Bonares', nombre:'Bonar 2038 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:2.5},{d:'2027-01-11',cf:2.5},{d:'2027-07-12',cf:7.045},
-      {d:'2028-01-10',cf:6.932},{d:'2028-07-10',cf:6.818},{d:'2029-01-09',cf:6.705},
-      {d:'2029-07-10',cf:6.591},{d:'2030-01-09',cf:6.477},{d:'2030-07-10',cf:6.364},
-      {d:'2031-01-09',cf:6.25},{d:'2031-07-10',cf:6.136},{d:'2032-01-09',cf:6.023},
-      {d:'2032-07-12',cf:5.909},{d:'2033-01-10',cf:5.795},{d:'2033-07-11',cf:5.682},
-      {d:'2034-01-09',cf:5.568},{d:'2034-07-10',cf:5.455},{d:'2035-01-09',cf:5.341},
-      {d:'2035-07-10',cf:5.227},{d:'2036-01-09',cf:5.114},{d:'2036-07-10',cf:5.0},
-      {d:'2037-01-09',cf:4.886},{d:'2037-07-10',cf:4.773},{d:'2038-01-11',cf:4.659}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.02},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.02},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.03875},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.03875},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.0425},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.0425},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2031-01-09',corte:'2031-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2031-07-10',corte:'2031-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2032-01-09',corte:'2032-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2032-07-12',corte:'2032-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2033-01-10',corte:'2033-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2033-07-11',corte:'2033-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2034-01-09',corte:'2034-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2034-07-10',corte:'2034-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2035-01-09',corte:'2035-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2035-07-10',corte:'2035-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2036-01-09',corte:'2036-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2036-07-10',corte:'2036-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2037-01-09',corte:'2037-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2037-07-10',corte:'2037-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2038-01-11',corte:'2038-01-09',dias:180,amort:4.5455,cupon:0.05},
     ]
   },
+  // ── AL41D ──────────────────────────────────────────────────
   AL41D: {
-    grupo:'Bonares', nombre:'Bonar 2041 Step-Up',
-    vt:100.8847, vr:100, ic:0.8847,
+    grupo:'Bonares', nombre:'Bonar 2041 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:1.75},{d:'2027-01-11',cf:1.75},{d:'2027-07-12',cf:1.75},
-      {d:'2028-01-10',cf:5.321},{d:'2028-07-10',cf:5.259},{d:'2029-01-09',cf:5.196},
-      {d:'2029-07-10',cf:5.134},{d:'2030-01-09',cf:5.661},{d:'2030-07-10',cf:5.574},
-      {d:'2031-01-09',cf:5.487},{d:'2031-07-10',cf:5.4},{d:'2032-01-09',cf:5.313},
-      {d:'2032-07-12',cf:5.225},{d:'2033-01-10',cf:5.138},{d:'2033-07-11',cf:5.051},
-      {d:'2034-01-09',cf:4.964},{d:'2034-07-10',cf:4.877},{d:'2035-01-09',cf:4.79},
-      {d:'2035-07-10',cf:4.703},{d:'2036-01-09',cf:4.616},{d:'2036-07-10',cf:4.529},
-      {d:'2037-01-09',cf:4.442},{d:'2037-07-10',cf:4.355},{d:'2038-01-11',cf:4.268},
-      {d:'2038-07-12',cf:4.181},{d:'2039-01-10',cf:4.094},{d:'2039-07-11',cf:4.007},
-      {d:'2040-01-09',cf:3.920},{d:'2040-07-10',cf:3.833},{d:'2041-01-09',cf:3.746},
-      {d:'2041-07-10',cf:3.659}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.025},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.025},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2031-01-09',corte:'2031-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2031-07-10',corte:'2031-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2032-01-09',corte:'2032-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2032-07-12',corte:'2032-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2033-01-10',corte:'2033-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2033-07-11',corte:'2033-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2034-01-09',corte:'2034-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2034-07-10',corte:'2034-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2035-01-09',corte:'2035-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2035-07-10',corte:'2035-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2036-01-09',corte:'2036-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2036-07-10',corte:'2036-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2037-01-09',corte:'2037-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2037-07-10',corte:'2037-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2038-01-11',corte:'2038-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2038-07-12',corte:'2038-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2039-01-10',corte:'2039-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2039-07-11',corte:'2039-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2040-01-09',corte:'2040-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2040-07-10',corte:'2040-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2041-01-09',corte:'2041-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2041-07-10',corte:'2041-07-09',dias:180,amort:3.5714,cupon:0.04875},
     ]
   },
-  // ── Globales ───────────────────────────────────────────────────
+  // ── GD29D ──────────────────────────────────────────────────
   GD29D: {
-    grupo:'Globales', nombre:'Global 2029 1%',
-    vt:70.1769, vr:70, ic:0.1769,
+    grupo:'Globales', nombre:'Global 2029 1%', vr:100, cupon:0.01,
     cfs:[
-      {d:'2026-07-13',cf:10.35},{d:'2027-01-11',cf:10.3},{d:'2027-07-12',cf:10.25},
-      {d:'2028-01-10',cf:10.2},{d:'2028-07-10',cf:10.15},{d:'2029-01-09',cf:10.1},
-      {d:'2029-07-10',cf:10.05}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.01},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.01},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.01},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:10,cupon:0.01},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:10,cupon:0.01},
     ]
   },
+  // ── GD30D ──────────────────────────────────────────────────
   GD30D: {
-    grupo:'Globales', nombre:'Global 2030 Step-Up',
-    vt:72.1365, vr:72, ic:0.1365,
+    grupo:'Globales', nombre:'Global 2030 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:8.27},{d:'2027-01-11',cf:8.24},{d:'2027-07-12',cf:8.21},
-      {d:'2028-01-10',cf:8.42},{d:'2028-07-10',cf:8.35},{d:'2029-01-09',cf:8.28},
-      {d:'2029-07-10',cf:8.21},{d:'2030-01-09',cf:8.14},{d:'2030-07-10',cf:8.07}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.005},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.0075},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:4,cupon:0.0075},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:8,cupon:0.0075},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:8,cupon:0.0175},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:8,cupon:0.0175},
     ]
   },
+  // ── GD35D ──────────────────────────────────────────────────
   GD35D: {
-    grupo:'Globales', nombre:'Global 2035 Step-Up',
-    vt:101.0427, vr:100, ic:1.0427,
+    grupo:'Globales', nombre:'Global 2035 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:2.0625},{d:'2027-01-11',cf:2.0625},{d:'2027-07-12',cf:2.0625},
-      {d:'2028-01-10',cf:2.375},{d:'2028-07-10',cf:2.375},{d:'2029-01-09',cf:2.5},
-      {d:'2029-07-10',cf:2.5},{d:'2030-01-09',cf:2.5},{d:'2030-07-10',cf:2.5},
-      {d:'2031-01-09',cf:12.5},{d:'2031-07-10',cf:12.25},{d:'2032-01-09',cf:12.0},
-      {d:'2032-07-12',cf:11.75},{d:'2033-01-10',cf:11.5},{d:'2033-07-11',cf:11.25},
-      {d:'2034-01-09',cf:11.0},{d:'2034-07-10',cf:10.75},{d:'2035-01-09',cf:10.5},
-      {d:'2035-07-10',cf:10.25}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.01125},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.01125},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.015},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.015},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.03625},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.03625},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:0,cupon:0.04125},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:0,cupon:0.0475},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:0,cupon:0.0475},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2031-01-09',corte:'2031-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2031-07-10',corte:'2031-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2032-01-09',corte:'2032-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2032-07-12',corte:'2032-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2033-01-10',corte:'2033-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2033-07-11',corte:'2033-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2034-01-09',corte:'2034-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2034-07-10',corte:'2034-07-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2035-01-09',corte:'2035-01-09',dias:180,amort:10,cupon:0.05},
+      {pago:'2035-07-10',corte:'2035-07-09',dias:180,amort:10,cupon:0.05},
     ]
   },
+  // ── GD38D ──────────────────────────────────────────────────
   GD38D: {
-    grupo:'Globales', nombre:'Global 2038 Step-Up',
-    vt:101.2639, vr:100, ic:1.2639,
+    grupo:'Globales', nombre:'Global 2038 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:2.5},{d:'2027-01-11',cf:2.5},{d:'2027-07-12',cf:7.045},
-      {d:'2028-01-10',cf:6.932},{d:'2028-07-10',cf:6.818},{d:'2029-01-09',cf:6.705},
-      {d:'2029-07-10',cf:6.591},{d:'2030-01-09',cf:6.477},{d:'2030-07-10',cf:6.364},
-      {d:'2031-01-09',cf:6.25},{d:'2031-07-10',cf:6.136},{d:'2032-01-09',cf:6.023},
-      {d:'2032-07-12',cf:5.909},{d:'2033-01-10',cf:5.795},{d:'2033-07-11',cf:5.682},
-      {d:'2034-01-09',cf:5.568},{d:'2034-07-10',cf:5.455},{d:'2035-01-09',cf:5.341},
-      {d:'2035-07-10',cf:5.227},{d:'2036-01-09',cf:5.114},{d:'2036-07-10',cf:5.0},
-      {d:'2037-01-09',cf:4.886},{d:'2037-07-10',cf:4.773},{d:'2038-01-11',cf:4.659}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.02},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.02},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.03875},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.03875},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.0425},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.0425},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2031-01-09',corte:'2031-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2031-07-10',corte:'2031-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2032-01-09',corte:'2032-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2032-07-12',corte:'2032-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2033-01-10',corte:'2033-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2033-07-11',corte:'2033-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2034-01-09',corte:'2034-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2034-07-10',corte:'2034-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2035-01-09',corte:'2035-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2035-07-10',corte:'2035-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2036-01-09',corte:'2036-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2036-07-10',corte:'2036-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2037-01-09',corte:'2037-01-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2037-07-10',corte:'2037-07-09',dias:180,amort:4.5455,cupon:0.05},
+      {pago:'2038-01-11',corte:'2038-01-09',dias:180,amort:4.5455,cupon:0.05},
     ]
   },
+  // ── GD41D ──────────────────────────────────────────────────
   GD41D: {
-    grupo:'Globales', nombre:'Global 2041 Step-Up',
-    vt:100.8847, vr:100, ic:0.8847,
+    grupo:'Globales', nombre:'Global 2041 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:1.75},{d:'2027-01-11',cf:1.75},{d:'2027-07-12',cf:1.75},
-      {d:'2028-01-10',cf:5.321},{d:'2028-07-10',cf:5.259},{d:'2029-01-09',cf:5.196},
-      {d:'2029-07-10',cf:5.134},{d:'2030-01-09',cf:5.661},{d:'2030-07-10',cf:5.574},
-      {d:'2031-01-09',cf:5.487},{d:'2031-07-10',cf:5.4},{d:'2032-01-09',cf:5.313},
-      {d:'2032-07-12',cf:5.225},{d:'2033-01-10',cf:5.138},{d:'2033-07-11',cf:5.051},
-      {d:'2034-01-09',cf:4.964},{d:'2034-07-10',cf:4.877},{d:'2035-01-09',cf:4.79},
-      {d:'2035-07-10',cf:4.703},{d:'2036-01-09',cf:4.616},{d:'2036-07-10',cf:4.529},
-      {d:'2037-01-09',cf:4.442},{d:'2037-07-10',cf:4.355},{d:'2038-01-11',cf:4.268},
-      {d:'2038-07-12',cf:4.181},{d:'2039-01-10',cf:4.094},{d:'2039-07-11',cf:4.007},
-      {d:'2040-01-09',cf:3.920},{d:'2040-07-10',cf:3.833},{d:'2041-01-09',cf:3.746},
-      {d:'2041-07-10',cf:3.659}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.025},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.025},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:0,cupon:0.035},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:3.5714,cupon:0.035},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2031-01-09',corte:'2031-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2031-07-10',corte:'2031-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2032-01-09',corte:'2032-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2032-07-12',corte:'2032-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2033-01-10',corte:'2033-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2033-07-11',corte:'2033-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2034-01-09',corte:'2034-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2034-07-10',corte:'2034-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2035-01-09',corte:'2035-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2035-07-10',corte:'2035-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2036-01-09',corte:'2036-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2036-07-10',corte:'2036-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2037-01-09',corte:'2037-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2037-07-10',corte:'2037-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2038-01-11',corte:'2038-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2038-07-12',corte:'2038-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2039-01-10',corte:'2039-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2039-07-11',corte:'2039-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2040-01-09',corte:'2040-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2040-07-10',corte:'2040-07-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2041-01-09',corte:'2041-01-09',dias:180,amort:3.5714,cupon:0.04875},
+      {pago:'2041-07-10',corte:'2041-07-09',dias:180,amort:3.5714,cupon:0.04875},
     ]
   },
+  // ── GD46D ──────────────────────────────────────────────────
   GD46D: {
-    grupo:'Globales', nombre:'Global 2046 Step-Up',
-    vt:94.1534, vr:93.18, ic:0.9716,
+    grupo:'Globales', nombre:'Global 2046 Step-Up', vr:100, cupon:null,
     cfs:[
-      {d:'2026-07-13',cf:4.1946},{d:'2027-01-11',cf:4.1477},{d:'2027-07-12',cf:4.1009},
-      {d:'2028-01-10',cf:4.1619},{d:'2028-07-10',cf:4.1122},{d:'2029-01-09',cf:4.3182},
-      {d:'2029-07-10',cf:4.2614},{d:'2030-01-09',cf:4.2045},{d:'2030-07-10',cf:4.1477},
-      {d:'2031-01-09',cf:4.0909},{d:'2031-07-10',cf:4.0341},{d:'2032-01-09',cf:3.9773},
-      {d:'2032-07-12',cf:3.9205},{d:'2033-01-10',cf:3.8636},{d:'2033-07-11',cf:3.8068},
-      {d:'2034-01-09',cf:3.75},{d:'2034-07-10',cf:3.6932},{d:'2035-01-09',cf:3.6364},
-      {d:'2035-07-10',cf:3.5795},{d:'2036-01-09',cf:3.5227},{d:'2036-07-10',cf:3.4659},
-      {d:'2037-01-09',cf:3.4091},{d:'2037-07-10',cf:3.3523},{d:'2038-01-11',cf:3.2955},
-      {d:'2038-07-12',cf:3.2386},{d:'2039-01-10',cf:3.1818},{d:'2039-07-11',cf:3.125},
-      {d:'2040-01-09',cf:3.0682},{d:'2040-07-10',cf:3.0114},{d:'2041-01-09',cf:2.9545},
-      {d:'2041-07-10',cf:2.8977},{d:'2042-01-09',cf:2.8409},{d:'2042-07-10',cf:2.7841},
-      {d:'2043-01-09',cf:2.7273},{d:'2043-07-10',cf:2.6705},{d:'2044-01-11',cf:2.6136},
-      {d:'2044-07-11',cf:2.5568},{d:'2045-01-09',cf:2.5},{d:'2045-07-10',cf:2.4432},
-      {d:'2046-01-09',cf:2.3864},{d:'2046-07-10',cf:2.3295}
+      {pago:'2020-09-04',corte:'2020-09-04',dias:null,amort:0,cupon:0.00125},
+      {pago:'2021-07-09',corte:'2021-07-09',dias:305,amort:0,cupon:0.00125},
+      {pago:'2022-01-10',corte:'2022-01-09',dias:180,amort:0,cupon:0.01125},
+      {pago:'2022-07-11',corte:'2022-07-09',dias:180,amort:0,cupon:0.01125},
+      {pago:'2023-01-09',corte:'2023-01-09',dias:180,amort:0,cupon:0.015},
+      {pago:'2023-07-10',corte:'2023-07-09',dias:180,amort:0,cupon:0.015},
+      {pago:'2024-01-09',corte:'2024-01-09',dias:180,amort:0,cupon:0.03625},
+      {pago:'2024-07-09',corte:'2024-07-09',dias:180,amort:0,cupon:0.03625},
+      {pago:'2025-01-09',corte:'2025-01-09',dias:180,amort:2.2727,cupon:0.04125},
+      {pago:'2025-07-09',corte:'2025-07-09',dias:180,amort:2.2727,cupon:0.04125},
+      {pago:'2026-01-09',corte:'2026-01-09',dias:180,amort:2.2727,cupon:0.04125},
+      {pago:'2026-07-13',corte:'2026-07-09',dias:180,amort:2.2727,cupon:0.04125},
+      {pago:'2027-01-11',corte:'2027-01-09',dias:180,amort:2.2727,cupon:0.04125},
+      {pago:'2027-07-12',corte:'2027-07-09',dias:180,amort:2.2727,cupon:0.04125},
+      {pago:'2028-01-10',corte:'2028-01-09',dias:180,amort:2.2727,cupon:0.04375},
+      {pago:'2028-07-10',corte:'2028-07-09',dias:180,amort:2.2727,cupon:0.04375},
+      {pago:'2029-01-09',corte:'2029-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2029-07-10',corte:'2029-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2030-01-09',corte:'2030-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2030-07-10',corte:'2030-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2031-01-09',corte:'2031-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2031-07-10',corte:'2031-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2032-01-09',corte:'2032-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2032-07-12',corte:'2032-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2033-01-10',corte:'2033-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2033-07-11',corte:'2033-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2034-01-09',corte:'2034-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2034-07-10',corte:'2034-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2035-01-09',corte:'2035-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2035-07-10',corte:'2035-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2036-01-09',corte:'2036-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2036-07-10',corte:'2036-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2037-01-09',corte:'2037-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2037-07-10',corte:'2037-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2038-01-11',corte:'2038-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2038-07-12',corte:'2038-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2039-01-10',corte:'2039-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2039-07-11',corte:'2039-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2040-01-09',corte:'2040-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2040-07-10',corte:'2040-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2041-01-09',corte:'2041-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2041-07-10',corte:'2041-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2042-01-09',corte:'2042-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2042-07-10',corte:'2042-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2043-01-09',corte:'2043-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2043-07-10',corte:'2043-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2044-01-11',corte:'2044-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2044-07-11',corte:'2044-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2045-01-09',corte:'2045-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2045-07-10',corte:'2045-07-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2046-01-09',corte:'2046-01-09',dias:180,amort:2.2727,cupon:0.05},
+      {pago:'2046-07-10',corte:'2046-07-09',dias:180,amort:2.2727,cupon:0.05},
     ]
   },
-  // ── Bopreales ──────────────────────────────────────────────────
+  // ── Bopreales ──────────────────────────────────────────────
   BPY6D: {
-    grupo:'Bopreales', nombre:'Bopreal S3 may-26',
-    vt:34.1133, vr:34, ic:0.1133,
-    cfs:[{d:'2026-06-01',cf:34.255}]
+    grupo:'Bopreales', nombre:'Bopreal S3 jun-26', vr:100, cupon:0.03,
+    cfs:[
+      {pago:'2024-03-07',corte:'2024-03-07',dias:null,amort:0,cupon:0.03},
+      {pago:'2024-09-02',corte:'2024-08-31',dias:174,amort:0,cupon:0.03},
+      {pago:'2024-12-02',corte:'2024-11-30',dias:90,amort:0,cupon:0.03},
+      {pago:'2025-02-28',corte:'2025-02-28',dias:88,amort:0,cupon:0.03},
+      {pago:'2025-06-02',corte:'2025-05-31',dias:90,amort:0,cupon:0.03},
+      {pago:'2025-09-01',corte:'2025-08-31',dias:90,amort:0,cupon:0.03},
+      {pago:'2025-12-01',corte:'2025-11-30',dias:90,amort:33,cupon:0.03},
+      {pago:'2026-03-02',corte:'2026-02-28',dias:88,amort:33,cupon:0.03},
+      {pago:'2026-06-01',corte:'2026-05-31',dias:90,amort:34,cupon:0.03},
+    ]
   },
   BPA7D: {
-    grupo:'Bopreales', nombre:'Bopreal S1A oct-27',
-    vt:102.2222, vr:100, ic:2.2222,
-    cfs:[{d:'2026-04-30',cf:2.5},{d:'2026-11-02',cf:2.5},{d:'2027-04-30',cf:52.5},{d:'2027-11-01',cf:51.25}]
+    grupo:'Bopreales', nombre:'Bopreal S1A oct-27', vr:100, cupon:0.05,
+    cfs:[
+      {pago:'2024-01-05',corte:'2024-01-05',dias:null,amort:0,cupon:0.05},
+      {pago:'2024-10-31',corte:'2024-10-31',dias:296,amort:0,cupon:0.05},
+      {pago:'2025-04-30',corte:'2025-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2025-10-31',corte:'2025-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-11-02',corte:'2026-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:50,cupon:0.05},
+      {pago:'2027-11-01',corte:'2027-10-31',dias:180,amort:50,cupon:0.05},
+    ]
   },
   BPB7D: {
-    grupo:'Bopreales', nombre:'Bopreal S1B oct-27',
-    vt:102.2222, vr:100, ic:2.2222,
-    cfs:[{d:'2026-04-30',cf:2.5},{d:'2026-11-02',cf:2.5},{d:'2027-04-30',cf:52.5},{d:'2027-11-01',cf:51.25}]
+    grupo:'Bopreales', nombre:'Bopreal S1B oct-27', vr:100, cupon:0.05,
+    cfs:[
+      {pago:'2024-03-01',corte:'2024-03-01',dias:null,amort:0,cupon:0.05},
+      {pago:'2024-10-31',corte:'2024-10-31',dias:240,amort:0,cupon:0.05},
+      {pago:'2025-04-30',corte:'2025-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2025-10-31',corte:'2025-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-11-02',corte:'2026-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:50,cupon:0.05},
+      {pago:'2027-11-01',corte:'2027-10-31',dias:180,amort:50,cupon:0.05},
+    ]
   },
   BPC7D: {
-    grupo:'Bopreales', nombre:'Bopreal S1C oct-27',
-    vt:102.2222, vr:100, ic:2.2222,
-    cfs:[{d:'2026-04-30',cf:2.5},{d:'2026-11-02',cf:2.5},{d:'2027-04-30',cf:52.5},{d:'2027-11-01',cf:51.25}]
+    grupo:'Bopreales', nombre:'Bopreal S1C oct-27', vr:100, cupon:0.05,
+    cfs:[
+      {pago:'2024-03-01',corte:'2024-03-01',dias:null,amort:0,cupon:0.05},
+      {pago:'2024-10-31',corte:'2024-10-31',dias:240,amort:0,cupon:0.05},
+      {pago:'2025-04-30',corte:'2025-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2025-10-31',corte:'2025-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-11-02',corte:'2026-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:50,cupon:0.05},
+      {pago:'2027-11-01',corte:'2027-10-31',dias:180,amort:50,cupon:0.05},
+    ]
   },
   BPD7D: {
-    grupo:'Bopreales', nombre:'Bopreal S1D oct-27',
-    vt:102.2222, vr:100, ic:2.2222,
-    cfs:[{d:'2026-04-30',cf:2.5},{d:'2026-11-02',cf:2.5},{d:'2027-04-30',cf:52.5},{d:'2027-11-01',cf:51.25}]
+    grupo:'Bopreales', nombre:'Bopreal S1D oct-27', vr:100, cupon:0.05,
+    cfs:[
+      {pago:'2024-03-01',corte:'2024-03-01',dias:null,amort:0,cupon:0.05},
+      {pago:'2024-10-31',corte:'2024-10-31',dias:240,amort:0,cupon:0.05},
+      {pago:'2025-04-30',corte:'2025-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2025-10-31',corte:'2025-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0,cupon:0.05},
+      {pago:'2026-11-02',corte:'2026-10-31',dias:180,amort:0,cupon:0.05},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:50,cupon:0.05},
+      {pago:'2027-11-01',corte:'2027-10-31',dias:180,amort:50,cupon:0.05},
+    ]
   },
   BPA8D: {
-    grupo:'Bopreales', nombre:'Bopreal S4A oct-28',
-    vt:101.3333, vr:100, ic:1.3333,
-    cfs:[{d:'2026-04-30',cf:1.5},{d:'2026-11-02',cf:1.5},{d:'2027-04-30',cf:1.5},{d:'2027-11-01',cf:1.5},{d:'2028-05-02',cf:1.5},{d:'2028-10-31',cf:101.5}]
+    grupo:'Bopreales', nombre:'Bopreal S4A oct-28', vr:100, cupon:0.03,
+    cfs:[
+      {pago:'2025-06-24',corte:'2025-06-24',dias:null,amort:0,cupon:0.03},
+      {pago:'2025-10-31',corte:'2025-10-31',dias:127,amort:0,cupon:0.03},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0,cupon:0.03},
+      {pago:'2026-11-02',corte:'2026-10-31',dias:180,amort:0,cupon:0.03},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:0,cupon:0.03},
+      {pago:'2027-11-01',corte:'2027-10-31',dias:180,amort:0,cupon:0.03},
+      {pago:'2028-05-02',corte:'2028-04-30',dias:180,amort:0,cupon:0.03},
+      {pago:'2028-10-31',corte:'2028-10-31',dias:180,amort:100,cupon:0.03},
+    ]
   },
   BPB8D: {
-    grupo:'Bopreales', nombre:'Bopreal S4B oct-28',
-    vt:101.3333, vr:100, ic:1.3333,
-    cfs:[{d:'2026-04-30',cf:1.5},{d:'2026-11-02',cf:1.5},{d:'2027-04-30',cf:1.5},{d:'2027-11-01',cf:1.5},{d:'2028-05-02',cf:1.5},{d:'2028-10-31',cf:101.5}]
+    grupo:'Bopreales', nombre:'Bopreal S4B oct-28', vr:100, cupon:0.03,
+    cfs:[
+      {pago:'2025-06-24',corte:'2025-06-24',dias:null,amort:0,cupon:0.03},
+      {pago:'2025-10-31',corte:'2025-10-31',dias:127,amort:0,cupon:0.03},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0,cupon:0.03},
+      {pago:'2026-11-02',corte:'2026-10-31',dias:180,amort:0,cupon:0.03},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:0,cupon:0.03},
+      {pago:'2027-11-01',corte:'2027-10-31',dias:180,amort:0,cupon:0.03},
+      {pago:'2028-05-02',corte:'2028-04-30',dias:180,amort:0,cupon:0.03},
+      {pago:'2028-10-31',corte:'2028-10-31',dias:180,amort:100,cupon:0.03},
+    ]
   },
-};
+  // ── Pesos tasa fija ─────────────────────────────────────────
+  TO26: {
+    grupo:'Tasa Fija $', nombre:'BOTE oct-26 15.5%', vr:100, cupon:0.155,
+    cfs:[
+      {pago:'2016-10-17',corte:'2016-10-17',dias:null,amort:0,cupon:0.155},
+      {pago:'2017-04-17',corte:'2017-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2017-10-17',corte:'2017-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2018-04-17',corte:'2018-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2018-10-17',corte:'2018-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2019-04-17',corte:'2019-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2019-10-17',corte:'2019-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2020-04-17',corte:'2020-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2020-10-19',corte:'2020-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2021-04-19',corte:'2021-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2021-10-18',corte:'2021-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2022-04-18',corte:'2022-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2022-10-17',corte:'2022-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2023-04-17',corte:'2023-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2023-10-17',corte:'2023-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2024-04-17',corte:'2024-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2024-10-17',corte:'2024-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2025-04-17',corte:'2025-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2025-10-17',corte:'2025-10-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2026-04-17',corte:'2026-04-17',dias:180,amort:0,cupon:0.155},
+      {pago:'2026-10-19',corte:'2026-10-17',dias:180,amort:100,cupon:0.155},
+    ]
+  },
+  TY30P: {
+    grupo:'Tasa Fija $', nombre:'BONTE may-30 29.5%', vr:100, cupon:0.295,
+    cfs:[
+      {pago:'2025-06-04',corte:'2025-06-04',dias:null,amort:0,cupon:0.295},
+      {pago:'2025-12-01',corte:'2025-11-30',dias:176,amort:0,cupon:0.295},
+      {pago:'2026-06-01',corte:'2026-05-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2026-11-30',corte:'2026-11-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2027-05-31',corte:'2027-05-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2027-11-30',corte:'2027-11-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2028-05-30',corte:'2028-05-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2028-11-30',corte:'2028-11-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2029-05-30',corte:'2029-05-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2029-11-30',corte:'2029-11-30',dias:180,amort:0,cupon:0.295},
+      {pago:'2030-05-30',corte:'2030-05-30',dias:180,amort:100,cupon:0.295},
+    ]
+  },
+
+
 
 // LECAPS definitions (tasa licitación + VPV estáticos del Excel, solo precio se actualiza)
 const LECAP_DEFS = [
-  {ticker:'S17A6',vto:'2026-04-17',tLic:0.024,vpv:110.125,dias:7},
+  
   {ticker:'S30A6',vto:'2026-04-30',tLic:0.0353,vpv:127.486,dias:20},
   {ticker:'S15Y6',vto:'2026-05-15',tLic:0.026,vpv:105.178,dias:35},
   {ticker:'S29Y6',vto:'2026-05-29',tLic:0.0235,vpv:132.044,dias:49},
@@ -854,14 +1274,10 @@ const LECAP_DEFS = [
   {ticker:'T30J7',isBoncap:true,vto:'2027-06-30',tLic:0.0258,vpv:156.037,dias:446},
 ];
 
-// Pesos tasa fija (precio se puede actualizar si IOL disponible)
+// Pesos tasa fija — now defined in BOND_DEFS above, PESOS_DEFS kept for calc compatibility
 const PESOS_DEFS = [
-  {ticker:'TO26',nombre:'BOTE oct-26 15.5%',cupon:0.155,vt:107.4486,vr:100,ic:7.4486,
-   cfs:[{d:'2026-04-17',cf:7.75},{d:'2026-10-19',cf:107.75}]},
-  {ticker:'TY30P',nombre:'BONTE may-30 29.5%',cupon:0.295,vt:110.6528,vr:100,ic:10.6528,
-   cfs:[{d:'2026-06-01',cf:14.75},{d:'2026-11-30',cf:14.75},{d:'2027-05-31',cf:14.75},
-        {d:'2027-11-30',cf:14.75},{d:'2028-05-30',cf:14.75},{d:'2028-11-30',cf:14.75},
-        {d:'2029-05-30',cf:14.75},{d:'2029-11-30',cf:14.75},{d:'2030-05-30',cf:114.75}]},
+  {ticker:'TO26', nombre:'BOTE oct-26 15.5%', cupon:0.155, vr:100},
+  {ticker:'TY30P', nombre:'BONTE may-30 29.5%', cupon:0.295, vr:100},
 ];
 
 // TC Implícitos — tickers ARS y USD para computar MEP/Cable
@@ -881,17 +1297,18 @@ const TC_PAIRS = [
 // FINANCE CALCULATIONS (exact Excel formulas)
 // ═══════════════════════════════════════════════════════════════
 
-function calcTIR(cfs, precio, maxIter=200, tol=1e-10) {
-  // Newton-Raphson sobre cashflows con tiempo en años
-  const flows = cfs.map(c => ({t: tFrom(c.d), cf: c.cf}));
-  let r = 0.08; // seed
+function calcTIRFromFlows(flows, precio, maxIter=200, tol=1e-10) {
+  // Newton-Raphson: flows = [{t, cf}], precio = dirty price outflow
+  let r = 0.08;
   for (let i = 0; i < maxIter; i++) {
     let pv = -precio, dpv = 0;
     for (const {t, cf} of flows) {
+      if (t <= 0) continue;
       const disc = Math.pow(1 + r, t);
       pv  += cf / disc;
       dpv -= t * cf / (disc * (1 + r));
     }
+    if (Math.abs(dpv) < 1e-14) break;
     const delta = pv / dpv;
     r -= delta;
     if (Math.abs(delta) < tol) break;
@@ -899,28 +1316,54 @@ function calcTIR(cfs, precio, maxIter=200, tol=1e-10) {
   return r;
 }
 
-function calcDuration(cfs, precio, tir) {
+function calcTIR(cfs, precio, maxIter=200, tol=1e-10) {
+  // Legacy: cfs = [{d, cf}] format (used by PESOS_DEFS in renderPesosTable fallback)
   const flows = cfs.map(c => ({t: tFrom(c.d), cf: c.cf}));
+  return calcTIRFromFlows(flows, precio, maxIter, tol);
+}
+
+// Main TIR calc for bonds using new BOND_DEFS format
+function calcBondTIR(def, precio, liqDate) {
+  const flows = futureCFs(def, liqDate || LIQ);
+  if (!flows.length) return NaN;
+  return calcTIRFromFlows(flows, precio);
+}
+
+function calcDurationFromFlows(flows, tir) {
+  // Exact Excel: Duration_i = t_i * CF_i / (1+TIR)^t_i  (per-row contribution, sum = Macaulay * Price)
   let mac = 0, sumPV = 0;
   for (const {t, cf} of flows) {
+    if (t <= 0) continue;
     const pv = cf / Math.pow(1 + tir, t);
     mac += t * pv;
     sumPV += pv;
   }
+  if (sumPV === 0) return {macaulay:0, modified:0};
   const macaulay = mac / sumPV;
   const modified = macaulay / (1 + tir);
   return {macaulay, modified};
 }
 
-function calcConvexity(cfs, precio, tir) {
-  const flows = cfs.map(c => ({t: tFrom(c.d), cf: c.cf}));
+function calcConvexityFromFlows(flows, tir) {
+  // Exact Excel: Conv_i = t_i*(1+t_i)*CF_i / (1+TIR)^(t_i+2)
   let conv = 0, sumPV = 0;
   for (const {t, cf} of flows) {
+    if (t <= 0) continue;
     const pv = cf / Math.pow(1 + tir, t);
-    conv += t * (t + 1) * pv / Math.pow(1 + tir, 2);
+    conv += t * (1 + t) * cf / Math.pow(1 + tir, t + 2);
     sumPV += pv;
   }
-  return conv / sumPV;
+  return sumPV > 0 ? conv / sumPV : 0;
+}
+
+function calcDuration(cfs, precio, tir) {
+  const flows = cfs.map(c => ({t: tFrom(c.d), cf: c.cf}));
+  return calcDurationFromFlows(flows, tir);
+}
+
+function calcConvexity(cfs, precio, tir) {
+  const flows = cfs.map(c => ({t: tFrom(c.d), cf: c.cf}));
+  return calcConvexityFromFlows(flows, tir);
 }
 
 function calcLecapMetrics(precio, vpv, dias) {
@@ -1052,22 +1495,25 @@ function processBonds(rawArr) {
   STATE.bonares = [];
   STATE.globales = [];
   STATE.bopreales = [];
-  STATE.pesos = [...PESOS_DEFS]; // pesos use static prices for now
+  STATE.pesos = []; // populated from BOND_DEFS like other bonds
 
   for (const [ticker, def] of Object.entries(BOND_DEFS)) {
     const livePrice = getPrice(map, ticker);
-    const precio = livePrice || (ticker === 'AO27D' ? 102.3 : null); // fallback
+    const precio = livePrice || null;
     if (!precio) continue;
 
-    const cfs = def.cfs;
-    const tir = calcTIR(cfs, precio);
-    const {macaulay, modified} = calcDuration(cfs, precio, tir);
-    const convex = calcConvexity(cfs, precio, tir);
-    // TNA: (1+tir)^(180/365) - 1 para semianuales, simplificado
+    // Use exact Excel formulas via new BOND_DEFS structure
+    const flows = futureCFs(def, LIQ);
+    if (!flows.length) continue;
+    const tir = calcTIRFromFlows(flows, precio);
+    const {macaulay, modified} = calcDurationFromFlows(flows, tir);
+    const convex = calcConvexityFromFlows(flows, tir);
     const tna = (Math.pow(1 + tir, 180/365) - 1) * 2;
-    const paridad = precio / def.vt;
+    const vr = def.vr;
+    const vt = def.vr; // technical value ≈ face for display
+    const paridad = precio / vr;
 
-    const rec = {ticker, ...def, precio, tir, tna, macaulay, modified, convex, paridad, live: !!livePrice};
+    const rec = {ticker, nombre:def.nombre, grupo:def.grupo, vr, vt, precio, tir, tna, macaulay, modified, convex, paridad, live: !!livePrice, def};
     if (def.grupo === 'Bonares') STATE.bonares.push(rec);
     else if (def.grupo === 'Globales') STATE.globales.push(rec);
     else STATE.bopreales.push(rec);
@@ -1300,25 +1746,25 @@ function renderPesosTable() {
   const tbody = document.getElementById('tbody-pesos');
   if (!tbody) return;
   const data = STATE.pesos;
-  const allPesosTirs = data.map(b => { try{ return calcTIR(b.cfs, b.vt); } catch(e){ return 0; } });
+  const allPesosTirs = data.map(b => b.tir || 0);
   tbody.innerHTML = data.map((b, idx) => {
-    const cfs = b.cfs;
-    const tir = calcTIR(cfs, b.vt); // use VT as proxy price until live feed
-    const {macaulay, modified} = calcDuration(cfs, b.vt, tir);
-    const convex = calcConvexity(cfs, b.vt, tir);
+    const tir = b.tir || 0;
+    const macaulay = b.macaulay || 0;
+    const modified = b.modified || 0;
+    const convex = b.convex || 0;
     const tna = (Math.pow(1+tir,180/365)-1)*2;
     const hcp = tirColor(tir, allPesosTirs);
     return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
       <td><span class="ticker">${b.ticker}</span><span class="bond-name">${b.nombre}</span><span class="tag tag-pes">ARS</span></td>
-      <td>${pct(b.cupon)}</td>
+      <td>${b.cupon ? pct(b.cupon) : '—'}</td>
       <td>${f2(b.vt)}</td>
       <td ${hcp}>${pct(tir)}</td>
       <td>${pct(tna)}</td>
       <td>${f4(macaulay)}</td>
       <td>${f4(modified)}</td>
       <td>${f2(convex)}</td>
-      <td>${f2(b.vt)}</td>
-      <td class="${b.vt/b.vt > 1 ? 'pos' : 'neg'}">${f4(1)}</td>
+      <td>${f2(b.precio)}</td>
+      <td class="${b.paridad < 1 ? 'neg' : 'pos'}">${f4(b.paridad)}</td>
     </tr>`;
   }).join('');
 }
@@ -2022,19 +2468,19 @@ function openBondModal(ticker) {
   const lec = STATE.lecapCalc.find(l=>l.ticker===ticker);
   const def = BOND_DEFS[ticker];
   const lecDef = LECAP_DEFS.find(l=>l.ticker===ticker);
-  const pesosDef = PESOS_DEFS.find(p=>p.ticker===ticker);
 
-  if (!def && !lecDef && !pesosDef) return;
+  if (!def && !lecDef) return;
 
   document.getElementById('bond-modal').classList.add('open');
   document.body.style.overflow='hidden';
+  bondPastVisible = false;
 
   // Toggle past button
   const pastBtn = document.getElementById('bond-toggle-past');
   if (pastBtn) { pastBtn.textContent='▼ Pagos anteriores'; }
 
-  if (def || pesosDef) {
-    renderBondCFModal(ticker, bond, def||pesosDef);
+  if (def) {
+    renderBondCFModal(ticker, bond, def);
   } else if (lecDef) {
     renderLecapCFModal(ticker, lec, lecDef);
   }
@@ -2044,7 +2490,7 @@ function bondTogglePast() {
   bondPastVisible = !bondPastVisible;
   const el = document.getElementById('bond-modal-past');
   const btn = document.getElementById('bond-toggle-past');
-  if (el) el.style.display = bondPastVisible ? '' : 'none';
+  if (el) el.style.display = bondPastVisible ? 'table-row-group' : 'none';
   if (btn) btn.textContent = bondPastVisible ? '▲ Ocultar anteriores' : '▼ Pagos anteriores';
 }
 
@@ -2056,102 +2502,61 @@ function handleBondModalClick(e){ if(e.target===document.getElementById('bond-mo
 
 // Build full CF table matching Excel layout exactly
 // Returns {pastRows, futureRows, totals}
-function buildBondCFRows(cfs, tir, vr0, liqDate) {
-  // cfs = [{d, cf}], tir = annual rate, vr0 = starting face value, liqDate = settlement date
-  // Columns: Pago Cupón, Corte Cupón(=d), Días, Amortización, Cupón%, Interés, VR, Cash Flow, t, Duration contrib, Convexity contrib
-  // "Corte Cupón" = coupon cut date (= same as payment date in these bonds)
-  // Interés = VR_prev * [(1+tir)^(dt) - 1]
-  // Amortización = CF - Interés  (clamped 0..VR_prev)
-  // Cash Flow: 0 for past, computed for future
-  // t = days_from_liq / 365
-  // Duration contrib = t * PV / sum(PV) (only future)
-  // Convexity contrib = t*(t+1)*PV / ((1+tir)^2 * sum(PV))
-
-  // First pass: compute PV of all future flows for duration/convexity
-  const future = cfs.filter(cf => new Date(cf.d) > liqDate);
-  let sumPV = 0;
-  const pvMap = {};
-  future.forEach(cf => {
-    const t = Math.round((new Date(cf.d) - liqDate) / 86400000) / 365;
-    const pv = cf.cf / Math.pow(1+tir, t);
-    sumPV += pv;
-    pvMap[cf.d] = {pv, t};
-  });
-
-  let vr = vr0;
+function buildBondCFRows(def, tir, liqDate) {
+  // Exact Excel formulas:
+  // Interés = VR_prev * cupon% * dias / 360
+  // VR = VR_prev - amortizacion
+  // CF = IF(pago > liq, amort + interes, 0)
+  // t  = IF(pago > liq, (pago - liq)/365, 0)
+  // Duration contrib = t * CF / (1+TIR)^t
+  // Convexity contrib = t*(1+t)*CF / (1+TIR)^(t+2)
+  const rows = computeBondRows(def, liqDate);
   const pastRows = [], futureRows = [];
-  const liqMs = liqDate.getTime();
+  let totAmort=0, totInteres=0, totCF=0, totDur=0, totConv=0;
 
-  cfs.forEach((cf, idx) => {
-    const payDate = new Date(cf.d);
-    const isPast = payDate <= liqDate;
-    const dias = Math.round((payDate - liqDate) / 86400000);
-    const t_yr = dias / 365;
-
-    // period length in years
-    const prevDate = idx===0 ? liqDate : new Date(cfs[idx-1].d);
-    const dt = (payDate - prevDate) / (365*86400000);
-
-    // Interés accrued on VR over this period
-    const interes = vr * (Math.pow(1+tir, Math.max(0,dt)) - 1);
-    // Amortización = residual of cashflow after interest
-    let amort = Math.max(0, cf.cf - interes);
-    amort = Math.min(amort, vr);
-    const vrPrev = vr;
-    vr = Math.max(0, vr - amort);
-
-    // Cash Flow: only non-zero for future (from liq perspective)
-    const cashFlow = isPast ? 0 : cf.cf;
-    const pvData = pvMap[cf.d] || {pv:0, t:t_yr};
-    const durContrib = sumPV > 0 ? pvData.t * pvData.pv / sumPV * pvData.t : 0;
-    const convContrib = sumPV > 0 ? pvData.t*(pvData.t+1)*pvData.pv/(Math.pow(1+tir,2)*sumPV) : 0;
-
-    // Cupón% = coupon rate for this period (from cf schedule we derive as interes/VR_prev if VR>0)
-    const cuponPct = vrPrev > 0 ? (Math.pow(1+tir, Math.abs(dt)) - 1) : 0;
-
-    const row = { d: cf.d, dias, amort: amort.toFixed(4), cuponPct: (cuponPct*100).toFixed(3)+'%',
-      interes: interes.toFixed(4), vr: vrPrev.toFixed(2), cashFlow: cashFlow.toFixed(4),
-      t: t_yr.toFixed(4), durContrib: durContrib.toFixed(3), convContrib: convContrib.toFixed(3),
-      isAmort: amort > 0.001, isPast };
-
-    if (isPast) pastRows.push(row);
-    else futureRows.push(row);
-  });
-
-  // Totals
-  const allRows = [...pastRows, ...futureRows];
-  const totAmort = allRows.reduce((s,r)=>s+parseFloat(r.amort),0);
-  const totInteres = allRows.reduce((s,r)=>s+parseFloat(r.interes),0);
-  const totCF = futureRows.reduce((s,r)=>s+parseFloat(r.cashFlow),0);
-  const totDur = futureRows.reduce((s,r)=>s+parseFloat(r.durContrib),0);
-  const totConv = futureRows.reduce((s,r)=>s+parseFloat(r.convContrib),0);
-
+  for (const r of rows) {
+    const durC  = r.t > 0 ? r.t * r.cf / Math.pow(1+tir, r.t) : 0;
+    const convC = r.t > 0 ? r.t*(1+r.t)*r.cf / Math.pow(1+tir, r.t+2) : 0;
+    const enriched = {...r, durContrib: durC, convContrib: convC};
+    totAmort   += r.amort;
+    totInteres += r.interes;
+    totCF      += r.cf;
+    totDur     += durC;
+    totConv    += convC;
+    if (r.isPast) pastRows.push(enriched);
+    else futureRows.push(enriched);
+  }
   return { pastRows, futureRows, totAmort, totInteres, totCF, totDur, totConv };
 }
 
 function cfRowHtml(r) {
-  const fmtDate = d => new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
-  return `<tr>
-    <td style="text-align:left;font-family:var(--font);white-space:nowrap">${fmtDate(r.d)}</td>
-    <td style="text-align:left;font-family:var(--font);white-space:nowrap">${fmtDate(r.d)}</td>
-    <td>${r.dias}</td>
-    <td class="${r.isAmort?'cf-amort':''}">${r.amort}</td>
-    <td>${r.cuponPct}</td>
-    <td>${r.interes}</td>
-    <td>${r.vr}</td>
-    <td style="font-weight:700">${r.cashFlow}</td>
-    <td>${r.t}</td>
-    <td>${r.durContrib}</td>
-    <td>${r.convContrib}</td>
+  const fmtD = d => d ? new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+  const n4 = v => (typeof v==='number'&&isFinite(v)) ? v.toFixed(4) : '—';
+  const n2 = v => (typeof v==='number'&&isFinite(v)) ? v.toFixed(2) : '—';
+  const pctFmt = v => (typeof v==='number'&&isFinite(v)) ? (v*100).toFixed(3)+'%' : '—';
+  const cfClass = r.cf > 0 ? '' : '';
+  return `<tr class="${r.isPast?'cf-past-row':''}">
+    <td style="text-align:left;font-family:var(--font);white-space:nowrap">${fmtD(r.pago)}</td>
+    <td style="text-align:left;font-family:var(--font);white-space:nowrap;color:var(--muted)">${r.corte?fmtD(r.corte):'—'}</td>
+    <td>${r.dias||'—'}</td>
+    <td class="${r.amort>0?'cf-amort':''}">${r.amort>0?n4(r.amort):'0.0000'}</td>
+    <td>${pctFmt(r.cupon)}</td>
+    <td>${n4(r.interes)}</td>
+    <td>${n2(r.vr)}</td>
+    <td style="font-weight:700;color:${r.cf>0?'inherit':'var(--muted)'}">${n4(r.cf)}</td>
+    <td>${r.t>0?r.t.toFixed(4):'0.0000'}</td>
+    <td>${r.t>0?r.durContrib.toFixed(3):'0.000'}</td>
+    <td>${r.t>0?r.convContrib.toFixed(3):'0.000'}</td>
   </tr>`;
 }
 
 function renderBondCFModal(ticker, bond, def) {
-  const precio = bond?.precio || def.vt;
-  const tir = bond?.tir ?? calcTIR(def.cfs, precio);
-  const {macaulay, modified} = bond ? {macaulay:bond.macaulay, modified:bond.modified} : calcDuration(def.cfs, precio, tir);
-  const convex = bond?.convex ?? calcConvexity(def.cfs, precio, tir);
-  const vto = def.cfs[def.cfs.length-1].d;
+  const precio = bond?.precio || def.vr;
+  const flows = futureCFs(def, LIQ);
+  const tir = bond?.tir ?? calcTIRFromFlows(flows, precio);
+  const {macaulay, modified} = bond?.macaulay ? {macaulay:bond.macaulay, modified:bond.modified} : calcDurationFromFlows(flows, tir);
+  const convex = bond?.convex ?? calcConvexityFromFlows(flows, tir);
+  const vto = def.cfs[def.cfs.length-1].pago;
 
   document.getElementById('bond-modal-title').textContent = `${ticker} — ${def.nombre}`;
   document.getElementById('bond-modal-meta').textContent = `${def.grupo} · Liq: ${LIQ.toLocaleDateString('es-AR')} · Precio: ${precio.toFixed(4)} · TIR: ${(tir*100).toFixed(2)}%`;
@@ -2164,20 +2569,27 @@ function renderBondCFModal(ticker, bond, def) {
     <div class="bms-item"><div class="bms-lbl">Convexidad</div><div class="bms-val">${convex.toFixed(2)}</div></div>
     <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${new Date(vto).toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>
   `;
+  // Show/hide past toggle based on whether there are past rows
+  setTimeout(() => {
+    const pastTbody = document.getElementById('bond-modal-past');
+    const pastBtn = document.getElementById('bond-toggle-past');
+    if (pastBtn) pastBtn.style.display = (pastRows && pastRows.length > 0) ? '' : 'none';
+  }, 10);
 
   // Liq row (row 0: the price outflow)
   const liqRow = `<tr style="background:rgba(79,142,247,.08)">
     <td style="text-align:left;font-family:var(--font);font-weight:700;color:var(--accent)">${LIQ.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})}</td>
     <td style="text-align:left;font-family:var(--font);color:var(--muted)">*</td>
     <td></td><td></td><td></td><td></td>
-    <td>${def.vr}</td>
+    <td>${def.vr||100}</td>
     <td style="font-weight:700;color:var(--red)">${(-precio).toFixed(4)}</td>
     <td></td><td></td><td></td>
   </tr>`;
 
-  const {pastRows, futureRows, totAmort, totInteres, totCF, totDur, totConv} = buildBondCFRows(def.cfs, tir, def.vr, LIQ);
+  const {pastRows, futureRows, totAmort, totInteres, totCF, totDur, totConv} = buildBondCFRows(def, tir, LIQ);
 
   document.getElementById('bond-modal-past').innerHTML = pastRows.map(cfRowHtml).join('');
+  document.getElementById('bond-modal-past').style.display = 'none';
   document.getElementById('bond-modal-tbody').innerHTML = liqRow + futureRows.map(cfRowHtml).join('') +
     `<tr class="cf-totals">
       <td colspan="2" style="text-align:left;font-family:var(--font)">*Fecha de liquidación de la operación</td>
@@ -2253,8 +2665,6 @@ function calcInstruments() {
     list.push({ticker, nombre:def.nombre, grupo:def.grupo, type:'bond'});
   for (const l of LECAP_DEFS)
     list.push({ticker:l.ticker, nombre:`${l.isBoncap?'BONCAP':'LECAP'} ${l.vto.slice(0,7)}`, grupo:'Capitalizables', type:'lecap'});
-  for (const p of PESOS_DEFS)
-    list.push({ticker:p.ticker, nombre:p.nombre, grupo:'Tasa Fija $', type:'pesos'});
   return list;
 }
 
@@ -2312,8 +2722,7 @@ function getCalcLivePrice(ticker) {
   if(bond?.precio) return bond.precio;
   const lec=STATE.lecapCalc.find(l=>l.ticker===ticker);
   if(lec?.precio) return lec.precio;
-  const def=BOND_DEFS[ticker]; if(def) return def.vt;
-  const pd=PESOS_DEFS.find(p=>p.ticker===ticker); if(pd) return pd.vt;
+  const def=BOND_DEFS[ticker]; if(def) return def.vr; // use vr as fallback
   return null;
 }
 
@@ -2330,7 +2739,7 @@ function calcTogglePast() {
   calcPastVisible=!calcPastVisible;
   const el=document.getElementById('calc-cf-tbody-past');
   const btn=document.getElementById('calc-toggle-past');
-  if(el) el.style.display=calcPastVisible?'':'none';
+  if(el) el.style.display=calcPastVisible?'table-row-group':'none';
   if(btn) btn.textContent=calcPastVisible?'▲ Ocultar anteriores':'▼ Pagos anteriores';
 }
 
@@ -2352,19 +2761,14 @@ function runCalc() {
     // Recalc TIR with custom liqDate
     const cfs = activeDef.cfs.filter(cf=>new Date(cf.d)>liqDate);
     if (!cfs.length) { alert('Sin flujos futuros para esa fecha'); return; }
-    function tFromLiq(d){ return Math.round((new Date(d)-liqDate)/86400000)/365; }
-    let r=0.08;
-    for(let i=0;i<200;i++){
-      let pv=-priceRaw, dpv=0;
-      for(const cf of cfs){const t=tFromLiq(cf.d);const disc=Math.pow(1+r,t);pv+=cf.cf/disc;dpv-=t*cf.cf/(disc*(1+r));}
-      const delta=pv/dpv; r-=delta; if(Math.abs(delta)<1e-10) break;
-    }
-    tirCalc=r;
-    let mac=0,spv=0;
-    for(const cf of cfs){const t=tFromLiq(cf.d);const pv=cf.cf/Math.pow(1+r,t);mac+=t*pv;spv+=pv;}
-    macCalc=mac/spv; modCalc=macCalc/(1+r);
-    vtoStr=activeDef.cfs[activeDef.cfs.length-1].d;
-    cuponStr=activeDef.cupon?(activeDef.cupon*100).toFixed(2)+'%':'—';
+    // Use exact Excel formulas via computeBondRows
+    const bondFlows = futureCFs(activeDef, liqDate);
+    if (!bondFlows.length) { alert('Sin flujos futuros para esa fecha'); return; }
+    tirCalc = calcTIRFromFlows(bondFlows, priceRaw);
+    const dur = calcDurationFromFlows(bondFlows, tirCalc);
+    macCalc = dur.macaulay; modCalc = dur.modified;
+    vtoStr = activeDef.cfs[activeDef.cfs.length-1].pago;
+    const firstCupon=activeDef.cfs.find(r=>r.cupon>0); cuponStr=firstCupon?(firstCupon.cupon*100).toFixed(3)+'%':'—';
     const liveB=[...STATE.bonares,...STATE.globales,...STATE.bopreales,...STATE.pesos].find(b=>b.ticker===calcSelected);
     liveRefTir=liveB?.tir??null;
   } else if (lecDef) {
@@ -2399,7 +2803,7 @@ function runCalc() {
   document.getElementById('calc-cf-sub').innerHTML=`<span style="color:var(--accent);font-weight:600">${calcSelected}</span> &nbsp;|&nbsp; Liq: ${liqDate.toLocaleDateString('es-AR')} &nbsp;|&nbsp; Precio: ${priceRaw.toFixed(4)} &nbsp;|&nbsp; TIR: <span style="color:var(--green);font-weight:700">${(tirCalc*100).toFixed(2)}%</span>`;
 
   if (activeDef) {
-    const {pastRows,futureRows,totAmort,totInteres,totCF,totDur,totConv} = buildBondCFRows(activeDef.cfs, tirCalc, activeDef.vr, liqDate);
+    const {pastRows,futureRows,totAmort,totInteres,totCF,totDur,totConv} = buildBondCFRows(activeDef, tirCalc, liqDate);
     // Liq outflow row
     const liqRowHtml=`<tr style="background:rgba(79,142,247,.08)">
       <td style="text-align:left;font-family:var(--font);font-weight:700;color:var(--accent)">${liqDate.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})}</td>
