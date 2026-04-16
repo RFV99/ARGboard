@@ -608,13 +608,14 @@
       <th onclick="sortTable('capitalizables',6)">TNA ↕</th>
       <th onclick="sortTable('capitalizables',7)">TEM ↕</th>
       <th onclick="sortTable('capitalizables',8)">TE al plazo ↕</th>
+      <th onclick="sortTable('capitalizables',9)">USD Breakeven ↕</th>
     </tr></thead><tbody id="tbody-capitalizables"></tbody></table></div>
   </div>
 
   <div class="panel" id="panel-pesos">
     <div class="tbl-wrap"><table id="tbl-pesos"><thead><tr>
       <th>Ticker</th><th>Cupón</th><th>Precio</th><th>TIR e.a.</th>
-      <th>TNA</th><th>Mac. Dur.</th><th>Mod. Dur.</th><th>Convex.</th>
+      <th>TEM</th><th>TNA</th><th>Mac. Dur.</th><th>Mod. Dur.</th><th>Convex.</th>
       <th>Val. Téc.</th><th>Paridad</th>
     </tr></thead><tbody id="tbody-pesos"></tbody></table></div>
   <div class="hist-card">
@@ -657,12 +658,12 @@
     <div class="tbl-wrap" style="margin-bottom:20px;">
       <table id="tbl-duales" style="width:100%;">
         <thead><tr>
-          <th>Ticker</th><th>Precio</th><th>Vcto.</th><th>TEM avg TAMAR</th>
+          <th>Ticker</th><th>Precio</th><th>Vcto.</th>
           <th>TIR e.a.</th><th>TEM bono</th><th>Duration</th><th>Mod. Dur.</th>
           <th>TE al plazo</th><th>USD Breakeven</th>
         </tr></thead>
         <tbody id="tbody-duales">
-          <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">Cargando…</td></tr>
+          <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px;">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -700,6 +701,26 @@
       <div class="chart-card">
         <div class="chart-title">HARD DOLLAR — Todos</div>
         <div class="chart-wrap" style="height:230px"><canvas id="c-scatter" role="img" aria-label="Scatter Duration TIR"></canvas></div>
+      </div>
+      <div class="chart-card" style="grid-column:span 2">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+          <div class="chart-title" style="margin-bottom:0">CURVA PESOS — Todos los instrumentos</div>
+          <div style="display:flex;gap:4px;">
+            <button class="period-btn active" id="pesos-curve-tem-btn" onclick="setPesosCurveUnit('TEM',this)">TEM</button>
+            <button class="period-btn" id="pesos-curve-tna-btn" onclick="setPesosCurveUnit('TNA',this)">TNA</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:270px"><canvas id="c-pesos-curve" role="img" aria-label="Curva Pesos todos los instrumentos"></canvas></div>
+      </div>
+      <div class="chart-card" style="grid-column:span 2">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+          <div class="chart-title" style="margin-bottom:0">CURVA DUALES</div>
+          <div style="display:flex;gap:4px;">
+            <button class="period-btn active" id="duales-curve-tem-btn" onclick="setDualesCurveUnit('TEM',this)">TEM</button>
+            <button class="period-btn" id="duales-curve-tna-btn" onclick="setDualesCurveUnit('TNA',this)">TNA</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:220px"><canvas id="c-duales-curve" role="img" aria-label="Curva Duales"></canvas></div>
       </div>
     </div>
   </div>
@@ -1940,12 +1961,15 @@ function renderCapitalizablesTable() {
   const tbody = document.getElementById('tbody-capitalizables');
   if (!tbody) return;
   const data = STATE.lecapCalc;
-  if (!data.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sin datos — presioná Actualizar</td></tr>'; return; }
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">Sin datos — presioná Actualizar</td></tr>'; return; }
   const allTems = data.map(l => l.tem);
+  const isCable = (typeof BOND_MODE!=='undefined'&&BOND_MODE==='CABLE');
   tbody.innerHTML = data.map(l => {
     const tipo = l.ticker.startsWith('T') ? 'BONCAP' : 'LECAP';
     const tagCls = l.ticker.startsWith('T') ? 'tag-bon' : 'tag-lec';
     const hc = tirColor(l.tem, allTems);
+    const usdNow = isCable ? (STATE.dolar?.cable||STATE.dolar?.mep||1430) : (STATE.dolar?.mep||1430);
+    const usdBE = l.tePlazo!=null && isFinite(l.tePlazo) && usdNow ? (usdNow*(1+l.tePlazo)).toFixed(1) : '—';
     return `<tr style="cursor:pointer" onclick="openBondModal('${l.ticker}')">
     <td><span class="ticker">${l.ticker} ${l.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
         <span class="tag ${tagCls}">${tipo}</span></td>
@@ -1957,6 +1981,7 @@ function renderCapitalizablesTable() {
     <td>${pct(l.tna)}</td>
     <td ${hc}>${pct3(l.tem)}</td>
     <td>${pct(l.tePlazo)}</td>
+    <td>$${usdBE}</td>
   </tr>`;
   }).join('');
 }
@@ -1966,18 +1991,22 @@ function renderPesosTable() {
   if (!tbody) return;
   const data = STATE.pesos;
   const allPesosTirs = data.map(b => b.tir || 0);
+  const allPesosTems = data.map(b => b.tir ? Math.pow(1+b.tir, 30/365)-1 : 0);
   tbody.innerHTML = data.map((b, idx) => {
     const tir = b.tir || 0;
     const macaulay = b.macaulay || 0;
     const modified = b.modified || 0;
     const convex = b.convex || 0;
+    const tem = Math.pow(1+tir, 30/365)-1;
     const tna = (Math.pow(1+tir,180/365)-1)*2;
     const hcp = tirColor(tir, allPesosTirs);
+    const hcTem = tirColor(tem, allPesosTems);
     return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
       <td><span class="ticker">${b.ticker}</span><span class="bond-name">${b.nombre}</span><span class="tag tag-pes">ARS</span></td>
       <td>${b.cupon ? pct(b.cupon) : '—'}</td>
       <td>${f2(b.precio)}</td>
       <td ${hcp}>${pct(tir)}</td>
+      <td ${hcTem}>${pct3(tem)}</td>
       <td>${pct(tna)}</td>
       <td>${f4(macaulay)}</td>
       <td>${f4(modified)}</td>
@@ -3122,8 +3151,13 @@ function modeTickerFor(ticker) {
 
 // ═══════════════════════════════════════════════════════════════
 // DUALES — Bonos con pata fija vs. pata TAMAR
-// Fórmula Excel (H67): interés = VR×((1+TEM_avg)^(YEARFRAC(emision,vto,0)×12)) − VR
-// TEM_avg = AVERAGEIFS de TEM diarios entre emision y vto
+// METODOLOGÍA:
+//   1. Serie TAMAR diaria desde emisión a vto
+//   2. Desfasaje de 10 días hábiles (la TAMAR que cobra hoy la fijaron 10 días hábiles atrás)
+//   3. TEM_avg = promedio aritmético de la serie desfasada
+//   4. Intereses TAMAR = VR × (1+TEM_avg)^(YEARFRAC×12) − VR
+//   5. Cupón% = interés expresado como tasa efectiva anual
+//   6. TIR (e.a.) calculada desde precio y flujo único al vto
 // ═══════════════════════════════════════════════════════════════
 
 const DUAL_DEFS = [
@@ -3160,11 +3194,24 @@ function yearfrac0(s, e) {
   return ((e.getFullYear()-s.getFullYear())*360+(e.getMonth()-s.getMonth())*30+(d2-d1))/360;
 }
 
-// Build daily TEM series from emision to vto
-function buildDailyTEM(fromDate, toDate) {
-  const hist  = DUAL_STATE.tamarSeries;
+// Avanzar N días hábiles (lunes-viernes, sin feriados)
+function addBusinessDays(d, n) {
+  const r = new Date(d);
+  let added = 0;
+  while (added < n) {
+    r.setDate(r.getDate()+1);
+    if (r.getDay()!==0&&r.getDay()!==6) added++;
+  }
+  return r;
+}
+
+// Construir serie TAMAR diaria (histórica + proyección) para un rango de fechas
+// Con desfasaje de 10 días hábiles: cada fecha recibe el TEM publicado 10 días hábiles antes
+function buildDailyTEMLagged(fromDate, toDate) {
+  const hist  = DUAL_STATE.tamarSeries; // [{fecha, tna, tem}]
   const today = new Date(); today.setHours(0,0,0,0);
 
+  // Look-up histórico: devuelve el TEM para una fecha dada (última observación ≤ fecha)
   const getHistTEM = d => {
     if (!hist.length) return null;
     if (d < hist[0].fecha) return hist[0].tem;
@@ -3173,6 +3220,7 @@ function buildDailyTEM(fromDate, toDate) {
     return v;
   };
 
+  // TEM proyectado para una fecha futura
   const getProjTEM = d => {
     if (DUAL_STATE.projMode === 'REM') {
       const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -3187,18 +3235,51 @@ function buildDailyTEM(fromDate, toDate) {
     return temNow + (temFin-temNow)*t;
   };
 
-  const result = [], cur = new Date(fromDate);
+  // Para cada día en el rango, la tasa "aplicable" es la de 10 días hábiles antes
+  const result = [];
+  const cur = new Date(fromDate);
   while (cur < toDate) {
-    const tem = cur <= today ? (getHistTEM(cur)??0.028) : getProjTEM(cur);
-    result.push({ fecha:new Date(cur), tem });
+    const lag10 = addBusinessDays(cur, -10); // 10 días hábiles antes
+    // Si lag10 está en el futuro relativo a today, usar proyección; si está en pasado, usar histórico
+    let tem;
+    if (lag10 <= today) {
+      tem = getHistTEM(lag10) ?? getProjTEM(lag10);
+    } else {
+      tem = getProjTEM(lag10);
+    }
+    result.push({ fecha: new Date(cur), tem });
     cur.setDate(cur.getDate()+1);
   }
   return result;
 }
 
-// TEM_avg = AVERAGEIFS(TAMAR, emision<=fecha<=vto)
-function calcTEMavg(emision, vto) {
-  const daily = buildDailyTEM(emision, vto);
+// Función inversa: retroceder N días hábiles
+function addBusinessDays_backward(d, n) {
+  const r = new Date(d);
+  let removed = 0;
+  while (removed < n) {
+    r.setDate(r.getDate()-1);
+    if (r.getDay()!==0&&r.getDay()!==6) removed++;
+  }
+  return r;
+}
+// Redefinir addBusinessDays para soportar n negativo
+function addBusinessDays(d, n) {
+  if (n === 0) return new Date(d);
+  if (n > 0) {
+    const r = new Date(d); let added = 0;
+    while (added < n) { r.setDate(r.getDate()+1); if (r.getDay()!==0&&r.getDay()!==6) added++; }
+    return r;
+  } else {
+    const r = new Date(d); let removed = 0;
+    while (removed < Math.abs(n)) { r.setDate(r.getDate()-1); if (r.getDay()!==0&&r.getDay()!==6) removed++; }
+    return r;
+  }
+}
+
+// TEM_avg (desfasado) = promedio aritmético de la serie lagueada
+function calcTEMavgLagged(emision, vto) {
+  const daily = buildDailyTEMLagged(emision, vto);
   if (!daily.length) return null;
   return daily.reduce((s,d)=>s+d.tem, 0) / daily.length;
 }
@@ -3206,48 +3287,57 @@ function calcTEMavg(emision, vto) {
 // Calcular métricas de un bono dual
 function calcDualFlows(def, precio, liq) {
   const yf       = yearfrac0(def.emision, def.vto);
-  const periodos = yf * 12;
+  const periodos = yf * 12; // períodos mensuales
 
-  // Pata fija
+  // ── Pata fija ──
   const intFija = 100*(Math.pow(1+def.temEmision, periodos)-1);
   const cfFija  = 100+intFija;
 
-  // Pata TAMAR
-  const temAvg = calcTEMavg(def.emision, def.vto);
-  if (temAvg===null) return null;
-  const intTAMAR = 100*(Math.pow(1+temAvg, periodos)-1);
+  // ── Pata TAMAR (con desfasaje 10 días hábiles) ──
+  const temAvgLag = calcTEMavgLagged(def.emision, def.vto);
+  if (temAvgLag===null) return null;
+  // Intereses = VR × (1+TEM_avg_lag)^(periodos) − VR
+  const intTAMAR = 100*(Math.pow(1+temAvgLag, periodos)-1);
   const cfTAMAR  = 100+intTAMAR;
 
   const esVariable = cfTAMAR >= cfFija;
   const cfFinal    = Math.max(cfFija, cfTAMAR);
-  const intFinal   = cfFinal-100;
+  const intFinal   = cfFinal - 100;
 
-  // Cupón% = (1+intFinal/100)^(1/yf) − 1  [igual que Excel col F]
-  const cuponPct = Math.pow(1+intFinal/100, 1/yf)-1;
+  // Cupón% = tasa efectiva anual del flujo total (expresado como % EA sobre VR)
+  // = (1 + intFinal/100)^(1/yf) − 1
+  const cuponPct = Math.pow(1 + intFinal/100, 1/yf) - 1;
 
-  const diasReales = Math.round((def.vto-liq)/86400000);
-  const tAA = diasReales/365;
+  const diasReales = Math.round((def.vto - liq) / 86400000);
+  const tAA = diasReales / 365;
   const t30 = yearfrac0(liq, def.vto);
 
-  const flows = [{t:0,cf:-precio},{t:tAA,cf:cfFinal}];
+  // TIR e.a. desde precio y flujo único al vto
+  const flows = [{t:0, cf:-precio}, {t:tAA, cf:cfFinal}];
   let tir=null, temBono=null, macaulay=null, modified=null, convex=null;
   try { tir = calcTIRFromFlows(flows, precio); } catch(e){}
-  if (tir!==null&&isFinite(tir)) {
-    temBono  = Math.pow(1+tir, 30/365)-1;
+  if (tir !== null && isFinite(tir)) {
+    temBono  = Math.pow(1+tir, 30/365) - 1;
     const d  = calcDurationFromFlows(flows, tir);
-    macaulay = d.macaulay; modified = d.modified;
+    macaulay = d.macaulay;
+    modified = d.modified;
     convex   = calcConvexityFromFlows(flows, tir);
   }
-  const tePlazo = cfFinal/precio-1;
+
+  // TE al plazo = cfFinal/precio − 1
+  const tePlazo = cfFinal/precio - 1;
+
   const isCable = (typeof BOND_MODE!=='undefined'&&BOND_MODE==='CABLE');
   const usdNow  = isCable ? (STATE.dolar?.cable||STATE.dolar?.mep||1430)
                            : (STATE.dolar?.mep||1430);
-  const usdBE   = usdNow*(1+tePlazo);
+  const usdBE   = usdNow * (1 + tePlazo);
 
-  return { ticker:def.ticker, emision:def.emision, vto:def.vto, precio, liq,
-           temAvg, intFija, cfFija, intTAMAR, cfTAMAR,
-           intFinal, cfFinal, cuponPct, esVariable,
-           tAA, t30, diasReales, tir, temBono, macaulay, modified, convex, tePlazo, usdBE, yf };
+  return {
+    ticker:def.ticker, emision:def.emision, vto:def.vto, precio, liq,
+    temAvgLag, intFija, cfFija, intTAMAR, cfTAMAR,
+    intFinal, cfFinal, cuponPct, esVariable,
+    tAA, t30, diasReales, tir, temBono, macaulay, modified, convex, tePlazo, usdBE, yf
+  };
 }
 
 // Tabla resumen
@@ -3258,35 +3348,46 @@ function renderDualesTable() {
   const isCable = (typeof BOND_MODE!=='undefined'&&BOND_MODE==='CABLE');
   const fmt  = (v,d) => (v!=null&&isFinite(v)) ? v.toFixed(d) : '—';
   const fmtP = (v,d=2) => (v!=null&&isFinite(v)) ? (v*100).toFixed(d)+'%' : '—';
-  const tirSt = isCable ? 'color:#ef4444;font-weight:700' : 'color:#60a5fa;font-weight:700';
+
+  // Color condicional para TIR/TEM (igual que resto de tabs)
+  const allResults = DUAL_DEFS.map(def => {
+    const precio = DUAL_STATE.prices[def.ticker];
+    if (!precio) return null;
+    return calcDualFlows(def, precio, liq);
+  }).filter(Boolean);
+  const allTirs = allResults.map(r => r.tir).filter(v => v!=null && isFinite(v));
+  const allTems = allResults.map(r => r.temBono).filter(v => v!=null && isFinite(v));
 
   let html = '';
   for (const def of DUAL_DEFS) {
     const precio = DUAL_STATE.prices[def.ticker];
     if (!precio) {
-      html += `<tr><td style="font-weight:700">${def.ticker}</td><td colspan="9" style="color:var(--muted)">Sin precio</td></tr>`;
+      html += `<tr><td style="font-weight:700">${def.ticker}</td><td colspan="8" style="color:var(--muted)">Sin precio</td></tr>`;
       continue;
     }
     const r = calcDualFlows(def, precio, liq);
-    if (!r) { html += `<tr><td>${def.ticker}</td><td colspan="9" style="color:var(--muted)">Sin datos TAMAR</td></tr>`; continue; }
+    if (!r) { html += `<tr><td>${def.ticker}</td><td colspan="8" style="color:var(--muted)">Sin datos TAMAR</td></tr>`; continue; }
 
     const badge = r.esVariable
       ? '<span style="font-size:9px;color:#34d399;font-weight:700;margin-left:4px">TAMAR</span>'
       : '<span style="font-size:9px;color:#f59e0b;font-weight:700;margin-left:4px">FIJA</span>';
+
+    const tirHc = tirColor(r.tir, allTirs);
+    const temHc = tirColor(r.temBono, allTems);
+
     html += `<tr style="cursor:pointer" onclick="openDualModal('${def.ticker}')">
       <td style="font-weight:700">${def.ticker}${badge}</td>
       <td>${fmt(precio,2)}</td>
       <td>${def.vto.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
-      <td title="TEM promedio del período (emision→vto)">${fmtP(r.temAvg,3)}</td>
-      <td style="${tirSt}">${fmtP(r.tir)}</td>
-      <td>${fmtP(r.temBono,3)}</td>
+      <td ${tirHc}>${fmtP(r.tir)}</td>
+      <td ${temHc}>${fmtP(r.temBono,3)}</td>
       <td>${fmt(r.macaulay,4)}</td>
       <td>${fmt(r.modified,4)}</td>
       <td>${fmtP(r.tePlazo)}</td>
       <td>$${r.usdBE!=null?fmt(r.usdBE,1):'—'}</td>
     </tr>`;
   }
-  tbody.innerHTML = html||'<tr><td colspan="10" style="color:var(--muted);text-align:center">Sin datos</td></tr>';
+  tbody.innerHTML = html||'<tr><td colspan="9" style="color:var(--muted);text-align:center">Sin datos</td></tr>';
 }
 
 // Modal de flujos — columnas: Fecha|T(A/A)|T(30/360)|Cupón%|Amortiz.|Intereses|VR|CF|t|Duration|Convexity
@@ -3319,6 +3420,7 @@ function openDualModal(ticker) {
     <div class="bms-item"><div class="bms-lbl">Precio</div><div class="bms-val">${fmt(precio,2)}</div></div>
     <div class="bms-item"><div class="bms-lbl">TIR e.a.</div><div class="bms-val pos">${fmtP(r.tir)}</div></div>
     <div class="bms-item"><div class="bms-lbl">TEM bono</div><div class="bms-val">${fmtP(r.temBono,3)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">TEM avg TAMAR (+10d)</div><div class="bms-val">${fmtP(r.temAvgLag,3)}</div></div>
     <div class="bms-item"><div class="bms-lbl">Duration</div><div class="bms-val">${fmt(r.macaulay,4)} a</div></div>
     <div class="bms-item"><div class="bms-lbl">Mod. Duration</div><div class="bms-val">${fmt(r.modified,4)}</div></div>
     <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${def.vto.toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>`;
@@ -3547,6 +3649,160 @@ document.addEventListener('click', e => {
 
 // ESC closes all modals
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeBondModal(); closeModal(); } });
+
+// ═══════════════════════════════════════════════════════════════
+// CURVA PESOS (LECAPs + BONCAPs + Tasa Fija + Duales) & CURVA DUALES
+// ═══════════════════════════════════════════════════════════════
+let PESOS_CURVE_UNIT = 'TEM'; // 'TEM' | 'TNA'
+let DUALES_CURVE_UNIT = 'TEM';
+
+function setPesosCurveUnit(unit, btn) {
+  PESOS_CURVE_UNIT = unit;
+  document.querySelectorAll('#pesos-curve-tem-btn,#pesos-curve-tna-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  buildPesosCurveChart();
+}
+
+function setDualesCurveUnit(unit, btn) {
+  DUALES_CURVE_UNIT = unit;
+  document.querySelectorAll('#duales-curve-tem-btn,#duales-curve-tna-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  buildDualesCurveChart();
+}
+
+function toRateDisplay(tir, unit) {
+  if (tir == null || !isFinite(tir)) return null;
+  if (unit === 'TEM') return (Math.pow(1+tir, 30/365)-1)*100;
+  // TNA: nominal anual simple (base 365)
+  return tir * 100; // TIR ea as pct for display label
+}
+
+function toRateDisplayFn(tir, unit) {
+  if (tir == null || !isFinite(tir)) return null;
+  if (unit === 'TEM') return (Math.pow(1+tir, 30/365)-1)*100;
+  return ((Math.pow(1+tir, 30/365)-1)*12)*100; // TNA = TEM * 12
+}
+
+function buildPesosCurveChart() {
+  destroyChart('c-pesos-curve');
+  const ctx = document.getElementById('c-pesos-curve'); if(!ctx) return;
+  const isLight = document.documentElement.classList.contains('light');
+  const gc = isLight?'rgba(0,0,0,.07)':'rgba(255,255,255,.06)';
+  const tc = isLight?'#6b7280':'#7a8099';
+  const unit = PESOS_CURVE_UNIT;
+  const yLabel = unit === 'TEM' ? 'TEM (%)' : 'TNA (%)';
+
+  // LECAPs/BONCAPs — x = días, y = TEM o TNA
+  const lec = (STATE.lecapCalc||[]).filter(l=>l.tir&&isFinite(l.tir)&&l.dias);
+  const lecOnly = lec.filter(l=>!l.isBoncap);
+  const bonOnly = lec.filter(l=> l.isBoncap);
+  const lecPts = lecOnly.map(l=>({x:l.dias, y:toRateDisplayFn(l.tir,unit), ticker:l.ticker})).filter(p=>p.y!=null);
+  const bonPts = bonOnly.map(l=>({x:l.dias, y:toRateDisplayFn(l.tir,unit), ticker:l.ticker})).filter(p=>p.y!=null);
+
+  // Tasa fija — x = macaulay*365, y = TEM o TNA
+  const pes = (STATE.pesos||[]).filter(b=>b.tir&&isFinite(b.tir)&&b.macaulay);
+  const pesPts = pes.map(b=>({x:Math.round(b.macaulay*365), y:toRateDisplayFn(b.tir,unit), ticker:b.ticker})).filter(p=>p.y!=null);
+
+  // Duales — x = diasReales (desde hoy a vto), y = TEM o TNA del bono
+  const liq = getT1();
+  const dualPts = [];
+  if (_dualesInited || DUAL_STATE.tamarSeries.length) {
+    for (const def of DUAL_DEFS) {
+      const precio = DUAL_STATE.prices[def.ticker];
+      if (!precio) continue;
+      const r = calcDualFlows(def, precio, liq);
+      if (!r || r.tir==null || !isFinite(r.tir)) continue;
+      dualPts.push({x:r.diasReales, y:toRateDisplayFn(r.tir,unit), ticker:def.ticker});
+    }
+  }
+
+  // Poly fit on all combined points for the global curve
+  const allPts = [...lecPts, ...bonPts, ...pesPts, ...dualPts];
+  const datasets = [];
+  if (allPts.length >= 3) {
+    const xs = allPts.map(p=>p.x), ys = allPts.map(p=>p.y);
+    const coef = polyFit(xs, ys);
+    const curve = polyLine(coef, 0, Math.max(...xs)+20);
+    datasets.push({label:'Curva',data:curve,type:'line',borderColor:'rgba(255,255,255,0.25)',borderWidth:1.5,pointRadius:0,fill:false,order:0});
+  }
+  if (lecPts.length) datasets.push({label:'LECAP',data:lecPts,backgroundColor:'#a78bfa',borderColor:'#a78bfa',pointRadius:6,pointHoverRadius:8});
+  if (bonPts.length) datasets.push({label:'BONCAP',data:bonPts,backgroundColor:'#4f8ef7',borderColor:'#4f8ef7',pointRadius:6,pointHoverRadius:8});
+  if (pesPts.length) datasets.push({label:'Tasa Fija',data:pesPts,backgroundColor:'#34d399',borderColor:'#34d399',pointRadius:6,pointHoverRadius:8,pointStyle:'triangle'});
+  if (dualPts.length) datasets.push({label:'Duales',data:dualPts,backgroundColor:'#fbbf24',borderColor:'#fbbf24',pointRadius:7,pointHoverRadius:9,pointStyle:'rect'});
+
+  if (!datasets.length) return;
+  charts['c-pesos-curve'] = new Chart(ctx, {
+    type:'scatter',
+    data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:12,padding:10}},
+        tooltip:{callbacks:{label:ctx2=>{const d=ctx2.raw;return `${d.ticker||''}: ${d.x}d / ${unit} ${d.y?.toFixed(3)}%`;}}}
+      },
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{size:10}},title:{display:true,text:'Días al vencimiento',color:tc,font:{size:10}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v.toFixed(2)+'%'},title:{display:true,text:yLabel,color:tc,font:{size:10}}}
+      }
+    }
+  });
+}
+
+function buildDualesCurveChart() {
+  destroyChart('c-duales-curve');
+  const ctx = document.getElementById('c-duales-curve'); if(!ctx) return;
+  const isLight = document.documentElement.classList.contains('light');
+  const gc = isLight?'rgba(0,0,0,.07)':'rgba(255,255,255,.06)';
+  const tc = isLight?'#6b7280':'#7a8099';
+  const unit = DUALES_CURVE_UNIT;
+  const yLabel = unit === 'TEM' ? 'TEM (%)' : 'TNA (%)';
+  const liq = getT1();
+
+  const pts = [];
+  for (const def of DUAL_DEFS) {
+    const precio = DUAL_STATE.prices[def.ticker];
+    if (!precio) continue;
+    const r = calcDualFlows(def, precio, liq);
+    if (!r || r.tir==null || !isFinite(r.tir)) continue;
+    pts.push({x:r.diasReales, y:toRateDisplayFn(r.tir,unit), ticker:def.ticker, pata:r.esVariable?'TAMAR':'FIJA'});
+  }
+
+  const datasets = [];
+  if (pts.length >= 2) {
+    const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
+    const coef = polyFit(xs, ys);
+    const curve = polyLine(coef, Math.min(...xs)-5, Math.max(...xs)+5);
+    datasets.push({label:'Curva',data:curve,type:'line',borderColor:'#f59e0b55',borderWidth:1.5,pointRadius:0,fill:false,order:0});
+  }
+  datasets.push({label:'Duales',data:pts,backgroundColor:pts.map(p=>p.pata==='TAMAR'?'#34d399':'#fbbf24'),
+    borderColor:'#fbbf24',pointRadius:8,pointHoverRadius:10,
+    pointStyle:pts.map(p=>p.pata==='TAMAR'?'circle':'rect')});
+
+  if (!datasets.length) return;
+  charts['c-duales-curve'] = new Chart(ctx, {
+    type:'scatter',
+    data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:ctx2=>{const d=ctx2.raw;return `${d.ticker||''} (${d.pata||''}): ${d.x}d / ${unit} ${d.y?.toFixed(3)}%`;}}}
+      },
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{size:10}},title:{display:true,text:'Días al vencimiento',color:tc,font:{size:10}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v.toFixed(2)+'%'},title:{display:true,text:yLabel,color:tc,font:{size:10}}}
+      }
+    }
+  });
+}
+
+// Hook into buildCharts to also build the new curves
+const _origBuildCharts = buildCharts;
+buildCharts = function() {
+  _origBuildCharts();
+  buildPesosCurveChart();
+  buildDualesCurveChart();
+};
 
 </script>
 
