@@ -2054,7 +2054,7 @@ function buildCharts() {
         {label:'LECAP',data:lecOnly.map(l=>({x:l.dias,y:l.tem*100,ticker:l.ticker})),
          backgroundColor:'#a78bfa',borderColor:'#a78bfa',pointRadius:5,pointHoverRadius:7},
         {label:'BONCAP',data:bonOnly.map(l=>({x:l.dias,y:l.tem*100,ticker:l.ticker})),
-         backgroundColor:'#f59e0b',borderColor:'#f59e0b',pointRadius:5,pointHoverRadius:7},
+         backgroundColor:'#4f8ef7',borderColor:'#4f8ef7',pointRadius:5,pointHoverRadius:7},
       ]},
       options: {
         responsive:true, maintainAspectRatio:false,
@@ -2673,9 +2673,9 @@ function openBondModal(ticker) {
   document.body.style.overflow='hidden';
   bondPastVisible = false;
 
-  // Toggle past button
+  // Toggle past button — always reset display; renderBondCFModal will hide it if no past rows
   const pastBtn = document.getElementById('bond-toggle-past');
-  if (pastBtn) { pastBtn.textContent='▼ Pagos anteriores'; }
+  if (pastBtn) { pastBtn.style.display = ''; pastBtn.textContent='▼ Pagos anteriores'; }
 
   if (def) {
     renderBondCFModal(ticker, bond, def);
@@ -3283,8 +3283,10 @@ function openDualModal(ticker) {
 
   document.getElementById('bond-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Reset past button state (Dual bonds have no past-rows concept)
+  bondPastVisible = false;
   const pastBtn = document.getElementById('bond-toggle-past');
-  if (pastBtn) pastBtn.style.display = 'none';
+  if (pastBtn) { pastBtn.style.display = 'none'; pastBtn.textContent = '▼ Pagos anteriores'; }
 
   const pata = r.esVariable ? 'Pata TAMAR' : 'Pata Fija';
   document.getElementById('bond-modal-title').textContent = `${ticker} — ${def.nombre} (${pata})`;
@@ -3368,6 +3370,7 @@ async function fetchTAMAR() {
 }
 
 // ── Fetch precios de Duales desde /api/bonds (arg_bonds data912) ──
+// data912 usa campo "symbol" (no "ticker") y precio en "c"
 async function fetchDualPrices() {
   try {
     const r = await fetch(PROXY_URL + '/api/bonds');
@@ -3375,9 +3378,9 @@ async function fetchDualPrices() {
     const arr = await r.json();
     const data = Array.isArray(arr) ? arr : (arr.data || []);
     for (const def of DUAL_DEFS) {
-      const found = data.find(n => n.ticker && n.ticker.toUpperCase() === def.ticker);
+      const found = data.find(n => n.symbol && n.symbol.toUpperCase() === def.ticker);
       if (found) {
-        const c = parseFloat(found.c || found.close || found.last || 0);
+        const c = parseFloat(found.c || found.px_bid || 0);
         if (c > 0) DUAL_STATE.prices[def.ticker] = c;
       }
     }
