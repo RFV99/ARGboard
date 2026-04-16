@@ -28,6 +28,11 @@
     --shadow: 0 2px 12px rgba(0,0,0,0.4);
     --chart-grid: rgba(255,255,255,.05);
     --chart-tick: #7a8099;
+    /* KPI semantic colors */
+    --kpi-rp:    #22d3ee;   /* cyan  */
+    --kpi-mep:   #4f8ef7;   /* blue  */
+    --kpi-cable: #f87171;   /* red   */
+    --kpi-canje: #fbbf24;   /* amber */
   }
   html.light {
     --bg: #f0f2f7;
@@ -46,6 +51,11 @@
     --shadow: 0 2px 12px rgba(0,0,0,0.10);
     --chart-grid: rgba(0,0,0,.06);
     --chart-tick: #6b7280;
+    /* KPI semantic colors light */
+    --kpi-rp:    #0891b2;
+    --kpi-mep:   #2563eb;
+    --kpi-cable: #dc2626;
+    --kpi-canje: #d97706;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; }
@@ -129,6 +139,20 @@
   .kpi.amber::before   { background: var(--amber); }
   .kpi.purple::before  { background: var(--purple); }
   .kpi.teal::before    { background: var(--teal); }
+  /* Semantic KPI accent bars */
+  .kpi.kpi-rp::before    { background: var(--kpi-rp); }
+  .kpi.kpi-mep::before   { background: var(--kpi-mep); }
+  .kpi.kpi-cable::before { background: var(--kpi-cable); }
+  .kpi.kpi-canje::before { background: var(--kpi-canje); }
+  /* Fila 2 TIR card colors — match bond mode */
+  .kpi.kpi-tir-mep::before   { background: var(--kpi-mep); }
+  .kpi.kpi-tir-cable::before { background: var(--kpi-cable); }
+  /* KPI value semantic colors */
+  .kpi-value.kpi-rp-val    { color: var(--kpi-rp);    text-shadow: 0 0 20px rgba(34,211,238,.35); }
+  .kpi-value.kpi-mep-val   { color: var(--kpi-mep);   text-shadow: 0 0 20px rgba(79,142,247,.35); }
+  .kpi-value.kpi-cable-val { color: var(--kpi-cable); text-shadow: 0 0 20px rgba(248,113,113,.35); }
+  .kpi-value.kpi-canje-val { color: var(--kpi-canje); text-shadow: 0 0 20px rgba(251,191,36,.35); }
+  .kpi-value.kpi-tir-val   { font-size: 22px; font-weight: 800; }
   .kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 6px; }
   .kpi-value { font-size: 22px; font-weight: 700; letter-spacing: -.02em; font-family: var(--mono); }
   .kpi-sub   { font-size: 10px; color: var(--muted); margin-top: 3px; }
@@ -396,9 +420,9 @@
 
   <!-- Fila 1: Riesgo País | MEP | Cable | Canje -->
   <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr));margin-bottom:.75rem;">
-    <div class="kpi red kpi-interactive" id="kpi-rp" onclick="openModal('rp')">
+    <div class="kpi kpi-rp kpi-interactive" id="kpi-rp" onclick="openModal('rp')">
       <div class="kpi-label-big">Riesgo País (EMBI)</div>
-      <div class="kpi-value neg" id="k-rp">—</div>
+      <div class="kpi-value kpi-rp-val" id="k-rp">—</div>
       <div class="kpi-sub">puntos básicos</div>
       <div class="kpi-changes" id="kpi-changes-rp">
         <span class="kpi-chg-item"><span class="lbl">1D</span><span class="val neu" id="chg-rp-1d">—</span></span>
@@ -409,9 +433,9 @@
       <div class="kpi-mini-chart"><canvas id="mini-c-rp"></canvas></div>
       <div class="kpi-open-hint">Abrir Riesgo País →</div>
     </div>
-    <div class="kpi green kpi-interactive" id="kpi-mep" onclick="openModal('mep')">
+    <div class="kpi kpi-mep kpi-interactive" id="kpi-mep" onclick="openModal('mep')">
       <div class="kpi-label-big">MEP</div>
-      <div class="kpi-value neu" id="k-mep">—</div>
+      <div class="kpi-value kpi-mep-val" id="k-mep">—</div>
       <div class="kpi-sub">ARS/USD · <span class="kpi-sub-ref">en base al AL30</span></div>
       <div class="kpi-changes" id="kpi-changes-mep">
         <span class="kpi-chg-item"><span class="lbl">1D</span><span class="val neu" id="chg-mep-1d">—</span></span>
@@ -422,9 +446,9 @@
       <div class="kpi-mini-chart"><canvas id="mini-c-mep"></canvas></div>
       <div class="kpi-open-hint">Abrir MEP →</div>
     </div>
-    <div class="kpi teal kpi-interactive" id="kpi-cable" onclick="openModal('cable')">
+    <div class="kpi kpi-cable kpi-interactive" id="kpi-cable" onclick="openModal('cable')">
       <div class="kpi-label-big">Cable</div>
-      <div class="kpi-value neu" id="k-cable">—</div>
+      <div class="kpi-value kpi-cable-val" id="k-cable">—</div>
       <div class="kpi-sub">ARS/USD · <span class="kpi-sub-ref">en base al AL30</span></div>
       <div class="kpi-changes" id="kpi-changes-cable">
         <span class="kpi-chg-item"><span class="lbl">1D</span><span class="val neu" id="chg-cable-1d">—</span></span>
@@ -435,13 +459,13 @@
       <div class="kpi-mini-chart"><canvas id="mini-c-cable"></canvas></div>
       <div class="kpi-open-hint">Abrir Cable →</div>
     </div>
-    <div class="kpi amber kpi-interactive" id="kpi-canje" onclick="openModal('canje')">
+    <div class="kpi kpi-canje kpi-interactive" id="kpi-canje" onclick="openModal('canje')">
       <div class="kpi-label-big">Canje</div>
       <div class="kpi-sub" style="margin-bottom:4px"><span class="kpi-sub-ref">en base al AL30</span></div>
       <div style="display:flex;gap:16px;align-items:baseline;margin-top:2px;">
         <div>
           <div style="font-size:9px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em;">IN</div>
-          <div class="kpi-value pos" id="k-canje-in" style="font-size:16px;">—</div>
+          <div class="kpi-value kpi-canje-val" id="k-canje-in" style="font-size:16px;">—</div>
         </div>
         <div>
           <div style="font-size:9px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em;">OUT</div>
@@ -461,10 +485,10 @@
 
   <!-- Fila 2: TIR promedios + TEM -->
   <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:1.25rem;">
-    <div class="kpi accent"><div class="kpi-label">TIR prom. Globales</div><div class="kpi-value neu" id="k-glo-tir">—</div><div class="kpi-sub">efectiva anual</div></div>
-    <div class="kpi accent"><div class="kpi-label">TIR prom. Bonares</div><div class="kpi-value neu" id="k-bon-tir">—</div><div class="kpi-sub">efectiva anual</div></div>
-    <div class="kpi accent"><div class="kpi-label">TIR prom. Bopreales</div><div class="kpi-value neu" id="k-bop-tir">—</div><div class="kpi-sub">efectiva anual</div></div>
-    <div class="kpi purple"><div class="kpi-label">TEM media Lecaps</div><div class="kpi-value neu" id="k-tem">—</div><div class="kpi-sub">mensual efectiva</div></div>
+    <div class="kpi kpi-tir-mep" id="kpi-f2-glo"><div class="kpi-label">TIR prom. Globales</div><div class="kpi-value kpi-tir-val" id="k-glo-tir">—</div><div class="kpi-sub">efectiva anual</div></div>
+    <div class="kpi kpi-tir-mep" id="kpi-f2-bon"><div class="kpi-label">TIR prom. Bonares</div><div class="kpi-value kpi-tir-val" id="k-bon-tir">—</div><div class="kpi-sub">efectiva anual</div></div>
+    <div class="kpi kpi-tir-mep" id="kpi-f2-bop"><div class="kpi-label">TIR prom. Bopreales</div><div class="kpi-value kpi-tir-val" id="k-bop-tir">—</div><div class="kpi-sub">efectiva anual</div></div>
+    <div class="kpi purple"><div class="kpi-label">TEM media Lecaps</div><div class="kpi-value kpi-tir-val" id="k-tem">—</div><div class="kpi-sub">mensual efectiva</div></div>
   </div>
 
   <!-- Tabs -->
@@ -1638,9 +1662,9 @@ function updateKPIs() {
   const canjeOut = (mepV && cableV) ? (mepV / cableV - 1) : null;
 
   // Row 1
-  set('k-rp',   STATE.riesgoPais ? Math.round(STATE.riesgoPais).toLocaleString('es-AR') : '—', 'neg');
-  set('k-mep',  mepV   ? ars(mepV)   : '—');
-  set('k-cable',cableV ? ars(cableV) : '—');
+  setTir('k-rp',    STATE.riesgoPais ? Math.round(STATE.riesgoPais).toLocaleString('es-AR') : '—', 'kpi-value kpi-rp-val');
+  setTir('k-mep',   mepV   ? ars(mepV)   : '—', 'kpi-value kpi-mep-val');
+  setTir('k-cable', cableV ? ars(cableV) : '—', 'kpi-value kpi-cable-val');
 
   const ciEl = document.getElementById('k-canje-in');
   const coEl = document.getElementById('k-canje-out');
@@ -1648,10 +1672,21 @@ function updateKPIs() {
   if (coEl) coEl.textContent = canjeOut != null ? (canjeOut*100).toFixed(2)+'%' : '—';
 
   // Row 2
-  set('k-glo-tir', pct(avgGloTir), avgGloTir > 0.09 ? 'neg' : 'pos');
-  set('k-bon-tir', pct(avgBonTir), avgBonTir > 0.09 ? 'neg' : 'pos');
-  set('k-bop-tir', pct(avgBopTir), avgBopTir > 0.09 ? 'neg' : 'pos');
-  set('k-tem', pct3(avgTem));
+  // Fila 2: TIR color matches current bond mode
+  const tirValClass = (typeof BOND_MODE !== 'undefined' && BOND_MODE === 'CABLE')
+    ? 'kpi-value kpi-tir-val kpi-cable-val'
+    : 'kpi-value kpi-tir-val kpi-mep-val';
+  setTir('k-glo-tir', pct(avgGloTir), tirValClass);
+  setTir('k-bon-tir', pct(avgBonTir), tirValClass);
+  setTir('k-bop-tir', pct(avgBopTir), tirValClass);
+  setTir('k-tem', pct3(avgTem), 'kpi-value kpi-tir-val');
+  // Also update Fila 2 card bar colors to match mode
+  ['kpi-f2-glo','kpi-f2-bon','kpi-f2-bop'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('kpi-tir-mep','kpi-tir-cable');
+    el.classList.add(BOND_MODE === 'CABLE' ? 'kpi-tir-cable' : 'kpi-tir-mep');
+  });
 }
 
 function set(id, val, cls='') {
@@ -1659,6 +1694,13 @@ function set(id, val, cls='') {
   if (!el) return;
   el.textContent = val;
   el.className = 'kpi-value ' + (cls || 'neu');
+}
+
+function setTir(id, val, fullClass) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val;
+  el.className = fullClass;
 }
 
 // Returns the display version of a ticker based on current BOND_MODE
@@ -2365,7 +2407,12 @@ function buildMiniChart(canvasId, series, color) {
 
 function buildMiniCharts() {
   const isLight = document.documentElement.classList.contains('light');
-  const colors = { rp: isLight?'#dc2626':'#f87171', mep:isLight?'#059669':'#34d399', cable:isLight?'#0d9488':'#2dd4bf', canje:isLight?'#d97706':'#fbbf24' };
+  const colors = {
+    rp:    isLight ? '#0891b2' : '#22d3ee',  // cyan
+    mep:   isLight ? '#2563eb' : '#4f8ef7',  // blue
+    cable: isLight ? '#dc2626' : '#f87171',  // red
+    canje: isLight ? '#d97706' : '#fbbf24',  // amber
+  };
   // Compute canje series
   if (kpiHistCache.mep && kpiHistCache.cable) {
     const cableMap={};
@@ -2423,9 +2470,9 @@ let modalState = { key:null, period:'1m' };
 let modalChart = null;
 
 const MODAL_META = {
-  rp:    {title:'Riesgo País (EMBI)',      color:'#f87171', lColor:'#dc2626', isRp:true},
-  mep:   {title:'Dólar MEP · AL30',        color:'#34d399', lColor:'#059669'},
-  cable: {title:'Dólar Cable · AL30',      color:'#2dd4bf', lColor:'#0d9488'},
+  rp:    {title:'Riesgo País (EMBI)',            color:'#22d3ee', lColor:'#0891b2', isRp:true},
+  mep:   {title:'Dólar MEP · AL30',              color:'#4f8ef7', lColor:'#2563eb'},
+  cable: {title:'Dólar Cable · AL30',            color:'#f87171', lColor:'#dc2626'},
   canje: {title:'Canje IN · AL30 (Cable/MEP−1)', color:'#fbbf24', lColor:'#d97706', isCanje:true},
 };
 
