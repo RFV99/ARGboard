@@ -3228,30 +3228,31 @@ function getHistTEM(d) {
 // TEM proyectada para una fecha (usa REM o suavizado)
 // Suavizado: interpola TNA mensualmente desde última TNA conocida hasta
 // target a dic-26 (slider), siguiendo la tendencia luego.
+// Conversión TNA → TEM según convención BCRA/TAMAR:
+// ((1 + TNA/(365/32))^(365/32))^(1/12) − 1
+function tnaToTem(tna) {
+  return Math.pow(Math.pow(1 + tna/(365/32), 365/32), 1/12) - 1;
+}
+
 function getProjTEM(d) {
   const hist = DUAL_STATE.tamarSeries;
   if (DUAL_STATE.projMode === 'REM') {
     const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const row = DUAL_REM.find(r => r.ym === mo);
     const tna = row ? row.tna : DUAL_REM[DUAL_REM.length-1].tna;
-    return Math.pow(1+tna, 30/365)-1;
+    return tnaToTem(tna);
   }
   // ── Suavizado: interpolar TNA mensual desde última conocida hasta target dic-26 ──
-  // Última TNA conocida de la serie BCRA
   const lastTNA = hist.length ? hist[hist.length-1].tna : 0.26;
   const lastDate = hist.length ? hist[hist.length-1].fecha : new Date();
-  const targetTNA = DUAL_STATE.suavFinTNA; // slider (ej: 0.22 = 22%)
-  // Target date: diciembre 2026
+  const targetTNA = DUAL_STATE.suavFinTNA;
   const targetDate = new Date(2026, 11, 31);
-  // Meses entre último dato y target
   const msPerMonth = 30.44 * 86400000;
   const totalMonths = Math.max(1, (targetDate - lastDate) / msPerMonth);
-  // Meses desde último dato hasta la fecha pedida
   const elapsedMonths = (d - lastDate) / msPerMonth;
-  // Interpolar TNA linealmente; continuar la tendencia después del target
   const slope = (targetTNA - lastTNA) / totalMonths;
   const tna = lastTNA + slope * elapsedMonths;
-  return Math.pow(1 + tna, 30/365) - 1;
+  return tnaToTem(tna);
 }
 
 // Construir serie "ajuste" replicando metodología del Excel:
@@ -3543,7 +3544,7 @@ async function fetchTAMAR() {
   if (!det?.length) throw new Error('Sin datos');
   return det.map(d => {
     const tna = d.valor/100;
-    return { fecha:new Date(d.fecha+'T00:00:00'), tna, tem:Math.pow(1+tna,30/365)-1 };
+    return { fecha:new Date(d.fecha+'T00:00:00'), tna, tem:tnaToTem(tna) };
   }).reverse();
 }
 
@@ -3580,7 +3581,7 @@ function renderTamarChart() {
       const [y,m] = row.ym.split('-').map(Number);
       const d = new Date(y, m-1, 15);
       if (d>lastH) {
-        const tem = Math.pow(1+row.tna,30/365)-1;
+        const tem = tnaToTem(row.tna);
         projPts.push({x:d, y: unit==='TNA' ? +(row.tna*100).toFixed(4) : +(tem*100).toFixed(4)});
       }
     }
@@ -3598,7 +3599,7 @@ function renderTamarChart() {
     while (cur<=end) {
       const elapsedMonths = (cur - lastDate) / msPerMonth;
       const tna = lastTNA + slope * elapsedMonths;
-      const tem = Math.pow(1+tna,30/365)-1;
+      const tem = tnaToTem(tna);
       projPts.push({x:new Date(cur), y: unit==='TNA' ? +(tna*100).toFixed(4) : +(tem*100).toFixed(4)});
       cur.setMonth(cur.getMonth()+1);
     }
