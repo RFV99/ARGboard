@@ -3286,8 +3286,12 @@ function calcTEMavgLagged(emision, vto) {
 
 // Calcular métricas de un bono dual
 function calcDualFlows(def, precio, liq) {
-  const yf       = yearfrac0(def.emision, def.vto);  // vida TOTAL emision→vto
-  const periodos = yf * 12; // meses totales del bono
+  // Usar días REALES entre emisión y vto para capitalizar la TEM mensual.
+  // La TEM es una tasa por ~30 días calendario, así que los períodos de
+  // capitalización deben ser días_reales/30 (no YEARFRAC 30/360 que achica).
+  const diasVida = Math.round((def.vto - def.emision) / 86400000); // días calendario reales
+  const periodos = diasVida / 30;  // meses reales de capitalización
+  const yfReal   = diasVida / 365; // vida en años (base ACT/365) para anualizar
 
   // ── Pata fija ──
   const intFija = 100*(Math.pow(1+def.temEmision, periodos)-1);
@@ -3301,15 +3305,15 @@ function calcDualFlows(def, precio, liq) {
   const cfTAMAR  = 100+intTAMAR;
 
   // Debug: verificar en consola que los valores son correctos
-  console.debug(`[DUAL] ${def.ticker} | YF=${yf.toFixed(4)} meses=${periodos.toFixed(2)} | TEM_avg_lag=${(temAvgLag*100).toFixed(4)}% | intTAMAR=${intTAMAR.toFixed(4)} | cfTAMAR=${cfTAMAR.toFixed(4)}`);
+  console.debug(`[DUAL] ${def.ticker} | diasVida=${diasVida} meses=${periodos.toFixed(2)} | TEM_avg_lag=${(temAvgLag*100).toFixed(4)}% | intTAMAR=${intTAMAR.toFixed(4)} | cfTAMAR=${cfTAMAR.toFixed(4)}`);
 
   const esVariable = cfTAMAR >= cfFija;
   const cfFinal    = Math.max(cfFija, cfTAMAR);
   const intFinal   = cfFinal - 100;
 
   // Cupón% = tasa efectiva anual del flujo total (expresado como % EA sobre VR)
-  // = (1 + intFinal/100)^(1/yf) − 1
-  const cuponPct = Math.pow(1 + intFinal/100, 1/yf) - 1;
+  // = (1 + intFinal/100)^(1/yfReal) − 1  (base ACT/365)
+  const cuponPct = Math.pow(1 + intFinal/100, 1/yfReal) - 1;
 
   const diasReales = Math.round((def.vto - liq) / 86400000);
   const tAA = diasReales / 365;
@@ -3337,7 +3341,7 @@ function calcDualFlows(def, precio, liq) {
     ticker:def.ticker, emision:def.emision, vto:def.vto, precio, liq,
     temAvgLag, intFija, cfFija, intTAMAR, cfTAMAR,
     intFinal, cfFinal, cuponPct, esVariable,
-    tAA, t30, diasReales, tir, temBono, macaulay, modified, convex, tePlazo, usdBE, yf
+    tAA, t30, diasReales, tir, temBono, macaulay, modified, convex, tePlazo, usdBE, yf:yfReal
   };
 }
 
