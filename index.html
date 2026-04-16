@@ -3060,9 +3060,10 @@ const DUAL_DEFS = [
   { ticker:'TTD26', nombre:'Dual Dic-26', emision:new Date(2025,0,29), vto:new Date(2026,11,15), temEmision:0.0214 },
 ];
 
-// ── BCRA API proxy (mismo dominio Vercel) ──
-// idVariable=34 = TAMAR (tasa activa de bancos privados, llamada TAMAR en la API)
-const BCRA_TAMAR_ID = 34;
+// ── BCRA API — TAMAR ──
+// idVariable=44 = "Tasa de interes TAMAR de bancos privados" (TNA, % nominal anual, Principales Variables)
+// Ejemplo: valor=30.875 → TNA=30.875% → tna=0.30875 → tem=(1+0.30875)^(30/365)-1
+const BCRA_TAMAR_ID = 44;
 
 // ── Estado global ──
 let DUAL_STATE = {
@@ -3092,15 +3093,18 @@ function days360(start, end) {
 }
 
 // ── Construir serie diaria de TEM para un rango de fechas ──
-// Usa datos históricos del BCRA hasta hoy, luego proyección hacia adelante
+// TAMAR existe desde Oct 2024. Para fechas anteriores usamos el primer valor disponible.
+// Para fechas futuras usa proyección (REM o Suavizado).
 function buildDailyTEM(fromDate, toDate) {
-  const hist = DUAL_STATE.tamarSeries;
+  const hist = DUAL_STATE.tamarSeries; // ordenado ASC
   const today = new Date(); today.setHours(0,0,0,0);
-  const result = [];
 
-  // Helper: obtener TEM para una fecha (ultimo valor disponible <= fecha)
+  // Helper: obtener TEM del historial para una fecha (last known ≤ fecha)
   const getHistTEM = (d) => {
-    let val = null;
+    if (!hist.length) return null;
+    // Si es antes del primer dato, usar el primer dato disponible
+    if (d < hist[0].fecha) return hist[0].tem;
+    let val = hist[0].tem;
     for (const h of hist) {
       if (h.fecha <= d) val = h.tem;
       else break;
@@ -3108,14 +3112,11 @@ function buildDailyTEM(fromDate, toDate) {
     return val;
   };
 
-  // Proyección para fechas futuras
+  // Helper: obtener TEM proyectado para fechas futuras
   const getProjTEM = (d) => {
-    if (DUAL_STATE.projMode === 'REM') {
-      const rem = DUAL_STATE.remProj;
-      if (!rem.length) return getDualSuavTEM(d);
-      // Buscar el mes que corresponde
-      let val = rem[rem.length-1].tem;
-      for (const r of rem) {
+    if (DUAL_STATE.projMode === 'REM' && DUAL_STATE.remProj.length) {
+      let val = DUAL_STATE.remProj[DUAL_STATE.remProj.length-1].tem;
+      for (const r of DUAL_STATE.remProj) {
         if (d <= r.fecha) { val = r.tem; break; }
       }
       return val;
@@ -3123,16 +3124,14 @@ function buildDailyTEM(fromDate, toDate) {
     return getDualSuavTEM(d);
   };
 
-  // Iterar cada día calendario (Excel usa todos los días)
+  const result = [];
   const cur = new Date(fromDate);
   while (cur < toDate) {
     let tem;
-    if (cur <= today && hist.length) {
-      tem = getHistTEM(cur);
-      if (tem === null) tem = hist.length ? hist[0].tem : 0.028;
+    if (cur <= today) {
+      tem = getHistTEM(cur) ?? (hist.length ? hist[0].tem : 0.028);
     } else {
-      const lastHistTEM = hist.length ? hist[hist.length-1].tem : 0.028;
-      tem = hist.length && cur <= today ? lastHistTEM : getProjTEM(cur);
+      tem = getProjTEM(cur);
     }
     result.push({ fecha: new Date(cur), tem });
     cur.setDate(cur.getDate() + 1);
@@ -3389,11 +3388,10 @@ function openDualModal(ticker) {
      </span>`;
 }
 
-// ── Fetch TAMAR desde BCRA (via Vercel proxy para evitar CORS) ──
+// ── Fetch TAMAR desde BCRA API pública (no requiere autenticación, sin CORS) ──
 async function fetchTAMAR() {
-  // Intenta via proxy Vercel primero; si no, directo a BCRA
   const today = new Date();
-  const desde = new Date(today); desde.setFullYear(desde.getFullYear() - 2);
+  const desde = new Date(2024, 9, 1); // TAMAR existe desde Oct 2024
   const fmt = d => d.toISOString().slice(0,10);
   const url = `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/${BCRA_TAMAR_ID}?desde=${fmt(desde)}&hasta=${fmt(today)}&limit=1000`;
 
@@ -3404,12 +3402,16 @@ async function fetchTAMAR() {
   const detalle = j.results?.[0]?.detalle;
   if (!detalle?.length) throw new Error('Sin detalle TAMAR');
 
-  // Viene newest-first → reverse
-  return detalle.map(d => ({
-    fecha: new Date(d.fecha + 'T00:00:00'),
-    tna: d.valor / 100,
-    tem: Math.pow(1 + d.valor/100, 30/365) - 1,
-  })).reverse();
+  // valor viene en % TNA (ej: 30.875) → divido por 100 para obtener tasa decimal
+  // Viene newest-first → reverse para orden cronológico
+  return detalle.map(d => {
+    const tna = d.valor / 100;
+    return {
+      fecha: new Date(d.fecha + 'T00:00:00'),
+      tna,
+      tem: Math.pow(1 + tna, 30/365) - 1,
+    };
+  }).reverse();
 }
 
 // ── Fetch REM desde BCRA ──
@@ -3439,10 +3441,11 @@ async function fetchREM() {
   return null;
 }
 
-// ── Fetch precios de Duales desde data912 (/api/lecaps) ──
+// ── Fetch precios de Duales desde data912 (/api/bonds = arg_bonds) ──
+// Los bonos duales (TTJ26, TTS26, TTD26) son bonos en pesos → están en arg_bonds
 async function fetchDualPrices() {
   try {
-    const r = await fetch(PROXY_URL + '/api/lecaps');
+    const r = await fetch(PROXY_URL + '/api/bonds');
     if (!r.ok) return;
     const data = await r.json();
     const arr = Array.isArray(data) ? data : (data.data || []);
@@ -3451,7 +3454,8 @@ async function fetchDualPrices() {
         n.ticker && n.ticker.toUpperCase() === def.ticker.toUpperCase()
       );
       if (found) {
-        const c = parseFloat(found.c || found.close || found.precio || 0);
+        // data912 usa campo 'c' para close price
+        const c = parseFloat(found.c || found.close || found.last || found.precio || 0);
         if (c > 0) DUAL_STATE.prices[def.ticker] = c;
       }
     }
