@@ -659,7 +659,7 @@
       <table id="tbl-duales" style="width:100%;">
         <thead><tr>
           <th>Ticker</th><th>Precio</th><th>Vcto.</th>
-          <th>TIR e.a.</th><th>TEM bono</th><th>Duration</th><th>Mod. Dur.</th>
+          <th>TIR e.a.</th><th>TEM</th><th>Duration</th><th>Mod. Dur.</th>
           <th>TE al plazo</th><th>USD Breakeven</th>
         </tr></thead>
         <tbody id="tbody-duales">
@@ -699,28 +699,28 @@
         <div class="chart-wrap" style="height:230px"><canvas id="c-lecaps" role="img" aria-label="Curva LECAPS"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">HARD DOLLAR — Todos</div>
-        <div class="chart-wrap" style="height:230px"><canvas id="c-scatter" role="img" aria-label="Scatter Duration TIR"></canvas></div>
-      </div>
-      <div class="chart-card" style="grid-column:span 2">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-          <div class="chart-title" style="margin-bottom:0">CURVA PESOS — Todos los instrumentos</div>
-          <div style="display:flex;gap:4px;">
-            <button class="period-btn active" id="pesos-curve-tem-btn" onclick="setPesosCurveUnit('TEM',this)">TEM</button>
-            <button class="period-btn" id="pesos-curve-tna-btn" onclick="setPesosCurveUnit('TNA',this)">TNA</button>
-          </div>
-        </div>
-        <div class="chart-wrap" style="height:270px"><canvas id="c-pesos-curve" role="img" aria-label="Curva Pesos todos los instrumentos"></canvas></div>
-      </div>
-      <div class="chart-card" style="grid-column:span 2">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-          <div class="chart-title" style="margin-bottom:0">CURVA DUALES</div>
+          <div class="chart-title" style="margin-bottom:0">DUALES</div>
           <div style="display:flex;gap:4px;">
             <button class="period-btn active" id="duales-curve-tem-btn" onclick="setDualesCurveUnit('TEM',this)">TEM</button>
             <button class="period-btn" id="duales-curve-tna-btn" onclick="setDualesCurveUnit('TNA',this)">TNA</button>
           </div>
         </div>
-        <div class="chart-wrap" style="height:220px"><canvas id="c-duales-curve" role="img" aria-label="Curva Duales"></canvas></div>
+        <div class="chart-wrap" style="height:230px"><canvas id="c-duales-curve" role="img" aria-label="Curva Duales"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">HARD DOLLAR — Todos</div>
+        <div class="chart-wrap" style="height:230px"><canvas id="c-scatter" role="img" aria-label="Scatter Duration TIR"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+          <div class="chart-title" style="margin-bottom:0">PESOS — Todos</div>
+          <div style="display:flex;gap:4px;">
+            <button class="period-btn active" id="pesos-curve-tem-btn" onclick="setPesosCurveUnit('TEM',this)">TEM</button>
+            <button class="period-btn" id="pesos-curve-tna-btn" onclick="setPesosCurveUnit('TNA',this)">TNA</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:230px"><canvas id="c-pesos-curve" role="img" aria-label="Curva Pesos todos los instrumentos"></canvas></div>
       </div>
     </div>
   </div>
@@ -3462,7 +3462,7 @@ function openDualModal(ticker) {
   document.getElementById('bond-modal-summary').innerHTML = `
     <div class="bms-item"><div class="bms-lbl">Precio</div><div class="bms-val">${fmt(precio,2)}</div></div>
     <div class="bms-item"><div class="bms-lbl">TIR e.a.</div><div class="bms-val pos">${fmtP(r.tir)}</div></div>
-    <div class="bms-item"><div class="bms-lbl">TEM bono</div><div class="bms-val">${fmtP(r.temBono,3)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">TEM</div><div class="bms-val">${fmtP(r.temBono,3)}</div></div>
     <div class="bms-item"><div class="bms-lbl">TEM avg TAMAR (+10d)</div><div class="bms-val">${fmtP(r.temAvgLag,3)}</div></div>
     <div class="bms-item"><div class="bms-lbl">Duration</div><div class="bms-val">${fmt(r.macaulay,4)} a</div></div>
     <div class="bms-item"><div class="bms-lbl">Mod. Duration</div><div class="bms-val">${fmt(r.modified,4)}</div></div>
