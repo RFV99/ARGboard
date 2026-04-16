@@ -89,6 +89,8 @@
     background: var(--green); animation: pulse 2s infinite;
   }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .badge-closed { background: rgba(239,68,68,.1); color: #ef4444; border-color: rgba(239,68,68,.25); }
+  .badge-closed .dot { background: #ef4444; animation: none; }
   .badge-stale { background: rgba(251,191,36,.1); color: var(--amber); border-color: rgba(251,191,36,.25); }
   .badge-stale .dot { background: var(--amber); animation: none; }
   .header-right { display: flex; align-items: center; gap: .75rem; }
@@ -639,11 +641,11 @@
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
       <span style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.06em;">PROYECCIÓN:</span>
       <div style="display:flex;gap:4px;">
-        <button class="period-btn active" id="dual-proj-rem"  onclick="setDualProj('REM',this)">REM</button>
-        <button class="period-btn"        id="dual-proj-suav" onclick="setDualProj('SUAV',this)">Suavizado</button>
+        <button class="period-btn"        id="dual-proj-rem"  onclick="setDualProj('REM',this)">REM</button>
+        <button class="period-btn active" id="dual-proj-suav" onclick="setDualProj('SUAV',this)">Suavizado</button>
       </div>
-      <span style="font-size:9px;color:var(--muted);font-style:italic;">REM mar-26</span>
-      <div id="dual-suav-controls" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span id="dual-rem-label" style="font-size:9px;color:var(--muted);font-style:italic;display:none;">REM mar-26</span>
+      <div id="dual-suav-controls" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:11px;color:var(--muted);">TNA Dic-26:</span>
         <button class="period-btn" onclick="stepSuav(-1)">◀</button>
         <input id="dual-suav-slider" type="range" min="5" max="40" step="0.5" value="22"
@@ -674,9 +676,14 @@
           <button class="period-btn active" id="tamar-unit-tna" onclick="setTamarUnit('TNA',this)">TNA</button>
           <button class="period-btn"        id="tamar-unit-tem" onclick="setTamarUnit('TEM',this)">TEM</button>
         </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="date" id="tamar-date-from" value="2024-10-01" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);cursor:pointer;" onchange="renderTamarChart()">
+          <span style="font-size:10px;color:var(--muted)">—</span>
+          <input type="date" id="tamar-date-to" value="2026-12-31" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);cursor:pointer;" onchange="renderTamarChart()">
+        </div>
         <div style="display:flex;gap:4px;margin-left:auto;">
-          <button class="period-btn active" id="tamar-proj-rem"  onclick="setTamarProj('REM',this)">REM</button>
-          <button class="period-btn"        id="tamar-proj-suav" onclick="setTamarProj('SUAV',this)">Suavizado</button>
+          <button class="period-btn"        id="tamar-proj-rem"  onclick="setTamarProj('REM',this)">REM</button>
+          <button class="period-btn active" id="tamar-proj-suav" onclick="setTamarProj('SUAV',this)">Suavizado</button>
         </div>
       </div>
       <div class="chart-wrap" style="height:260px;"><canvas id="c-tamar" role="img" aria-label="Serie histórica TAMAR"></canvas></div>
@@ -1887,11 +1894,18 @@ function renderTCStrip() {
   }).join('');
 }
 
+// Indicador ● que refleja el estado del mercado (verde abierto, rojo cerrado)
+function liveDot(hasPrice) {
+  if (!hasPrice) return '';
+  const color = isMarketOpen() ? 'var(--green)' : '#ef4444';
+  return `<span style="font-size:9px;color:${color}">●</span>`;
+}
+
 function renderBondTable(tbodyId, data, tag) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody || !data.length) { if(tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">Sin datos — presioná Actualizar</td></tr>'; return; }
   tbody.innerHTML = data.map(b => `<tr>
-    <td><span class="ticker">${displayTicker(b.ticker)} ${b.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
+    <td><span class="ticker">${displayTicker(b.ticker)} ${liveDot(b.live)}</span>
         <span class="bond-name">${b.nombre}</span>
         <span class="tag ${tag}">${b.grupo}</span></td>
     <td>${f2(b.precio)}</td>
@@ -1941,7 +1955,7 @@ function renderHardDollarTable(tbodyId, data) {
   tbody.innerHTML = data.map(b => {
     const hc = tirColor(b.tir, allTirs);
     return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
-    <td><span class="ticker">${displayTicker(b.ticker)} ${b.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
+    <td><span class="ticker">${displayTicker(b.ticker)} ${liveDot(b.live)}</span>
         <span class="bond-name">${b.nombre}</span>
         <span class="tag ${b._tag}">${b.grupo}</span></td>
     <td>${f2(b.precio)}</td>
@@ -1971,7 +1985,7 @@ function renderCapitalizablesTable() {
     const usdNow = getLiveUSD();
     const usdBE = l.tePlazo!=null && isFinite(l.tePlazo) && usdNow ? (usdNow*(1+l.tePlazo)).toFixed(1) : '—';
     return `<tr style="cursor:pointer" onclick="openBondModal('${l.ticker}')">
-    <td><span class="ticker">${l.ticker} ${l.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
+    <td><span class="ticker">${l.ticker} ${liveDot(l.live)}</span>
         <span class="tag ${tagCls}">${tipo}</span></td>
     <td>${l.vto.slice(5).replace('-','/')}</td>
     <td>${l.dias}</td>
@@ -2002,7 +2016,7 @@ function renderPesosTable() {
     const hcp = tirColor(tir, allPesosTirs);
     const hcTem = tirColor(tem, allPesosTems);
     return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
-      <td><span class="ticker">${b.ticker}</span><span class="bond-name">${b.nombre}</span><span class="tag tag-pes">ARS</span></td>
+      <td><span class="ticker">${b.ticker} ${liveDot(b.precio)}</span><span class="bond-name">${b.nombre}</span><span class="tag tag-pes">ARS</span></td>
       <td>${b.cupon ? pct(b.cupon) : '—'}</td>
       <td>${f2(b.precio)}</td>
       <td ${hcp}>${pct(tir)}</td>
@@ -2258,12 +2272,38 @@ function sortTable(key, colIdx) {
   renderAllTables();
 }
 
+// Mercado argentino: lunes a viernes, 10:30 a 17:00 ART (UTC-3)
+function isMarketOpen() {
+  const now = new Date();
+  // Convertir a hora Argentina (UTC-3)
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const art = new Date(utc - 3 * 3600000);
+  const day = art.getDay(); // 0=dom, 6=sab
+  if (day === 0 || day === 6) return false;
+  const mins = art.getHours() * 60 + art.getMinutes();
+  return mins >= 630 && mins < 1020; // 10:30=630, 17:00=1020
+}
+
 function setBadge(state) {
   const b = document.getElementById('live-badge');
   const t = document.getElementById('live-text');
-  b.className = 'badge-live' + (state === 'live' ? '' : ' badge-stale');
-  t.textContent = state === 'live' ? 'Live' : 'Sin conexión';
+  if (state !== 'live') {
+    b.className = 'badge-live badge-stale';
+    t.textContent = 'Sin conexión';
+    return;
+  }
+  const open = isMarketOpen();
+  b.className = 'badge-live' + (open ? '' : ' badge-closed');
+  t.textContent = open ? 'Mercado abierto' : 'Mercado cerrado';
 }
+
+// Actualizar badge cada minuto para reflejar cambio de horario
+setInterval(() => {
+  const b = document.getElementById('live-badge');
+  if (b && !b.classList.contains('badge-stale')) {
+    setBadge('live');
+  }
+}, 60000);
 
 function updateTimestamp() {
   const ts = document.getElementById('ts');
@@ -3183,7 +3223,7 @@ const BCRA_TAMAR_ID = 44; // "Tasa de interes TAMAR de bancos privados" TNA %na
 
 let DUAL_STATE = {
   tamarSeries: [], prices: {},
-  projMode:'REM', tamarUnit:'TNA', suavFinTNA:0.22, tamarChart:null,
+  projMode:'SUAV', tamarUnit:'TNA', suavFinTNA:0.22, tamarChart:null,
 };
 let _dualesInited = false;
 
@@ -3419,7 +3459,8 @@ function renderDualesTable() {
     const temHc = tirColor(r.temBono, allTems);
 
     html += `<tr style="cursor:pointer" onclick="openDualModal('${def.ticker}')">
-      <td style="font-weight:700">${def.ticker}${badge}</td>
+      <td><span class="ticker">${def.ticker} ${liveDot(!!precio)}</span>
+          ${badge}<span class="bond-name">${def.nombre}</span></td>
       <td>${fmt(precio,2)}</td>
       <td>${def.vto.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
       <td ${tirHc}>${fmtP(r.tir)}</td>
@@ -3571,7 +3612,14 @@ function renderTamarChart() {
   if (!canvas) return;
   const unit  = DUAL_STATE.tamarUnit;
   const toY   = d => unit==='TNA' ? +(d.tna*100).toFixed(4) : +(d.tem*100).toFixed(4);
-  const histPts = DUAL_STATE.tamarSeries.map(d=>({x:d.fecha,y:toY(d)}));
+  // Date range filtering
+  const fromEl = document.getElementById('tamar-date-from');
+  const toEl = document.getElementById('tamar-date-to');
+  const dateFrom = fromEl ? new Date(fromEl.value+'T00:00:00') : new Date(2024,9,1);
+  const dateTo = toEl ? new Date(toEl.value+'T00:00:00') : new Date(2026,11,31);
+  const histPts = DUAL_STATE.tamarSeries
+    .filter(d => d.fecha >= dateFrom && d.fecha <= dateTo)
+    .map(d=>({x:d.fecha,y:toY(d)}));
   const today   = new Date(); today.setHours(0,0,0,0);
   const lastH   = DUAL_STATE.tamarSeries.length ? DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1].fecha : today;
 
@@ -3580,7 +3628,7 @@ function renderTamarChart() {
     for (const row of DUAL_REM) {
       const [y,m] = row.ym.split('-').map(Number);
       const d = new Date(y, m-1, 15);
-      if (d>lastH) {
+      if (d>lastH && d>=dateFrom && d<=dateTo) {
         const tem = tnaToTem(row.tna);
         projPts.push({x:d, y: unit==='TNA' ? +(row.tna*100).toFixed(4) : +(tem*100).toFixed(4)});
       }
@@ -3600,7 +3648,8 @@ function renderTamarChart() {
       const elapsedMonths = (cur - lastDate) / msPerMonth;
       const tna = lastTNA + slope * elapsedMonths;
       const tem = tnaToTem(tna);
-      projPts.push({x:new Date(cur), y: unit==='TNA' ? +(tna*100).toFixed(4) : +(tem*100).toFixed(4)});
+      if (cur>=dateFrom && cur<=dateTo)
+        projPts.push({x:new Date(cur), y: unit==='TNA' ? +(tna*100).toFixed(4) : +(tem*100).toFixed(4)});
       cur.setMonth(cur.getMonth()+1);
     }
   }
@@ -3642,6 +3691,8 @@ function setDualProj(mode, btn) {
   document.querySelector(mode==='REM'?'#tamar-proj-rem':'#tamar-proj-suav')?.classList.add('active');
   const sc=document.getElementById('dual-suav-controls');
   if(sc) sc.style.display=mode==='SUAV'?'flex':'none';
+  const rl=document.getElementById('dual-rem-label');
+  if(rl) rl.style.display=mode==='REM'?'inline':'none';
   renderDualesTable(); renderTamarChart();
 }
 function setTamarUnit(unit) {
