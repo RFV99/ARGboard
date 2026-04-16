@@ -3215,9 +3215,12 @@ function addBusinessDays(d, n) {
 }
 
 // Lookup en serie histórica: último valor ≤ fecha dada
+// Para fechas ANTERIORES al primer dato disponible, devuelve el primer dato (backfill hacia atrás)
+// Para fechas donde no hay dato aún (por el lag), devuelve null solo si no hay NINGÚN dato
 function getHistTEM(d) {
   const hist = DUAL_STATE.tamarSeries;
   if (!hist.length) return null;
+  // Si la fecha es anterior al primer dato, usar el primer dato disponible (backfill)
   if (d < hist[0].fecha) return hist[0].tem;
   let v = hist[0].tem;
   for (const h of hist) { if (h.fecha <= d) v = h.tem; else break; }
@@ -3242,11 +3245,17 @@ function getProjTEM(d) {
 }
 
 // TEM para una fecha:
-// - pasado/hoy: solo histórico (si no hay dato, null → se descarta del promedio)
+// - pasado/hoy con histórico disponible: dato histórico (backfill al primer dato si es anterior a la serie)
+// - pasado/hoy SIN histórico (API aún no cargó): null → se descarta del promedio
 // - futuro: proyección (REM o suavizado)
 function getTEMforDate(d) {
+  const hist = DUAL_STATE.tamarSeries;
   const today = new Date(); today.setHours(0,0,0,0);
-  if (d <= today) return getHistTEM(d); // puede ser null → se filtra en el promedio
+  if (d <= today) {
+    if (!hist.length) return null; // sin histórico → día descartado del promedio
+    // backfill: si d < primer dato, usar primer dato
+    return getHistTEM(d);
+  }
   return getProjTEM(d);
 }
 
@@ -3614,8 +3623,10 @@ async function initDuales() {
   setStatus('Cargando TAMAR desde BCRA…');
   try {
     DUAL_STATE.tamarSeries = await fetchTAMAR();
-    const last = DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1];
-    setStatus(`TAMAR: ${DUAL_STATE.tamarSeries.length} obs. hasta ${last?.fecha.toLocaleDateString('es-AR')}`);
+    const first = DUAL_STATE.tamarSeries[0];
+    const last  = DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1];
+    setStatus(`TAMAR: ${DUAL_STATE.tamarSeries.length} obs. ${first?.fecha.toLocaleDateString('es-AR')} → ${last?.fecha.toLocaleDateString('es-AR')}`);
+    console.log('[TAMAR] Serie cargada:', DUAL_STATE.tamarSeries.length, 'obs. Primer dato:', first?.fecha.toLocaleDateString('es-AR'), 'TEM:', (first?.tem*100).toFixed(3)+'%', '| Último:', last?.fecha.toLocaleDateString('es-AR'), 'TEM:', (last?.tem*100).toFixed(3)+'%');
   } catch(e) {
     console.warn('TAMAR:', e);
     setStatus('⚠ Sin datos históricos BCRA');
