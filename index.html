@@ -3286,12 +3286,8 @@ function calcTEMavgLagged(emision, vto) {
 
 // Calcular métricas de un bono dual
 function calcDualFlows(def, precio, liq) {
-  // Usar días REALES entre emisión y vto para capitalizar la TEM mensual.
-  // La TEM es una tasa por ~30 días calendario, así que los períodos de
-  // capitalización deben ser días_reales/30 (no YEARFRAC 30/360 que achica).
-  const diasVida = Math.round((def.vto - def.emision) / 86400000); // días calendario reales
-  const periodos = diasVida / 30;  // meses reales de capitalización
-  const yfReal   = diasVida / 365; // vida en años (base ACT/365) para anualizar
+  const yf       = yearfrac0(def.emision, def.vto);  // vida TOTAL emision→vto
+  const periodos = yf * 12; // meses totales del bono
 
   // ── Pata fija ──
   const intFija = 100*(Math.pow(1+def.temEmision, periodos)-1);
@@ -3304,16 +3300,16 @@ function calcDualFlows(def, precio, liq) {
   const intTAMAR = 100*(Math.pow(1+temAvgLag, periodos)-1);
   const cfTAMAR  = 100+intTAMAR;
 
-  // Debug: verificar en consola que los valores son correctos
-  console.debug(`[DUAL] ${def.ticker} | diasVida=${diasVida} meses=${periodos.toFixed(2)} | TEM_avg_lag=${(temAvgLag*100).toFixed(4)}% | intTAMAR=${intTAMAR.toFixed(4)} | cfTAMAR=${cfTAMAR.toFixed(4)}`);
+  // Debug: verificar en consola que las fechas y valores son correctos
+  console.debug(`[DUAL] ${def.ticker} | emision=${def.emision.toLocaleDateString('es-AR')} vto=${def.vto.toLocaleDateString('es-AR')} liq=${liq.toLocaleDateString('es-AR')} | YF(em→vto)=${yf.toFixed(4)} meses=${periodos.toFixed(2)} | TEM_avg_lag=${(temAvgLag*100).toFixed(4)}% | intFija=${intFija.toFixed(4)} intTAMAR=${intTAMAR.toFixed(4)} | cfFija=${cfFija.toFixed(4)} cfTAMAR=${cfTAMAR.toFixed(4)}`);
 
   const esVariable = cfTAMAR >= cfFija;
   const cfFinal    = Math.max(cfFija, cfTAMAR);
   const intFinal   = cfFinal - 100;
 
   // Cupón% = tasa efectiva anual del flujo total (expresado como % EA sobre VR)
-  // = (1 + intFinal/100)^(1/yfReal) − 1  (base ACT/365)
-  const cuponPct = Math.pow(1 + intFinal/100, 1/yfReal) - 1;
+  // = (1 + intFinal/100)^(1/yf) − 1
+  const cuponPct = Math.pow(1 + intFinal/100, 1/yf) - 1;
 
   const diasReales = Math.round((def.vto - liq) / 86400000);
   const tAA = diasReales / 365;
@@ -3341,7 +3337,7 @@ function calcDualFlows(def, precio, liq) {
     ticker:def.ticker, emision:def.emision, vto:def.vto, precio, liq,
     temAvgLag, intFija, cfFija, intTAMAR, cfTAMAR,
     intFinal, cfFinal, cuponPct, esVariable,
-    tAA, t30, diasReales, tir, temBono, macaulay, modified, convex, tePlazo, usdBE, yf:yfReal
+    tAA, t30, diasReales, tir, temBono, macaulay, modified, convex, tePlazo, usdBE, yf
   };
 }
 
@@ -3435,10 +3431,11 @@ function openDualModal(ticker) {
   const cvxC = (tir!=null&&isFinite(tir)) ? r.tAA*(1+r.tAA)*r.cfFinal/Math.pow(1+tir,r.tAA+2) : 0;
   const macC = durC/precio, cvxVal = cvxC/precio;
 
+  // Columnas: Pago Cupón | Corte Cupón | Días | Amortiz. | Cupón% | Interés | VR | Cash Flow | t | Duration | Convexity
   // Row: liq (price outflow)
   const liqRow = `<tr style="background:rgba(79,142,247,.08)">
     <td style="text-align:left;font-family:var(--font);font-weight:700;color:var(--accent)">${fmtD(liq)}</td>
-    <td>0,0000</td><td>0,0000</td><td>—</td>
+    <td>—</td><td>—</td><td>—</td>
     <td>—</td><td>—</td><td>—</td>
     <td style="font-weight:700;color:var(--red)">${(-precio).toFixed(4)}</td>
     <td>—</td><td>—</td><td>—</td></tr>`;
@@ -3446,18 +3443,17 @@ function openDualModal(ticker) {
   // Row: emision (VR=100, t=0)
   const emisRow = `<tr>
     <td style="text-align:left;font-family:var(--font);color:var(--muted)">${fmtD(def.emision)}</td>
-    <td></td><td></td><td></td>
-    <td></td><td></td><td>100,00</td>
-    <td></td><td>0,0000</td><td>0,0000</td><td></td></tr>`;
+    <td>—</td><td>—</td><td>—</td>
+    <td>—</td><td>—</td><td>100,00</td>
+    <td>—</td><td>0,0000</td><td>—</td><td>—</td></tr>`;
 
-  // Row: vto (the single payment)
-  // Columns: Fecha | T(A/A) | T(30/360) | Cupón% | Amortización | Intereses | VR | CF | t | Duration | Convexity
+  // Row: vto (the single payment at maturity)
   const vtoRow = `<tr>
     <td style="text-align:left;font-family:var(--font)">${fmtD(def.vto)}</td>
-    <td>${r.tAA.toFixed(4)}</td>
-    <td>${r.t30.toFixed(4)}</td>
-    <td>${fmtP(r.cuponPct)}</td>
+    <td style="text-align:left;font-family:var(--font);color:var(--muted)">${fmtD(def.emision)}</td>
+    <td>${r.diasReales}</td>
     <td class="cf-amort">100,0000</td>
+    <td>${fmtP(r.cuponPct)}</td>
     <td>${r.intFinal.toFixed(4)}</td>
     <td>0,00</td>
     <td style="font-weight:700">${r.cfFinal.toFixed(4)}</td>
@@ -3469,8 +3465,8 @@ function openDualModal(ticker) {
   const totRow = `<tr class="cf-totals">
     <td colspan="2" style="text-align:left;font-family:var(--font)">*Fecha de liquidación</td>
     <td></td>
-    <td></td>
     <td class="cf-amort">100,0000</td>
+    <td></td>
     <td>${r.intFinal.toFixed(4)}</td><td></td>
     <td style="font-weight:800">${r.cfFinal.toFixed(4)}</td>
     <td></td><td>${macC.toFixed(3)}</td><td>${cvxVal.toFixed(3)}</td></tr>`;
@@ -3481,7 +3477,7 @@ function openDualModal(ticker) {
   document.getElementById('bond-modal-totals').innerHTML =
     `<span style="color:var(--muted)">* Fecha de liquidación · </span>
      <span style="font-family:var(--mono);font-size:11px">
-       TEM avg TAMAR: <strong>${fmtP(r.temAvg,3)}</strong> · Pata: <strong>${r.esVariable?'TAMAR':'Fija'}</strong> ·
+       TEM avg TAMAR: <strong>${fmtP(r.temAvgLag,3)}</strong> · Pata: <strong>${r.esVariable?'TAMAR':'Fija'}</strong> ·
        CF: <strong>${r.cfFinal.toFixed(4)}</strong> · Cupón: <strong>${fmtP(r.cuponPct)}</strong>
      </span>`;
 }
