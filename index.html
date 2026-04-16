@@ -1661,6 +1661,15 @@ function set(id, val, cls='') {
   el.className = 'kpi-value ' + (cls || 'neu');
 }
 
+// Returns the display version of a ticker based on current BOND_MODE
+function displayTicker(ticker) {
+  if (typeof BOND_MODE !== 'undefined' && BOND_MODE === 'CABLE'
+      && ticker.endsWith('D') && !['TO26','TY30P'].includes(ticker)) {
+    return ticker.slice(0, -1) + 'C';
+  }
+  return ticker;
+}
+
 function renderTCStrip() {
   const strip = document.getElementById('tc-strip');
   if (!strip) return; // tc-strip removed from layout — skip silently
@@ -1687,7 +1696,7 @@ function renderBondTable(tbodyId, data, tag) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody || !data.length) { if(tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2rem">Sin datos — presioná Actualizar</td></tr>'; return; }
   tbody.innerHTML = data.map(b => `<tr>
-    <td><span class="ticker">${b.ticker} ${b.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
+    <td><span class="ticker">${displayTicker(b.ticker)} ${b.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
         <span class="bond-name">${b.nombre}</span>
         <span class="tag ${tag}">${b.grupo}</span></td>
     <td>${f2(b.precio)}</td>
@@ -1737,7 +1746,7 @@ function renderHardDollarTable(tbodyId, data) {
   tbody.innerHTML = data.map(b => {
     const hc = tirColor(b.tir, allTirs);
     return `<tr style="cursor:pointer" onclick="openBondModal('${b.ticker}')">
-    <td><span class="ticker">${b.ticker} ${b.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
+    <td><span class="ticker">${displayTicker(b.ticker)} ${b.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
         <span class="bond-name">${b.nombre}</span>
         <span class="tag ${b._tag}">${b.grupo}</span></td>
     <td>${f2(b.precio)}</td>
@@ -1848,7 +1857,7 @@ function makeScatterChart(id, datasets) {
         legend: { display: datasets.length > 1, labels: { color: '#7a8099', font: {size:10}, boxWidth:10 } },
         tooltip: { callbacks: { label: ctx => {
           const d = ctx.raw;
-          return `${d.ticker||''}: ${d.x?.toFixed(2)||''} / ${d.y?.toFixed(2)||''}%`;
+          return `${displayTicker(d.ticker||'')}: ${d.x?.toFixed(2)||''} / ${d.y?.toFixed(2)||''}%`;
         }}}
       },
       scales: {
@@ -1907,7 +1916,7 @@ function buildCharts() {
       ]},
       options: {
         responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return `${d.ticker}: ${d.x}d / TEM ${d.y?.toFixed(3)}%`;}}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return `${displayTicker(d.ticker)}: ${d.x}d / TEM ${d.y?.toFixed(3)}%`;}}}},
         scales:{
           x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7a8099',font:{size:10}},title:{display:true,text:'Días al vencimiento',color:'#7a8099',font:{size:10}}},
           y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7a8099',font:{size:10},callback:v=>v.toFixed(1)+'%'},title:{display:true,text:'TEM (%)',color:'#7a8099',font:{size:10}}}
@@ -1944,7 +1953,7 @@ function buildCharts() {
         responsive:true, maintainAspectRatio:false,
         plugins:{
           legend:{display:true,labels:{color:tickC,font:{size:10},boxWidth:10}},
-          tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return `${d.ticker||''}: Dur ${d.x?.toFixed(1)||''} / TIR ${d.y?.toFixed(1)||''}%`;}}}
+          tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return `${displayTicker(d.ticker||'')}: Dur ${d.x?.toFixed(1)||''} / TIR ${d.y?.toFixed(1)||''}%`;}}}
         },
         scales:{
           x:{
@@ -2108,7 +2117,7 @@ function populateHistSelects() {
     const tickers = histTickers(key);
     if (!tickers.length) return;
     const prev = histState[key].ticker;
-    sel.innerHTML = tickers.map(t => `<option value="${t}"${t===prev?' selected':''}>${t}</option>`).join('');
+    sel.innerHTML = tickers.map(t => `<option value="${t}"${t===prev?' selected':''}>${displayTicker(t)}</option>`).join('');
     if (!histState[key].ticker) histState[key].ticker = tickers[0];
   });
 }
@@ -2591,8 +2600,8 @@ function renderBondCFModal(ticker, bond, def) {
   const convex = bond?.convex ?? calcConvexityFromFlows(flows, tir);
   const vto = def.cfs[def.cfs.length-1].pago;
 
-  document.getElementById('bond-modal-title').textContent = `${ticker} — ${def.nombre}`;
-  document.getElementById('bond-modal-meta').textContent = `${def.grupo} · Liq: ${LIQ.toLocaleDateString('es-AR')} · Precio: ${precio.toFixed(4)} · TIR: ${(tir*100).toFixed(2)}%`;
+  document.getElementById('bond-modal-title').textContent = `${displayTicker(ticker)} — ${def.nombre}`;
+  document.getElementById('bond-modal-meta').textContent = `${def.grupo} · ${displayTicker(ticker)} · Liq: ${LIQ.toLocaleDateString('es-AR')} · Precio: ${precio.toFixed(4)} · TIR: ${(tir*100).toFixed(2)}%`;
 
   document.getElementById('bond-modal-summary').innerHTML = `
     <div class="bms-item"><div class="bms-lbl">Precio</div><div class="bms-val">${precio.toFixed(2)}</div></div>
@@ -2737,7 +2746,7 @@ function calcSelect(ticker) {
   const sel = document.getElementById('calc-select-native');
   if (sel) sel.value = ticker;
   const pill = document.getElementById('calc-selected-pill');
-  pill.innerHTML = `${ticker} — ${instr?.nombre||''} | Px ref: ${livePrice?livePrice.toFixed(2):'—'} <span class="calc-pill-x" onclick="calcClear()">×</span>`;
+  pill.innerHTML = `${displayTicker(ticker)} — ${instr?.nombre||''} | Px ref: ${livePrice?livePrice.toFixed(2):'—'} <span class="calc-pill-x" onclick="calcClear()">×</span>`;
   pill.style.display='flex';
   if (livePrice) document.getElementById('calc-price').value = livePrice.toFixed(4);
   const liqEl = document.getElementById('calc-liq');
@@ -2826,7 +2835,7 @@ function runCalc() {
   const wrap=document.getElementById('calc-cf-wrap');
   wrap.style.display='block';
   document.getElementById('calc-cf-header').textContent='Flujos de Fondos';
-  document.getElementById('calc-cf-sub').innerHTML=`<span style="color:var(--accent);font-weight:600">${calcSelected}</span> &nbsp;|&nbsp; Liq: ${liqDate.toLocaleDateString('es-AR')} &nbsp;|&nbsp; Precio: ${priceRaw.toFixed(4)} &nbsp;|&nbsp; TIR: <span style="color:var(--green);font-weight:700">${(tirCalc*100).toFixed(2)}%</span>`;
+  document.getElementById('calc-cf-sub').innerHTML=`<span style="color:var(--accent);font-weight:600">${displayTicker(calcSelected)}</span> &nbsp;|&nbsp; Liq: ${liqDate.toLocaleDateString('es-AR')} &nbsp;|&nbsp; Precio: ${priceRaw.toFixed(4)} &nbsp;|&nbsp; TIR: <span style="color:var(--green);font-weight:700">${(tirCalc*100).toFixed(2)}%</span>`;
 
   if (activeDef) {
     const {pastRows,futureRows,totAmort,totInteres,totCF,totDur,totConv} = buildBondCFRows(activeDef, tirCalc, liqDate);
@@ -2904,6 +2913,7 @@ function toggleBondMode() {
   }
   if (STATE.bonds && STATE.bonds.length) {
     processBonds(STATE.bonds);
+    updateKPIs();
     renderAllTables();
     maybeRebuildCharts();
   }
