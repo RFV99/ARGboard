@@ -377,7 +377,10 @@
   </div>
   <div class="header-right">
     <span class="timestamp" id="ts">—</span>
-    <button class="btn-theme" id="theme-btn" onclick="toggleTheme()" title="Cambiar modo claro/oscuro">🌙</button>
+    <button class="btn-mode" id="mode-btn" onclick="toggleBondMode()" title="Cambiar entre MEP y Cable">
+      <span id="mode-label">MEP</span>
+    </button>
+    <button class="btn-theme" id="theme-btn" onclick="toggleTheme()" title="Modo claro/oscuro">🌙</button>
     <button class="btn btn-primary" id="refresh-btn" onclick="fetchAll()">
       <span id="spin">↻</span> Actualizar
     </button>
