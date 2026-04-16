@@ -3289,6 +3289,42 @@ function calcTEMavgLagged(emision, vto) {
   return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
 
+// ── DEBUG: exportar serie ajuste como CSV para comparar con Excel ──
+window.debugExportAjuste = function(ticker) {
+  const def = DUAL_DEFS.find(d => d.ticker === (ticker||'TTJ26'));
+  if (!def) { console.error('Ticker no encontrado'); return; }
+  const hist = DUAL_STATE.tamarSeries;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const rows = [['Fecha','EsPasado','FechaLagged','TEM_crudo_lagged','TEM_proj','TEM_ajuste_usado','Fuente']];
+  const cur = new Date(def.emision);
+  while (cur <= def.vto) {
+    if (cur.getDay() !== 0 && cur.getDay() !== 6) {
+      const fechaStr = cur.toISOString().slice(0,10);
+      if (cur < today) {
+        const lagged = addBusinessDays(cur, -10);
+        const lagStr = lagged.toISOString().slice(0,10);
+        const tem = getHistTEM(lagged);
+        rows.push([fechaStr,'SI',lagStr,'','',(tem!=null?(tem*100).toFixed(6):'NULL'),'HIST_LAG']);
+      } else {
+        const tem = getProjTEM(cur);
+        const tna = hist.length ? hist[hist.length-1].tna : 0.26;
+        rows.push([fechaStr,'NO','','','',(tem!=null?(tem*100).toFixed(6):'NULL'),'PROJ']);
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  const avg = rows.slice(1).reduce((s,r) => s + parseFloat(r[5]||0), 0) / (rows.length-1);
+  rows.push([]);
+  rows.push(['PROMEDIO','','','','',avg.toFixed(6),'']);
+  rows.push(['TAMAR obs',hist.length,'Primer',hist[0]?.fecha.toISOString().slice(0,10),'Ultimo',hist[hist.length-1]?.fecha.toISOString().slice(0,10),'']);
+  rows.push(['LastTNA','',(hist.length?hist[hist.length-1].tna*100:0).toFixed(4)+'%','LastTEM',(hist.length?hist[hist.length-1].tem*100:0).toFixed(4)+'%','','']);
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`debug_ajuste_${def.ticker}.csv`; a.click();
+  console.log(`[DEBUG] Exportado ${rows.length-1} filas para ${def.ticker}, TEM avg = ${avg.toFixed(4)}%`);
+};
+
 // Calcular métricas de un bono dual
 function calcDualFlows(def, precio, liq) {
   const yf       = yearfrac0(def.emision, def.vto);  // vida TOTAL emision→vto
