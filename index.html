@@ -644,7 +644,7 @@
       </div>
       <span style="font-size:9px;color:var(--muted);font-style:italic;">REM mar-26</span>
       <div id="dual-suav-controls" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:11px;color:var(--muted);">TAMAR fin:</span>
+        <span style="font-size:11px;color:var(--muted);">TNA Dic-26:</span>
         <button class="period-btn" onclick="stepSuav(-1)">◀</button>
         <input id="dual-suav-slider" type="range" min="5" max="40" step="0.5" value="22"
           oninput="updateSuavTarget(this.value)"
@@ -3216,11 +3216,9 @@ function addBusinessDays(d, n) {
 
 // Lookup en serie histórica: último valor ≤ fecha dada
 // Para fechas ANTERIORES al primer dato disponible, devuelve el primer dato (backfill hacia atrás)
-// Para fechas donde no hay dato aún (por el lag), devuelve null solo si no hay NINGÚN dato
 function getHistTEM(d) {
   const hist = DUAL_STATE.tamarSeries;
   if (!hist.length) return null;
-  // Si la fecha es anterior al primer dato, usar el primer dato disponible (backfill)
   if (d < hist[0].fecha) return hist[0].tem;
   let v = hist[0].tem;
   for (const h of hist) { if (h.fecha <= d) v = h.tem; else break; }
@@ -3228,60 +3226,67 @@ function getHistTEM(d) {
 }
 
 // TEM proyectada para una fecha (usa REM o suavizado)
+// Suavizado: interpola TNA mensualmente desde última TNA conocida hasta
+// target a dic-26 (slider), siguiendo la tendencia luego.
 function getProjTEM(d) {
   const hist = DUAL_STATE.tamarSeries;
-  const today = new Date(); today.setHours(0,0,0,0);
   if (DUAL_STATE.projMode === 'REM') {
     const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const row = DUAL_REM.find(r => r.ym === mo);
     const tna = row ? row.tna : DUAL_REM[DUAL_REM.length-1].tna;
     return Math.pow(1+tna, 30/365)-1;
   }
-  // Suavizado lineal
-  const temNow = hist.length ? hist[hist.length-1].tem : 0.028;
-  const temFin = Math.pow(1+DUAL_STATE.suavFinTNA, 30/365)-1;
-  const t = Math.min(1, Math.max(0, (d-today)/(12*30*86400000)));
-  return temNow + (temFin-temNow)*t;
+  // ── Suavizado: interpolar TNA mensual desde última conocida hasta target dic-26 ──
+  // Última TNA conocida de la serie BCRA
+  const lastTNA = hist.length ? hist[hist.length-1].tna : 0.26;
+  const lastDate = hist.length ? hist[hist.length-1].fecha : new Date();
+  const targetTNA = DUAL_STATE.suavFinTNA; // slider (ej: 0.22 = 22%)
+  // Target date: diciembre 2026
+  const targetDate = new Date(2026, 11, 31);
+  // Meses entre último dato y target
+  const msPerMonth = 30.44 * 86400000;
+  const totalMonths = Math.max(1, (targetDate - lastDate) / msPerMonth);
+  // Meses desde último dato hasta la fecha pedida
+  const elapsedMonths = (d - lastDate) / msPerMonth;
+  // Interpolar TNA linealmente; continuar la tendencia después del target
+  const slope = (targetTNA - lastTNA) / totalMonths;
+  const tna = lastTNA + slope * elapsedMonths;
+  return Math.pow(1 + tna, 30/365) - 1;
 }
 
-// TEM para una fecha:
-// - pasado/hoy con histórico disponible: dato histórico (backfill al primer dato si es anterior a la serie)
-// - pasado/hoy SIN histórico (API aún no cargó): null → se descarta del promedio
-// - futuro: proyección (REM o suavizado)
-function getTEMforDate(d) {
+// Construir serie "ajuste" replicando metodología del Excel:
+//  - Solo días hábiles (lun-vie)
+//  - Pasados (< fecha concertación): TEM crudo en (fecha − 10 días hábiles)
+//  - Futuros (>= fecha concertación): proyección directa SIN lag
+function buildAjusteSeries(fromDate, toDate) {
+  const result = [];
   const hist = DUAL_STATE.tamarSeries;
   const today = new Date(); today.setHours(0,0,0,0);
-  if (d <= today) {
-    if (!hist.length) return null; // sin histórico → día descartado del promedio
-    // backfill: si d < primer dato, usar primer dato
-    return getHistTEM(d);
-  }
-  return getProjTEM(d);
-}
-
-// Construir serie TAMAR diaria con desfasaje de 10 días hábiles.
-// La lógica: el bono usa la TAMAR publicada 10 días hábiles ANTES de cada fecha.
-// Entonces para el día D, la tasa aplicable es la de D-10bd.
-function buildDailyTEMLagged(fromDate, toDate) {
-  const result = [];
   const cur = new Date(fromDate);
-  while (cur < toDate) {
-    const lag = addBusinessDays(cur, -10); // 10 hábiles antes
-    result.push({ fecha: new Date(cur), tem: getTEMforDate(lag) });
-    cur.setDate(cur.getDate()+1);
+  while (cur <= toDate) {
+    if (cur.getDay() !== 0 && cur.getDay() !== 6) {
+      if (cur < today) {
+        // Pasado: TEM crudo en (fecha − 10 días hábiles)
+        const lagged = addBusinessDays(cur, -10);
+        const tem = getHistTEM(lagged);
+        if (tem !== null) result.push(tem);
+      } else {
+        // Futuro: proyección directa, SIN lag
+        const tem = getProjTEM(cur);
+        if (tem !== null && isFinite(tem)) result.push(tem);
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
   }
   return result;
 }
 
-// TEM_avg_lag = promedio aritmético de la serie diaria desfasada.
-// Días pasados sin dato histórico disponible (por el lag de 10bd) simplemente se omiten
-// del promedio — no se reemplazan con proyección.
+// TEM_avg = promedio aritmético de la serie ajustada (solo días hábiles).
+// Réplica exacta de AVERAGEIFS del Excel sobre la columna "TEM ajuste".
 function calcTEMavgLagged(emision, vto) {
-  const daily = buildDailyTEMLagged(emision, vto);
-  if (!daily.length) return null;
-  const vals = daily.map(d => d.tem).filter(v => v != null && isFinite(v));
+  const vals = buildAjusteSeries(emision, vto);
   if (!vals.length) return null;
-  return vals.reduce((s,v) => s+v, 0) / vals.length;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
 
 // Calcular métricas de un bono dual
@@ -3546,12 +3551,18 @@ function renderTamarChart() {
   } else {
     const end = new Date(2026,11,31);
     const cur = new Date(lastH); cur.setDate(1); cur.setMonth(cur.getMonth()+1);
-    const temNow = DUAL_STATE.tamarSeries.length ? DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1].tem : 0.028;
-    const temFin = Math.pow(1+DUAL_STATE.suavFinTNA,30/365)-1;
+    const hist = DUAL_STATE.tamarSeries;
+    const lastTNA = hist.length ? hist[hist.length-1].tna : 0.26;
+    const lastDate = hist.length ? hist[hist.length-1].fecha : today;
+    const targetTNA = DUAL_STATE.suavFinTNA;
+    const targetDate = new Date(2026,11,31);
+    const msPerMonth = 30.44*86400000;
+    const totalMonths = Math.max(1, (targetDate - lastDate) / msPerMonth);
+    const slope = (targetTNA - lastTNA) / totalMonths;
     while (cur<=end) {
-      const t = Math.min(1,(cur-today)/(12*30*86400000));
-      const tem = temNow+(temFin-temNow)*t;
-      const tna = Math.pow(1+tem,365/30)-1;
+      const elapsedMonths = (cur - lastDate) / msPerMonth;
+      const tna = lastTNA + slope * elapsedMonths;
+      const tem = Math.pow(1+tna,30/365)-1;
       projPts.push({x:new Date(cur), y: unit==='TNA' ? +(tna*100).toFixed(4) : +(tem*100).toFixed(4)});
       cur.setMonth(cur.getMonth()+1);
     }
