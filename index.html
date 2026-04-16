@@ -633,52 +633,39 @@
   </div>
   </div>
 
-  <!-- ═══════════════════════════════ DUALES PANEL ═══════════════════════════════ -->
+  <!-- ════════════ DUALES PANEL ════════════ -->
   <div class="panel" id="panel-duales">
-
-    <!-- Projection + suavizado controls -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
       <span style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.06em;">PROYECCIÓN:</span>
       <div style="display:flex;gap:4px;">
         <button class="period-btn active" id="dual-proj-rem"  onclick="setDualProj('REM',this)">REM</button>
         <button class="period-btn"        id="dual-proj-suav" onclick="setDualProj('SUAV',this)">Suavizado</button>
       </div>
-      <!-- Suavizado controls (hidden unless SUAV mode) -->
+      <span style="font-size:9px;color:var(--muted);font-style:italic;" id="dual-rem-label">REM mar-26</span>
       <div id="dual-suav-controls" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:11px;color:var(--muted);">TAMAR fin:</span>
-        <button class="period-btn" onclick="updateSuavTarget(Math.max(5,+(document.getElementById('dual-suav-slider').value)-1));document.getElementById('dual-suav-slider').value=Math.max(5,+(document.getElementById('dual-suav-slider').value)-1)">◀</button>
+        <button class="period-btn" onclick="stepSuav(-1)">◀</button>
         <input id="dual-suav-slider" type="range" min="5" max="40" step="0.5" value="22"
           oninput="updateSuavTarget(this.value)"
           style="width:110px;accent-color:var(--accent);cursor:pointer;">
-        <button class="period-btn" onclick="updateSuavTarget(Math.min(40,+(document.getElementById('dual-suav-slider').value)+1));document.getElementById('dual-suav-slider').value=Math.min(40,+(document.getElementById('dual-suav-slider').value)+1)">▶</button>
+        <button class="period-btn" onclick="stepSuav(1)">▶</button>
         <span id="dual-suav-val" style="font-size:12px;font-weight:700;color:var(--accent);min-width:38px;">22.0%</span>
         <span style="font-size:10px;color:var(--muted)">TNA</span>
       </div>
       <span style="font-size:10px;color:var(--muted);margin-left:auto;" id="dual-tamar-status">Cargando TAMAR…</span>
     </div>
-
-    <!-- Summary table -->
     <div class="tbl-wrap" style="margin-bottom:20px;">
       <table id="tbl-duales" style="width:100%;">
         <thead><tr>
-          <th>Ticker</th>
-          <th>Precio</th>
-          <th>Vcto.</th>
-          <th>TEM avg TAMAR</th>
-          <th>TIR e.a.</th>
-          <th>TEM</th>
-          <th>Duration</th>
-          <th>Mod. Dur.</th>
-          <th>TE al plazo</th>
-          <th>USD Breakeven</th>
+          <th>Ticker</th><th>Precio</th><th>Vcto.</th><th>TEM avg TAMAR</th>
+          <th>TIR e.a.</th><th>TEM</th><th>Duration</th><th>Mod. Dur.</th>
+          <th>TE al plazo</th><th>USD Breakeven</th>
         </tr></thead>
         <tbody id="tbody-duales">
           <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
-
-    <!-- TAMAR chart -->
     <div class="hist-card">
       <div class="hist-controls" style="flex-wrap:wrap;gap:8px;">
         <span style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;">TASA TAMAR</span>
@@ -693,9 +680,8 @@
       </div>
       <div class="chart-wrap" style="height:260px;"><canvas id="c-tamar" role="img" aria-label="Serie histórica TAMAR"></canvas></div>
     </div>
-
   </div>
-  <!-- ════════════════════════════ END DUALES PANEL ════════════════════════════ -->
+  <!-- ════════════ END DUALES PANEL ════════════ -->
 
   <div class="panel active" id="panel-curvas">
     <div class="chart-grid">
@@ -819,6 +805,43 @@ const BOND_DEFS = {
       {pago:'2027-08-31',corte:'2027-08-31',dias:30,amort:0,cupon:0.06},
       {pago:'2027-09-30',corte:'2027-09-30',dias:30,amort:0,cupon:0.06},
       {pago:'2027-10-29',corte:'2027-10-29',dias:29,amort:100,cupon:0.06},
+    ]
+  },
+  // ── AO28D ──────────────────────────────────────────────────
+  AO28D: {
+    grupo:'Bonares', nombre:'Bonar 2028 6%', vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2026-04-30',corte:'2026-04-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-05-29',corte:'2026-05-29',dias:29,amort:0,cupon:0.06},
+      {pago:'2026-06-30',corte:'2026-06-30',dias:31,amort:0,cupon:0.06},
+      {pago:'2026-07-31',corte:'2026-07-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-08-31',corte:'2026-08-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-09-30',corte:'2026-09-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-10-30',corte:'2026-10-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-11-30',corte:'2026-11-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2026-12-30',corte:'2026-12-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-01-29',corte:'2027-01-29',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-02-26',corte:'2027-02-26',dias:27,amort:0,cupon:0.06},
+      {pago:'2027-03-31',corte:'2027-03-31',dias:35,amort:0,cupon:0.06},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-05-31',corte:'2027-05-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-06-30',corte:'2027-06-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-07-30',corte:'2027-07-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-08-31',corte:'2027-08-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-09-30',corte:'2027-09-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2027-10-29',corte:'2027-10-29',dias:29,amort:0,cupon:0.06},
+      {pago:'2027-11-30',corte:'2027-11-30',dias:31,amort:0,cupon:0.06},
+      {pago:'2027-12-30',corte:'2027-12-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2028-01-31',corte:'2028-01-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2028-02-29',corte:'2028-02-29',dias:29,amort:0,cupon:0.06},
+      {pago:'2028-03-31',corte:'2028-03-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2028-04-28',corte:'2028-04-28',dias:28,amort:0,cupon:0.06},
+      {pago:'2028-05-31',corte:'2028-05-31',dias:33,amort:0,cupon:0.06},
+      {pago:'2028-06-30',corte:'2028-06-30',dias:30,amort:0,cupon:0.06},
+      {pago:'2028-07-31',corte:'2028-07-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2028-08-31',corte:'2028-08-31',dias:30,amort:0,cupon:0.06},
+      {pago:'2028-09-29',corte:'2028-09-29',dias:29,amort:0,cupon:0.06},
+      {pago:'2028-10-31',corte:'2028-10-31',dias:32,amort:100,cupon:0.06},
     ]
   },
   // ── AL29D ──────────────────────────────────────────────────
@@ -1389,8 +1412,10 @@ const LECAP_DEFS = [
   {ticker:'S15Y6',vto:'2026-05-15',tLic:0.026,vpv:105.178,dias:35},
   {ticker:'S29Y6',vto:'2026-05-29',tLic:0.0235,vpv:132.044,dias:49},
   {ticker:'T30J6',isBoncap:true,vto:'2026-06-30',tLic:0.0215,vpv:144.896,dias:81},
-  {ticker:'S31L6',vto:'2026-07-31',tLic:0.0275,vpv:117.677,dias:112},
-  {ticker:'S31G6',vto:'2026-08-31',tLic:0.025,vpv:127.064,dias:143},
+  {ticker:'S17L6',vto:'2026-07-17',tLic:0.0216,vpv:107.920,dias:91},
+  {ticker:'S31L6',vto:'2026-07-31',tLic:0.0275,vpv:117.677,dias:105},
+  {ticker:'S14G6',vto:'2026-08-13',tLic:0.0200,vpv:107.958,dias:118},
+  {ticker:'S31G6',vto:'2026-08-31',tLic:0.025,vpv:127.064,dias:136},
   {ticker:'S30S6',vto:'2026-09-30',tLic:0.0253,vpv:117.536,dias:173},
   {ticker:'S30O6',vto:'2026-10-30',tLic:0.0255,vpv:135.278,dias:203},
   {ticker:'S30N6',vto:'2026-11-30',tLic:0.023,vpv:129.888,dias:234},
@@ -1975,7 +2000,7 @@ function makeScatterChart(id, datasets) {
              ticks:{stepSize:0.5, color:getComputedStyle(document.documentElement).getPropertyValue('--chart-tick').trim()||'#7a8099',font:{size:10},callback:v=>v.toFixed(1)},
              title:{display:true,text:'Mod. Duration (años)',color:getComputedStyle(document.documentElement).getPropertyValue('--chart-tick').trim()||'#7a8099',font:{size:10}} },
         y: { grid:{color:getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim()||'rgba(255,255,255,.05)'},
-             ticks:{color:getComputedStyle(document.documentElement).getPropertyValue('--chart-tick').trim()||'#7a8099',font:{size:10},callback:v=>v.toFixed(1)+'%'},
+             ticks:{color:getComputedStyle(document.documentElement).getPropertyValue('--chart-tick').trim()||'#7a8099',font:{size:10},callback:v=>v.toFixed(2)+'%'},
              title:{display:true,text:'TIR e.a. (%)',color:getComputedStyle(document.documentElement).getPropertyValue('--chart-tick').trim()||'#7a8099',font:{size:10}} }
       }
     }
@@ -2015,21 +2040,31 @@ function buildCharts() {
     const xs = lec.map(l => l.dias), ys = lec.map(l => l.tem*100);
     const coef = polyFit(xs, ys);
     const curve = polyLine(coef, 0, Math.max(...xs)+10);
+    const lecOnly = lec.filter(l => !l.isBoncap);
+    const bonOnly = lec.filter(l =>  l.isBoncap);
     destroyChart('c-lecaps');
     const ctx = document.getElementById('c-lecaps');
+    const isDarkLec = !document.documentElement.classList.contains('light');
+    const gridCLec = isDarkLec ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.07)';
+    const tickCLec = isDarkLec ? '#7a8099' : '#6b7280';
     if (ctx) charts['c-lecaps'] = new Chart(ctx, {
       type: 'scatter',
       data: { datasets: [
         {label:'Curva',data:curve,type:'line',borderColor:'#a78bfa',borderWidth:1.5,pointRadius:0,fill:false},
-        {label:'LECAPS',data:lec.map(l=>({x:l.dias,y:l.tem*100,ticker:l.ticker})),
-         backgroundColor:'#a78bfa',borderColor:'#a78bfa',pointRadius:5,pointHoverRadius:7}
+        {label:'LECAP',data:lecOnly.map(l=>({x:l.dias,y:l.tem*100,ticker:l.ticker})),
+         backgroundColor:'#a78bfa',borderColor:'#a78bfa',pointRadius:5,pointHoverRadius:7},
+        {label:'BONCAP',data:bonOnly.map(l=>({x:l.dias,y:l.tem*100,ticker:l.ticker})),
+         backgroundColor:'#f59e0b',borderColor:'#f59e0b',pointRadius:5,pointHoverRadius:7},
       ]},
       options: {
         responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return `${displayTicker(d.ticker)}: ${d.x}d / TEM ${d.y?.toFixed(3)}%`;}}}},
+        plugins:{
+          legend:{display:true,labels:{color:tickCLec,font:{size:11},boxWidth:12,padding:10}},
+          tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return `${displayTicker(d.ticker)}: ${d.x}d / TEM ${d.y?.toFixed(3)}%`;}}}
+        },
         scales:{
-          x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7a8099',font:{size:10}},title:{display:true,text:'Días al vencimiento',color:'#7a8099',font:{size:10}}},
-          y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7a8099',font:{size:10},callback:v=>v.toFixed(1)+'%'},title:{display:true,text:'TEM (%)',color:'#7a8099',font:{size:10}}}
+          x:{grid:{color:gridCLec},ticks:{color:tickCLec,font:{size:10}},title:{display:true,text:'Días al vencimiento',color:tickCLec,font:{size:10}}},
+          y:{grid:{color:gridCLec},ticks:{color:tickCLec,font:{size:10},callback:v=>v.toFixed(2)+'%'},title:{display:true,text:'TEM (%)',color:tickCLec,font:{size:10}}}
         }
       }
     });
@@ -2348,7 +2383,7 @@ async function loadHistChart(key) {
         }
       }
     });
-    if (srcEl) srcEl.textContent = `${candleData.length} ruedas`;
+    if (srcEl) srcEl.textContent = `${candleData.length} ruedas · data912`;
   } catch(e) {
     if (srcEl) srcEl.textContent = 'Error: ' + e.message;
   }
@@ -2501,9 +2536,15 @@ function buildMiniCharts() {
 
 function computeKpiChanges(key, series) {
   if (!series||series.length<2) return;
-  const latest=series[series.length-1];
-  const now=new Date(latest.date);
   const isRp = key==='rp', isCanje = key==='canje';
+  // MEP/Cable: use live current price as "latest" so 1D = live/yesterday_close - 1
+  let liveValue = null;
+  if (key==='mep')   liveValue = STATE.tcMep?.AL30   || STATE.dolar?.mep   || null;
+  if (key==='cable') liveValue = STATE.tcCable?.AL30  || STATE.dolar?.cable || null;
+  const latest = liveValue
+    ? { date: new Date().toISOString().slice(0,10), value: liveValue }
+    : series[series.length-1];
+  const now=new Date(latest.date);
   function findNearest(days) {
     const target=new Date(now); target.setDate(target.getDate()-days);
     for (let i=series.length-1;i>=0;i--) { if(new Date(series[i].date)<=target) return series[i]; }
@@ -3043,337 +3084,258 @@ function modeTickerFor(ticker) {
   return ticker;
 }
 
-// ESC closes all modals
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeBondModal(); closeModal(); } });
-
 // ═══════════════════════════════════════════════════════════════
 // DUALES — Bonos con pata fija vs. pata TAMAR
-// Fórmulas exactas del Excel (Flujos sheet)
+// Fórmulas exactas del Excel (hoja Flujos, H67):
+//   interés_fija  = VR × ((1+TEM_emision)^(YEARFRAC(emision,vto,0)×12)) − VR
+//   interés_TAMAR = VR × ((1+TEM_avg)^(YEARFRAC(emision,vto,0)×12)) − VR
+//   TEM_avg = promedio aritmético de TEM diarios entre emision y vto (AVERAGEIFS)
 // ═══════════════════════════════════════════════════════════════
 
-// ── Definición estática de los 3 bonos duales vigentes ──
-// emision = fecha fija del bono (row 0 en Excel = 2025-01-29)
-// vto     = vencimiento; precios se actualizan vía API
 const DUAL_DEFS = [
   { ticker:'TTJ26', nombre:'Dual Jun-26', emision:new Date(2025,0,29), vto:new Date(2026,5,30),  temEmision:0.0219 },
   { ticker:'TTS26', nombre:'Dual Sep-26', emision:new Date(2025,0,29), vto:new Date(2026,8,15),  temEmision:0.0217 },
   { ticker:'TTD26', nombre:'Dual Dic-26', emision:new Date(2025,0,29), vto:new Date(2026,11,15), temEmision:0.0214 },
 ];
 
-// ── BCRA API — TAMAR ──
-// idVariable=44 = "Tasa de interes TAMAR de bancos privados" (TNA, % nominal anual, Principales Variables)
-// Ejemplo: valor=30.875 → TNA=30.875% → tna=0.30875 → tem=(1+0.30875)^(30/365)-1
+// REM mar-26 hardcodeado (imagen adjunta)
+// Períodos sin dato (oct/nov/dic-26 → promedio dic-26 = 23.4%)
+const DUAL_REM = [
+  { ym:'2026-04', tna:0.2680 },
+  { ym:'2026-05', tna:0.2600 },
+  { ym:'2026-06', tna:0.2575 },
+  { ym:'2026-07', tna:0.2590 },
+  { ym:'2026-08', tna:0.2506 },
+  { ym:'2026-09', tna:0.2494 },
+  { ym:'2026-10', tna:0.2340 }, // promedio dic-26
+  { ym:'2026-11', tna:0.2340 },
+  { ym:'2026-12', tna:0.2340 },
+];
+
+// idVariable=44 = TAMAR bancos privados TNA %na (desde oct-2024)
 const BCRA_TAMAR_ID = 44;
 
-// ── Estado global ──
 let DUAL_STATE = {
-  tamarSeries: [],   // [{fecha:Date, tna:number, tem:number}] ordenado ASC
-  remProj: [],       // [{fecha:Date, tna:number, tem:number}] proyecciones REM mensuales
-  prices: {},        // {TTJ26: 149.4, ...}
-  projMode: 'REM',   // 'REM' | 'SUAV'
-  tamarUnit: 'TNA',  // 'TNA' | 'TEM'
-  suavFinTNA: 0.22,  // target TNA final para suavizado (22% default)
-  tamarChart: null,
+  tamarSeries: [],   // [{fecha:Date, tna, tem}] ASC
+  prices:      {},   // {TTJ26: 149.4, ...}
+  projMode:   'REM',
+  tamarUnit:  'TNA',
+  suavFinTNA:  0.22,
+  tamarChart:  null,
 };
 let _dualesInited = false;
 
-// ── YEARFRAC base=0 (30/360 US) — replica exacta de Excel ──
-function yearfrac0(start, end) {
-  const d1 = Math.min(start.getDate(), 30);
-  let d2 = end.getDate();
+// ── YEARFRAC base=0 (30/360 US) — réplica Excel ──
+function yearfrac0(s, e) {
+  const d1 = Math.min(s.getDate(), 30);
+  let   d2 = e.getDate();
   if (d2 === 31 && d1 >= 30) d2 = 30;
-  return ((end.getFullYear()-start.getFullYear())*360 +
-          (end.getMonth()-start.getMonth())*30 +
-          (d2-d1)) / 360;
+  return ((e.getFullYear()-s.getFullYear())*360 +
+          (e.getMonth()-s.getMonth())*30 + (d2-d1)) / 360;
 }
 
-// ── DAYS360 US — devuelve días enteros ──
-function days360(start, end) {
-  return Math.round(yearfrac0(start, end) * 360);
-}
-
-// ── Construir serie diaria de TEM para un rango de fechas ──
-// TAMAR existe desde Oct 2024. Para fechas anteriores usamos el primer valor disponible.
-// Para fechas futuras usa proyección (REM o Suavizado).
+// ── Serie diaria de TEM (usada para calcular TEM_avg) ──
 function buildDailyTEM(fromDate, toDate) {
-  const hist = DUAL_STATE.tamarSeries; // ordenado ASC
+  const hist  = DUAL_STATE.tamarSeries;
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // Helper: obtener TEM del historial para una fecha (last known ≤ fecha)
-  const getHistTEM = (d) => {
+  const getHistTEM = d => {
     if (!hist.length) return null;
-    // Si es antes del primer dato, usar el primer dato disponible
     if (d < hist[0].fecha) return hist[0].tem;
     let val = hist[0].tem;
-    for (const h of hist) {
-      if (h.fecha <= d) val = h.tem;
-      else break;
-    }
+    for (const h of hist) { if (h.fecha <= d) val = h.tem; else break; }
     return val;
   };
 
-  // Helper: obtener TEM proyectado para fechas futuras
-  const getProjTEM = (d) => {
-    if (DUAL_STATE.projMode === 'REM' && DUAL_STATE.remProj.length) {
-      let val = DUAL_STATE.remProj[DUAL_STATE.remProj.length-1].tem;
-      for (const r of DUAL_STATE.remProj) {
-        if (d <= r.fecha) { val = r.tem; break; }
-      }
-      return val;
+  const getProjTEM = d => {
+    if (DUAL_STATE.projMode === 'REM') {
+      const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const row = DUAL_REM.find(r => r.ym === mo);
+      const tna = row ? row.tna
+        : (DUAL_REM.length ? DUAL_REM[DUAL_REM.length-1].tna : 0.234);
+      return Math.pow(1 + tna, 30/365) - 1;
     }
-    return getDualSuavTEM(d);
+    // Suavizado lineal
+    const temNow = hist.length ? hist[hist.length-1].tem : 0.028;
+    const temFin = Math.pow(1 + DUAL_STATE.suavFinTNA, 30/365) - 1;
+    const msAhead = 12 * 30 * 86400000;
+    const t = Math.min(1, Math.max(0, (d - today) / msAhead));
+    return temNow + (temFin - temNow) * t;
   };
 
   const result = [];
   const cur = new Date(fromDate);
   while (cur < toDate) {
-    let tem;
-    if (cur <= today) {
-      tem = getHistTEM(cur) ?? (hist.length ? hist[0].tem : 0.028);
-    } else {
-      tem = getProjTEM(cur);
-    }
+    const tem = cur <= today ? (getHistTEM(cur) ?? 0.028) : getProjTEM(cur);
     result.push({ fecha: new Date(cur), tem });
     cur.setDate(cur.getDate() + 1);
   }
   return result;
 }
 
-// ── Suavizado lineal: interpola entre TEM_actual y TEM_fin ──
-function getDualSuavTEM(d) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const hist = DUAL_STATE.tamarSeries;
-  const temNow = hist.length ? hist[hist.length-1].tem : 0.028;
-  const temFin = Math.pow(1 + DUAL_STATE.suavFinTNA, 30/365) - 1;
-  // Interpolate over 12 months from today
-  const monthsAhead = 12;
-  const msAhead = monthsAhead * 30 * 86400000;
-  const t = Math.min(1, (d - today) / msAhead);
-  if (t <= 0) return temNow;
-  return temNow + (temFin - temNow) * t;
-}
-
-// ── Calcular TEM_avg (AVERAGEIFS) entre emision y vto ──
-// Replica: AVERAGEIFS(TAMAR.ajuste, TAMAR.fechas, ">="&emision, TAMAR.fechas, "<="&vto)
+// ── TEM_avg = AVERAGEIFS(TAMAR, fecha>=emision, fecha<=vto) ──
 function calcTEMavg(emision, vto) {
   const daily = buildDailyTEM(emision, vto);
   if (!daily.length) return null;
-  const sum = daily.reduce((s, d) => s + d.tem, 0);
-  return sum / daily.length;
+  return daily.reduce((s, d) => s + d.tem, 0) / daily.length;
 }
 
-// ── Calcular flujos de un bono dual ──
-// Replica exacta del Excel:
-//   Interés_fija  = VR × ((1+TEM_emision)^(YEARFRAC(emision,vto,0)×12)) − VR
-//   Interés_TAMAR = VR × ((1+TEM_avg)^(YEARFRAC(emision,vto,0)×12)) − VR
-//   CF_final = max(CF_fija, CF_TAMAR)
-//   Cupón% (col F) = (1+interés/VR)^(1/YEARFRAC(emision,vto,0)) − 1
-//   T(A/A) = YEARFRAC(liq, vto, 1) = días/365
-//   T(30/360) = YEARFRAC(liq, vto, 0)
+// ── Calcular métricas para un bono dual ──
 function calcDualFlows(def, precio, liq) {
-  const emision = def.emision;
-  const vto = def.vto;
-
-  // YEARFRAC(emision, vto, 0) × 12 = periodos de 30 días
-  const yf_em_vto = yearfrac0(emision, vto);
-  const periodos = yf_em_vto * 12;
+  const yf = yearfrac0(def.emision, def.vto);
+  const periodos = yf * 12;
 
   // Pata fija
   const intFija = 100 * (Math.pow(1 + def.temEmision, periodos) - 1);
   const cfFija  = 100 + intFija;
 
   // Pata TAMAR
-  const temAvg = calcTEMavg(emision, vto);
+  const temAvg = calcTEMavg(def.emision, def.vto);
   if (temAvg === null) return null;
   const intTAMAR = 100 * (Math.pow(1 + temAvg, periodos) - 1);
   const cfTAMAR  = 100 + intTAMAR;
 
-  // Elegir la pata ganadora
   const esVariable = cfTAMAR >= cfFija;
-  const cfFinal   = Math.max(cfFija, cfTAMAR);
-  const intFinal  = cfFinal - 100;
+  const cfFinal    = Math.max(cfFija, cfTAMAR);
+  const intFinal   = cfFinal - 100;
+  const cuponPct   = Math.pow(1 + intFinal/100, 1/yf) - 1;
 
-  // Cupón% = (1 + intFinal/100)^(1/yf_em_vto) − 1
-  const cuponPct = Math.pow(1 + intFinal/100, 1/yf_em_vto) - 1;
+  const diasReales = Math.round((def.vto - liq) / 86400000);
+  const tAA  = diasReales / 365;
+  const t30  = yearfrac0(liq, def.vto);
 
-  // T(A/A) = días reales liq→vto / 365
-  const diasReales = Math.round((vto - liq) / 86400000);
-  const tAA = diasReales / 365;
+  const flows = [{ t:0, cf:-precio }, { t:tAA, cf:cfFinal }];
 
-  // T(30/360) = YEARFRAC(liq, vto, 0)
-  const t3060 = yearfrac0(liq, vto);
-
-  // Flows para TIR (Newton-Raphson via existing calcTIRFromFlows)
-  // Misma convención: t = YEARFRAC(liq, pago, 1) = T(A/A)
-  const flows = [
-    { t: 0,   cf: -precio },
-    { t: tAA, cf: cfFinal  },
-  ];
-
-  // TIR
-  let tir = null;
-  try { tir = calcTIRFromFlows(flows, precio); } catch(e){}
-
-  let tem=null, macaulay=null, modified=null, convex=null, tePlazo=null, usdBE=null;
+  let tir=null, tem=null, macaulay=null, modified=null, convex=null;
+  try { tir = calcTIRFromFlows(flows, precio); } catch(e) {}
   if (tir !== null && isFinite(tir)) {
-    tem = Math.pow(1+tir, 30/365) - 1;
-    const dur = calcDurationFromFlows(flows, tir);
-    macaulay = dur.macaulay;
-    modified = dur.modified;
+    tem      = Math.pow(1+tir, 30/365) - 1;
+    const d  = calcDurationFromFlows(flows, tir);
+    macaulay = d.macaulay;
+    modified = d.modified;
     convex   = calcConvexityFromFlows(flows, tir);
-    tePlazo  = cfFinal / precio - 1;
-    const isCable = (typeof BOND_MODE !== 'undefined' && BOND_MODE === 'CABLE');
-    const usdNow = isCable
-      ? (STATE.dolar?.cable || STATE.dolar?.mep || 1430)
-      : (STATE.dolar?.mep   || 1430);
-    usdBE = usdNow * (1 + tePlazo);
   }
+  const tePlazo = cfFinal / precio - 1;
+  const isCable = (typeof BOND_MODE !== 'undefined' && BOND_MODE === 'CABLE');
+  const usdNow  = isCable
+    ? (STATE.dolar?.cable || STATE.dolar?.mep || 1430)
+    : (STATE.dolar?.mep || 1430);
+  const usdBE = usdNow * (1 + tePlazo);
 
   return {
-    ticker: def.ticker, emision, vto, precio, liq,
+    ticker:def.ticker, emision:def.emision, vto:def.vto, precio, liq,
     temAvg, intFija, cfFija, intTAMAR, cfTAMAR,
     intFinal, cfFinal, cuponPct, esVariable,
-    tAA, t3060, diasReales,
+    tAA, t30, diasReales,
     tir, tem, macaulay, modified, convex, tePlazo, usdBE,
-    yf_em_vto, periodos,
+    yf, periodos,
   };
 }
 
-// ── Render tabla resumen ──
+// ── Tabla resumen ──
 function renderDualesTable() {
   const tbody = document.getElementById('tbody-duales');
   if (!tbody) return;
-  const liq = getT1();
+  const liq     = getT1();
   const isCable = (typeof BOND_MODE !== 'undefined' && BOND_MODE === 'CABLE');
-
-  const fmt  = (v,d,s='') => (v!=null&&isFinite(v)) ? v.toFixed(d)+s : '—';
-  const fmtP = v => (v!=null&&isFinite(v)) ? (v*100).toFixed(2)+'%' : '—';
-  const fmtP3= v => (v!=null&&isFinite(v)) ? (v*100).toFixed(3)+'%' : '—';
-  const tirStyle = isCable ? 'color:#ef4444;font-weight:700' : 'color:#60a5fa;font-weight:700';
+  const fmt  = (v,d)  => (v!=null&&isFinite(v)) ? v.toFixed(d) : '—';
+  const fmtP = (v,d=2)=> (v!=null&&isFinite(v)) ? (v*100).toFixed(d)+'%' : '—';
+  const tirSt = isCable ? 'color:#ef4444;font-weight:700' : 'color:#60a5fa;font-weight:700';
 
   let html = '';
   for (const def of DUAL_DEFS) {
-    const precio = DUAL_STATE.prices[def.ticker] || null;
+    const precio = DUAL_STATE.prices[def.ticker];
     if (!precio) {
-      html += `<tr><td style="font-weight:700">${def.ticker}</td><td colspan="9" style="color:var(--muted)">Cargando precio…</td></tr>`;
+      html += `<tr><td style="font-weight:700">${def.ticker}</td>
+        <td colspan="9" style="color:var(--muted)">Sin precio de mercado</td></tr>`;
       continue;
     }
     const r = calcDualFlows(def, precio, liq);
     if (!r) { html += `<tr><td>${def.ticker}</td><td colspan="9" style="color:var(--muted)">Sin datos TAMAR</td></tr>`; continue; }
 
-    const pataLabel = r.esVariable
-      ? '<span style="font-size:9px;color:#34d399;font-weight:700">TAMAR</span>'
-      : '<span style="font-size:9px;color:#f59e0b;font-weight:700">FIJA</span>';
-
+    const badge = r.esVariable
+      ? '<span style="font-size:9px;color:#34d399;font-weight:700;margin-left:4px">TAMAR</span>'
+      : '<span style="font-size:9px;color:#f59e0b;font-weight:700;margin-left:4px">FIJA</span>';
     html += `<tr style="cursor:pointer" onclick="openDualModal('${def.ticker}')">
-      <td style="font-weight:700">${def.ticker} ${pataLabel}</td>
+      <td style="font-weight:700">${def.ticker}${badge}</td>
       <td>${fmt(precio,2)}</td>
       <td>${def.vto.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
-      <td title="TEM promedio TAMAR del período">${fmtP3(r.temAvg)}</td>
-      <td style="${tirStyle}">${fmtP(r.tir)}</td>
-      <td>${fmtP3(r.tem)}</td>
+      <td title="TEM promedio del período">${fmtP(r.temAvg,3)}</td>
+      <td style="${tirSt}">${fmtP(r.tir)}</td>
+      <td>${fmtP(r.tem,3)}</td>
       <td>${fmt(r.macaulay,4)}</td>
       <td>${fmt(r.modified,4)}</td>
-      <td title="Retorno total en el período">${fmtP(r.tePlazo)}</td>
-      <td title="TC ${isCable?'Cable':'MEP'} implícito al vencimiento">${r.usdBE!=null?'$'+fmt(r.usdBE,1):'—'}</td>
+      <td>${fmtP(r.tePlazo)}</td>
+      <td>$${r.usdBE!=null?fmt(r.usdBE,1):'—'}</td>
     </tr>`;
   }
   tbody.innerHTML = html || '<tr><td colspan="10" style="color:var(--muted);text-align:center">Sin datos</td></tr>';
 }
 
-// ── Modal de flujos para Duales (igual que el de otros bonos) ──
+// ── Modal de flujos ──
 function openDualModal(ticker) {
-  const def = DUAL_DEFS.find(d => d.ticker === ticker);
-  if (!def) return;
+  const def    = DUAL_DEFS.find(d => d.ticker === ticker);
   const precio = DUAL_STATE.prices[ticker];
-  if (!precio) return;
+  if (!def || !precio) return;
   const liq = getT1();
-  const r = calcDualFlows(def, precio, liq);
+  const r   = calcDualFlows(def, precio, liq);
   if (!r) return;
 
   document.getElementById('bond-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
   const pastBtn = document.getElementById('bond-toggle-past');
-  if (pastBtn) { pastBtn.style.display = 'none'; }
+  if (pastBtn) pastBtn.style.display = 'none';
 
-  const pataLabel = r.esVariable ? 'Pata TAMAR' : 'Pata Fija';
-  document.getElementById('bond-modal-title').textContent =
-    `${ticker} — ${def.nombre} (${pataLabel})`;
-  document.getElementById('bond-modal-meta').textContent =
+  const pata = r.esVariable ? 'Pata TAMAR' : 'Pata Fija';
+  document.getElementById('bond-modal-title').textContent = `${ticker} — ${def.nombre} (${pata})`;
+  document.getElementById('bond-modal-meta').textContent  =
     `Dual · Liq: ${liq.toLocaleDateString('es-AR')} · Precio: ${precio.toFixed(4)} · TIR: ${r.tir!=null?(r.tir*100).toFixed(2)+'%':'—'}`;
 
   const fmt  = (v,d) => (v!=null&&isFinite(v)) ? v.toFixed(d) : '—';
   const fmtP = (v,d=2) => (v!=null&&isFinite(v)) ? (v*100).toFixed(d)+'%' : '—';
+  const fmtD = d => d instanceof Date ? d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+
   document.getElementById('bond-modal-summary').innerHTML = `
     <div class="bms-item"><div class="bms-lbl">Precio</div><div class="bms-val">${fmt(precio,2)}</div></div>
     <div class="bms-item"><div class="bms-lbl">TIR e.a.</div><div class="bms-val pos">${fmtP(r.tir)}</div></div>
     <div class="bms-item"><div class="bms-lbl">TEM</div><div class="bms-val">${fmtP(r.tem,3)}</div></div>
     <div class="bms-item"><div class="bms-lbl">Duration</div><div class="bms-val">${fmt(r.macaulay,4)} a</div></div>
     <div class="bms-item"><div class="bms-lbl">Mod. Duration</div><div class="bms-val">${fmt(r.modified,4)}</div></div>
-    <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${def.vto.toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>
-  `;
+    <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${def.vto.toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>`;
 
-  // Build cashflow table rows replicating Excel layout exactly
-  // Cols: Fecha | T(A/A) | T(30/360) | Cupón% | Amortización | Intereses | VR | Flujo(Nominal) | Macaulay | Convexity
-  const fmtD = d => d instanceof Date
-    ? d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})
-    : '—';
-  const n4 = v => (v!=null&&isFinite(v)) ? v.toFixed(4) : '—';
-  const pct3 = v => (v!=null&&isFinite(v)) ? (v*100).toFixed(2)+'%' : '—';
-
-  // Duration & convexity contributions
-  // t here = T(A/A) from liq
   const tir = r.tir;
-  const durContrib  = (tir!=null&&isFinite(tir)) ? r.tAA * r.cfFinal / Math.pow(1+tir, r.tAA) : 0;
-  const convContrib = (tir!=null&&isFinite(tir)) ? r.tAA*(1+r.tAA)*r.cfFinal / Math.pow(1+tir, r.tAA+2) : 0;
-  const macCalc = tir!=null ? durContrib/precio : 0;
-  const convCalc = tir!=null ? convContrib/precio : 0;
+  const durC  = (tir!=null&&isFinite(tir)) ? r.tAA * r.cfFinal / Math.pow(1+tir, r.tAA)    : 0;
+  const convC = (tir!=null&&isFinite(tir)) ? r.tAA*(1+r.tAA)*r.cfFinal / Math.pow(1+tir, r.tAA+2) : 0;
+  const macC  = durC  / precio;
+  const cvxC  = convC / precio;
 
-  // Liq row (purchase)
   const liqRow = `<tr style="background:rgba(79,142,247,.08)">
     <td style="text-align:left;font-family:var(--font);font-weight:700;color:var(--accent)">${fmtD(liq)}</td>
-    <td>0,0000</td><td>0,0000</td><td>—</td><td>—</td><td>—</td>
-    <td>—</td>
+    <td>0,0000</td><td>0,0000</td><td>—</td><td>—</td><td>—</td><td>—</td>
     <td style="font-weight:700;color:var(--red)">${(-precio).toFixed(4)}</td>
-    <td>—</td><td>—</td><td>—</td>
-  </tr>`;
+    <td>—</td><td>—</td><td>—</td></tr>`;
 
-  // Emision row (row 0 in Excel: shows VR=100 at emision date)
   const emisRow = `<tr>
     <td style="text-align:left;font-family:var(--font);color:var(--muted)">${fmtD(def.emision)}</td>
     <td></td><td></td><td></td><td></td><td></td>
-    <td>100,00</td>
-    <td></td><td>0,0000</td><td>0,0000</td><td></td>
-  </tr>`;
+    <td>100,00</td><td></td><td>0,0000</td><td>0,0000</td><td></td></tr>`;
 
-  // Vto row (the single payment)
   const vtoRow = `<tr>
     <td style="text-align:left;font-family:var(--font)">${fmtD(def.vto)}</td>
-    <td>${r.tAA.toFixed(4)}</td>
-    <td>${r.t3060.toFixed(4)}</td>
-    <td>${pct3(r.cuponPct)}</td>
+    <td>${r.tAA.toFixed(4)}</td><td>${r.t30.toFixed(4)}</td>
+    <td>${(r.cuponPct*100).toFixed(2)}%</td>
     <td class="cf-amort">100,0000</td>
-    <td>${n4(r.intFinal)}</td>
-    <td>0,00</td>
-    <td style="font-weight:700">${n4(r.cfFinal)}</td>
+    <td>${r.intFinal.toFixed(4)}</td><td>0,00</td>
+    <td style="font-weight:700">${r.cfFinal.toFixed(4)}</td>
     <td>${r.tAA.toFixed(4)}</td>
-    <td>${macCalc.toFixed(3)}</td>
-    <td>${convCalc.toFixed(3)}</td>
-  </tr>`;
+    <td>${macC.toFixed(3)}</td><td>${cvxC.toFixed(3)}</td></tr>`;
 
-  // Totals row
   const totRow = `<tr class="cf-totals">
     <td colspan="2" style="text-align:left;font-family:var(--font)">*Fecha de liquidación</td>
-    <td></td>
-    <td class="cf-amort">100,0000</td>
-    <td></td>
-    <td>${n4(r.intFinal)}</td>
-    <td></td>
-    <td style="font-weight:800">${n4(r.cfFinal)}</td>
-    <td></td>
-    <td>${macCalc.toFixed(3)}</td>
-    <td>${convCalc.toFixed(3)}</td>
-  </tr>`;
+    <td></td><td class="cf-amort">100,0000</td><td></td>
+    <td>${r.intFinal.toFixed(4)}</td><td></td>
+    <td style="font-weight:800">${r.cfFinal.toFixed(4)}</td>
+    <td></td><td>${macC.toFixed(3)}</td><td>${cvxC.toFixed(3)}</td></tr>`;
 
   document.getElementById('bond-modal-past').innerHTML = '';
   document.getElementById('bond-modal-past').style.display = 'none';
@@ -3381,245 +3343,171 @@ function openDualModal(ticker) {
   document.getElementById('bond-modal-totals').innerHTML =
     `<span style="color:var(--muted)">* Fecha de liquidación · </span>
      <span style="font-family:var(--mono);font-size:11px">
-       TAMAR prom TEM: <strong>${fmtP(r.temAvg,3)}</strong> ·
-       Pata ganadora: <strong>${r.esVariable?'TAMAR':'Fija'}</strong> ·
-       Duration: <strong>${fmt(r.macaulay,4)}</strong> ·
-       Convexity: <strong>${fmt(r.convex,4)}</strong>
+       TAMAR prom TEM: <strong>${fmtP(r.temAvg,3)}</strong> · Pata: <strong>${r.esVariable?'TAMAR':'Fija'}</strong> ·
+       Duration: <strong>${fmt(r.macaulay,4)}</strong> · Convexity: <strong>${fmt(r.convex,4)}</strong>
      </span>`;
 }
 
-// ── Fetch TAMAR desde BCRA API pública (no requiere autenticación, sin CORS) ──
+// ── Fetch TAMAR histórica (BCRA API pública, sin CORS) ──
 async function fetchTAMAR() {
   const today = new Date();
-  const desde = new Date(2024, 9, 1); // TAMAR existe desde Oct 2024
-  const fmt = d => d.toISOString().slice(0,10);
-  const url = `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/${BCRA_TAMAR_ID}?desde=${fmt(desde)}&hasta=${fmt(today)}&limit=1000`;
-
+  const desde = '2024-10-01'; // TAMAR existe desde oct-2024
+  const hasta = today.toISOString().slice(0,10);
+  const url   = `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/${BCRA_TAMAR_ID}?desde=${desde}&hasta=${hasta}&limit=1000`;
   const r = await fetch(url);
   if (!r.ok) throw new Error('BCRA HTTP ' + r.status);
   const j = await r.json();
   if (j.status !== 200) throw new Error('BCRA status ' + j.status);
-  const detalle = j.results?.[0]?.detalle;
-  if (!detalle?.length) throw new Error('Sin detalle TAMAR');
-
-  // valor viene en % TNA (ej: 30.875) → divido por 100 para obtener tasa decimal
-  // Viene newest-first → reverse para orden cronológico
-  return detalle.map(d => {
+  const det = j.results?.[0]?.detalle;
+  if (!det?.length) throw new Error('Sin datos');
+  // valor en % TNA → /100, newest-first → reverse
+  return det.map(d => {
     const tna = d.valor / 100;
-    return {
-      fecha: new Date(d.fecha + 'T00:00:00'),
-      tna,
-      tem: Math.pow(1 + tna, 30/365) - 1,
-    };
+    return { fecha: new Date(d.fecha + 'T00:00:00'), tna, tem: Math.pow(1+tna, 30/365)-1 };
   }).reverse();
 }
 
-// ── Fetch REM desde BCRA ──
-// El REM de TAMAR: buscamos variables en el rango 370-400
-async function fetchREM() {
-  // Intentar ids conocidos para REM TAMAR
-  for (const id of [376, 377, 378, 379, 380]) {
-    try {
-      const today = new Date();
-      const desde = new Date(today); desde.setMonth(desde.getMonth() - 3);
-      const fmt = d => d.toISOString().slice(0,10);
-      const url = `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/${id}?desde=${fmt(desde)}&hasta=${fmt(today)}&limit=50`;
-      const r = await fetch(url);
-      if (!r.ok) continue;
-      const j = await r.json();
-      if (j.status !== 200) continue;
-      const det = j.results?.[0]?.detalle;
-      if (!det?.length || det.length < 3) continue;
-      // Parece válido — convertir a proyecciones mensuales
-      return det.map(d => ({
-        fecha: new Date(d.fecha + 'T00:00:00'),
-        tna: d.valor/100,
-        tem: Math.pow(1 + d.valor/100, 30/365) - 1,
-      })).reverse();
-    } catch(e) { continue; }
-  }
-  return null;
-}
-
-// ── Fetch precios de Duales desde data912 (/api/bonds = arg_bonds) ──
-// Los bonos duales (TTJ26, TTS26, TTD26) son bonos en pesos → están en arg_bonds
+// ── Fetch precios de Duales desde /api/bonds (arg_bonds data912) ──
 async function fetchDualPrices() {
   try {
     const r = await fetch(PROXY_URL + '/api/bonds');
     if (!r.ok) return;
-    const data = await r.json();
-    const arr = Array.isArray(data) ? data : (data.data || []);
+    const arr = await r.json();
+    const data = Array.isArray(arr) ? arr : (arr.data || []);
     for (const def of DUAL_DEFS) {
-      const found = arr.find(n =>
-        n.ticker && n.ticker.toUpperCase() === def.ticker.toUpperCase()
-      );
+      const found = data.find(n => n.ticker && n.ticker.toUpperCase() === def.ticker);
       if (found) {
-        // data912 usa campo 'c' para close price
-        const c = parseFloat(found.c || found.close || found.last || found.precio || 0);
+        const c = parseFloat(found.c || found.close || found.last || 0);
         if (c > 0) DUAL_STATE.prices[def.ticker] = c;
       }
     }
-  } catch(e) { console.warn('Dual prices error:', e); }
+  } catch(e) { console.warn('Dual prices:', e); }
 }
 
-// ── Render gráfico TAMAR ──
+// ── Gráfico TAMAR ──
 function renderTamarChart() {
   const canvas = document.getElementById('c-tamar');
   if (!canvas) return;
-
-  const useUnit = DUAL_STATE.tamarUnit; // 'TNA' | 'TEM'
-  const toY = d => useUnit === 'TNA' ? +(d.tna*100).toFixed(4) : +(d.tem*100).toFixed(4);
-
-  // Hist dataset (BCRA datos reales)
+  const unit  = DUAL_STATE.tamarUnit;
+  const toY   = d => unit === 'TNA' ? +(d.tna*100).toFixed(4) : +(d.tem*100).toFixed(4);
   const histPts = DUAL_STATE.tamarSeries.map(d => ({ x: d.fecha, y: toY(d) }));
+  const today   = new Date(); today.setHours(0,0,0,0);
+  const lastH   = DUAL_STATE.tamarSeries.length ? DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1].fecha : today;
 
-  // Projection dataset: from last hist date forward to Dec 2026
-  const today = new Date(); today.setHours(0,0,0,0);
-  const lastHist = DUAL_STATE.tamarSeries.length
-    ? DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1].fecha
-    : today;
-  const end = new Date(2026,11,31);
-
-  // Build proj points monthly
+  // Build projection points monthly
   const projPts = [];
-  if (DUAL_STATE.projMode === 'REM' && DUAL_STATE.remProj.length) {
-    for (const p of DUAL_STATE.remProj) {
-      if (p.fecha > lastHist) projPts.push({ x: p.fecha, y: toY(p) });
+  if (DUAL_STATE.projMode === 'REM') {
+    for (const row of DUAL_REM) {
+      const [y, m] = row.ym.split('-').map(Number);
+      const d = new Date(y, m-1, 15);
+      if (d > lastH) {
+        const tem = Math.pow(1+row.tna, 30/365)-1;
+        projPts.push({ x:d, y: unit==='TNA' ? +(row.tna*100).toFixed(4) : +(tem*100).toFixed(4) });
+      }
     }
   } else {
-    // Suavizado: monthly points
-    const cur = new Date(lastHist);
-    cur.setDate(1); cur.setMonth(cur.getMonth()+1);
+    const end = new Date(2026,11,31);
+    const cur = new Date(lastH); cur.setDate(1); cur.setMonth(cur.getMonth()+1);
     while (cur <= end) {
-      const tem = getDualSuavTEM(cur);
-      const tna = Math.pow(1+tem, 365/30) - 1;
-      projPts.push({ x: new Date(cur), y: useUnit==='TNA' ? +(tna*100).toFixed(4) : +(tem*100).toFixed(4) });
+      const tem = (() => {
+        const temNow = DUAL_STATE.tamarSeries.length ? DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1].tem : 0.028;
+        const temFin = Math.pow(1+DUAL_STATE.suavFinTNA, 30/365)-1;
+        const t = Math.min(1, (cur-today)/(12*30*86400000));
+        return temNow + (temFin-temNow)*t;
+      })();
+      const tna = Math.pow(1+tem, 365/30)-1;
+      projPts.push({ x:new Date(cur), y: unit==='TNA' ? +(tna*100).toFixed(4) : +(tem*100).toFixed(4) });
       cur.setMonth(cur.getMonth()+1);
     }
   }
 
   if (DUAL_STATE.tamarChart) { DUAL_STATE.tamarChart.destroy(); DUAL_STATE.tamarChart = null; }
-
   const isDark = !document.documentElement.classList.contains('light');
   const gc = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
   const tc = isDark ? '#9ca3af' : '#6b7280';
 
   DUAL_STATE.tamarChart = new Chart(canvas, {
     type: 'line',
-    data: {
-      datasets: [
-        {
-          label: `TAMAR ${useUnit} — histórico (BCRA)`,
-          data: histPts,
-          borderColor: '#60a5fa', backgroundColor:'rgba(96,165,250,.08)',
-          borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: false,
-        },
-        {
-          label: `Proyección (${DUAL_STATE.projMode==='REM'?'REM':'Suavizado'})`,
-          data: projPts,
-          borderColor: '#f59e0b', backgroundColor:'rgba(245,158,11,.1)',
-          borderWidth: 2, borderDash:[5,3], pointRadius:3,
-          pointBackgroundColor:'#f59e0b', tension:0.3, fill:false,
-        },
-      ],
-    },
+    data: { datasets: [
+      { label:`TAMAR ${unit} (BCRA)`, data:histPts,
+        borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.08)',
+        borderWidth:1.5, pointRadius:0, tension:0.2, fill:false },
+      { label:`Proyección (${DUAL_STATE.projMode==='REM'?'REM mar-26':'Suavizado'})`, data:projPts,
+        borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.1)',
+        borderWidth:2, borderDash:[5,3], pointRadius:3, pointBackgroundColor:'#f59e0b', tension:0.3, fill:false },
+    ]},
     options: {
       responsive:true, maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{labels:{color:tc,font:{size:11},boxWidth:20}},
+        legend:{labels:{color:tc, font:{size:11}, boxWidth:20}},
         tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}%`}},
       },
       scales:{
-        x:{
-          type:'time',
-          time:{unit:'month',tooltipFormat:'dd/MM/yyyy',displayFormats:{month:'MMM yy'}},
-          ticks:{color:tc,font:{size:10}}, grid:{color:gc},
-        },
-        y:{
-          ticks:{color:tc,font:{size:10},callback:v=>v.toFixed(2)+'%'},
-          grid:{color:gc},
-          title:{display:true,text:useUnit==='TNA'?'TNA (%)':'TEM (%)',color:tc,font:{size:10}},
-        },
+        x:{ type:'time', time:{unit:'month',tooltipFormat:'dd/MM/yyyy',displayFormats:{month:'MMM yy'}},
+            ticks:{color:tc,font:{size:10}}, grid:{color:gc} },
+        y:{ ticks:{color:tc,font:{size:10},callback:v=>v.toFixed(2)+'%'},
+            grid:{color:gc}, title:{display:true,text:unit==='TNA'?'TNA (%)':'TEM (%)',color:tc,font:{size:10}} },
       },
     },
   });
 }
 
-// ── Toggles UI ──
+// ── Toggles ──
 function setDualProj(mode, btn) {
   DUAL_STATE.projMode = mode;
-  ['#dual-proj-rem','#dual-proj-suav','#tamar-proj-rem','#tamar-proj-suav'].forEach(s => {
-    document.querySelector(s)?.classList.remove('active');
-  });
+  ['#dual-proj-rem','#dual-proj-suav','#tamar-proj-rem','#tamar-proj-suav'].forEach(s=>document.querySelector(s)?.classList.remove('active'));
   document.querySelector(mode==='REM'?'#dual-proj-rem':'#dual-proj-suav')?.classList.add('active');
   document.querySelector(mode==='REM'?'#tamar-proj-rem':'#tamar-proj-suav')?.classList.add('active');
-  // Show/hide suav controls
   const sc = document.getElementById('dual-suav-controls');
-  if (sc) sc.style.display = mode==='SUAV' ? 'flex' : 'none';
-  renderDualesTable();
-  renderTamarChart();
+  if (sc) sc.style.display = mode==='SUAV'?'flex':'none';
+  renderDualesTable(); renderTamarChart();
 }
-function setTamarUnit(unit, btn) {
+function setTamarUnit(unit) {
   DUAL_STATE.tamarUnit = unit;
   document.querySelectorAll('#tamar-unit-tna,#tamar-unit-tem').forEach(b=>b.classList.remove('active'));
   document.getElementById(unit==='TNA'?'tamar-unit-tna':'tamar-unit-tem')?.classList.add('active');
   renderTamarChart();
 }
-function setTamarProj(mode, btn) {
-  setDualProj(mode, btn);
-}
+function setTamarProj(mode, btn) { setDualProj(mode, btn); }
 function updateSuavTarget(val) {
-  DUAL_STATE.suavFinTNA = parseFloat(val) / 100;
-  document.getElementById('dual-suav-val').textContent = parseFloat(val).toFixed(1) + '%';
-  renderDualesTable();
-  renderTamarChart();
+  DUAL_STATE.suavFinTNA = parseFloat(val)/100;
+  const el = document.getElementById('dual-suav-val');
+  if (el) el.textContent = parseFloat(val).toFixed(1)+'%';
+  renderDualesTable(); renderTamarChart();
+}
+function stepSuav(delta) {
+  const sl = document.getElementById('dual-suav-slider');
+  if (!sl) return;
+  const v = Math.min(40, Math.max(5, parseFloat(sl.value) + delta));
+  sl.value = v;
+  updateSuavTarget(v);
 }
 
-// ── Init principal ──
+// ── Init ──
 async function initDuales() {
-  const statusEl = document.getElementById('dual-tamar-status');
-  const setStatus = (s, color='') => { if(statusEl){statusEl.textContent=s; statusEl.style.color=color||''; }};
-
+  const setStatus = s => { const el=document.getElementById('dual-tamar-status'); if(el) el.textContent=s; };
   setStatus('Cargando TAMAR desde BCRA…');
 
-  // 1. Precios
+  // Precios primero (rápido)
   await fetchDualPrices();
-  renderDualesTable(); // render con "Cargando..." para los precios ya disponibles
+  renderDualesTable();
 
-  // 2. TAMAR histórica
+  // TAMAR histórica
   try {
     DUAL_STATE.tamarSeries = await fetchTAMAR();
     const last = DUAL_STATE.tamarSeries[DUAL_STATE.tamarSeries.length-1];
     setStatus(`TAMAR: ${DUAL_STATE.tamarSeries.length} obs. hasta ${last?.fecha.toLocaleDateString('es-AR')}`);
   } catch(e) {
     console.warn('TAMAR fetch error:', e);
-    setStatus('⚠ Error BCRA — sin datos históricos','#f59e0b');
-  }
-
-  // 3. REM
-  try {
-    const rem = await fetchREM();
-    if (rem?.length) {
-      DUAL_STATE.remProj = rem;
-    } else throw new Error('Sin REM');
-  } catch(e) {
-    console.warn('REM fetch error:', e);
-    // Sin REM → modo suavizado por default
-    DUAL_STATE.projMode = 'SUAV';
-    document.getElementById('dual-proj-rem')?.classList.remove('active');
-    document.getElementById('dual-proj-suav')?.classList.add('active');
-    document.getElementById('tamar-proj-rem')?.classList.remove('active');
-    document.getElementById('tamar-proj-suav')?.classList.add('active');
-    const sc = document.getElementById('dual-suav-controls');
-    if (sc) sc.style.display = 'flex';
+    setStatus('⚠ Sin datos históricos BCRA');
   }
 
   renderDualesTable();
   renderTamarChart();
 }
 
-// ── Hook event delegation (tab click) ──
+// ── Hook tab click ──
 document.addEventListener('click', e => {
   const btn = e.target.closest('.tab');
   if (!btn) return;
@@ -3632,12 +3520,13 @@ document.addEventListener('click', e => {
 }, true);
 
 // ── Re-render al cambiar MEP/CABLE ──
-const _origToggleBondMode = window.toggleBondMode;
-window.toggleBondMode = function() {
-  if (_origToggleBondMode) _origToggleBondMode();
-  if (_dualesInited) renderDualesTable();
-};
+(function() {
+  const orig = window.toggleBondMode;
+  window.toggleBondMode = function() { if(orig) orig(); if(_dualesInited) renderDualesTable(); };
+})();
 
+// ESC closes all modals
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeBondModal(); closeModal(); } });
 
 </script>
 
