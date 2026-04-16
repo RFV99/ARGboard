@@ -1968,7 +1968,7 @@ function renderCapitalizablesTable() {
     const tipo = l.ticker.startsWith('T') ? 'BONCAP' : 'LECAP';
     const tagCls = l.ticker.startsWith('T') ? 'tag-bon' : 'tag-lec';
     const hc = tirColor(l.tem, allTems);
-    const usdNow = isCable ? (STATE.dolar?.cable||STATE.dolar?.mep||1430) : (STATE.dolar?.mep||1430);
+    const usdNow = getLiveUSD();
     const usdBE = l.tePlazo!=null && isFinite(l.tePlazo) && usdNow ? (usdNow*(1+l.tePlazo)).toFixed(1) : '—';
     return `<tr style="cursor:pointer" onclick="openBondModal('${l.ticker}')">
     <td><span class="ticker">${l.ticker} ${l.live ? '<span style="font-size:9px;color:var(--green)">●</span>' : ''}</span>
@@ -3194,100 +3194,91 @@ function yearfrac0(s, e) {
   return ((e.getFullYear()-s.getFullYear())*360+(e.getMonth()-s.getMonth())*30+(d2-d1))/360;
 }
 
-// Avanzar N días hábiles (lunes-viernes, sin feriados)
+// Precio live USD según modo MEP/Cable — siempre usa cotización implícita de bonos primero
+function getLiveUSD() {
+  const isCable = (typeof BOND_MODE !== 'undefined' && BOND_MODE === 'CABLE');
+  if (isCable) {
+    return STATE.tcCable?.AL30 || STATE.dolar?.cable || STATE.dolar?.mep || 1430;
+  }
+  return STATE.tcMep?.AL30 || STATE.dolar?.mep || 1430;
+}
 function addBusinessDays(d, n) {
+  if (n === 0) return new Date(d);
   const r = new Date(d);
-  let added = 0;
-  while (added < n) {
-    r.setDate(r.getDate()+1);
-    if (r.getDay()!==0&&r.getDay()!==6) added++;
+  const step = n > 0 ? 1 : -1;
+  let count = 0;
+  while (count < Math.abs(n)) {
+    r.setDate(r.getDate() + step);
+    if (r.getDay() !== 0 && r.getDay() !== 6) count++;
   }
   return r;
 }
 
-// Construir serie TAMAR diaria (histórica + proyección) para un rango de fechas
-// Con desfasaje de 10 días hábiles: cada fecha recibe el TEM publicado 10 días hábiles antes
-function buildDailyTEMLagged(fromDate, toDate) {
-  const hist  = DUAL_STATE.tamarSeries; // [{fecha, tna, tem}]
+// Lookup en serie histórica: último valor ≤ fecha dada
+function getHistTEM(d) {
+  const hist = DUAL_STATE.tamarSeries;
+  if (!hist.length) return null;
+  if (d < hist[0].fecha) return hist[0].tem;
+  let v = hist[0].tem;
+  for (const h of hist) { if (h.fecha <= d) v = h.tem; else break; }
+  return v;
+}
+
+// TEM proyectada para una fecha (usa REM o suavizado)
+function getProjTEM(d) {
+  const hist = DUAL_STATE.tamarSeries;
   const today = new Date(); today.setHours(0,0,0,0);
+  if (DUAL_STATE.projMode === 'REM') {
+    const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const row = DUAL_REM.find(r => r.ym === mo);
+    const tna = row ? row.tna : DUAL_REM[DUAL_REM.length-1].tna;
+    return Math.pow(1+tna, 30/365)-1;
+  }
+  // Suavizado lineal
+  const temNow = hist.length ? hist[hist.length-1].tem : 0.028;
+  const temFin = Math.pow(1+DUAL_STATE.suavFinTNA, 30/365)-1;
+  const t = Math.min(1, Math.max(0, (d-today)/(12*30*86400000)));
+  return temNow + (temFin-temNow)*t;
+}
 
-  // Look-up histórico: devuelve el TEM para una fecha dada (última observación ≤ fecha)
-  const getHistTEM = d => {
-    if (!hist.length) return null;
-    if (d < hist[0].fecha) return hist[0].tem;
-    let v = hist[0].tem;
-    for (const h of hist) { if (h.fecha <= d) v = h.tem; else break; }
-    return v;
-  };
+// TEM para una fecha:
+// - pasado/hoy: solo histórico (si no hay dato, null → se descarta del promedio)
+// - futuro: proyección (REM o suavizado)
+function getTEMforDate(d) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (d <= today) return getHistTEM(d); // puede ser null → se filtra en el promedio
+  return getProjTEM(d);
+}
 
-  // TEM proyectado para una fecha futura
-  const getProjTEM = d => {
-    if (DUAL_STATE.projMode === 'REM') {
-      const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      const row = DUAL_REM.find(r => r.ym === mo);
-      const tna = row ? row.tna : DUAL_REM[DUAL_REM.length-1].tna;
-      return Math.pow(1+tna, 30/365)-1;
-    }
-    // Suavizado lineal desde TEM_now hasta TEM_fin en 12 meses
-    const temNow = hist.length ? hist[hist.length-1].tem : 0.028;
-    const temFin = Math.pow(1+DUAL_STATE.suavFinTNA, 30/365)-1;
-    const t = Math.min(1, Math.max(0, (d-today)/(12*30*86400000)));
-    return temNow + (temFin-temNow)*t;
-  };
-
-  // Para cada día en el rango, la tasa "aplicable" es la de 10 días hábiles antes
+// Construir serie TAMAR diaria con desfasaje de 10 días hábiles.
+// La lógica: el bono usa la TAMAR publicada 10 días hábiles ANTES de cada fecha.
+// Entonces para el día D, la tasa aplicable es la de D-10bd.
+function buildDailyTEMLagged(fromDate, toDate) {
   const result = [];
   const cur = new Date(fromDate);
   while (cur < toDate) {
-    const lag10 = addBusinessDays(cur, -10); // 10 días hábiles antes
-    // Si lag10 está en el futuro relativo a today, usar proyección; si está en pasado, usar histórico
-    let tem;
-    if (lag10 <= today) {
-      tem = getHistTEM(lag10) ?? getProjTEM(lag10);
-    } else {
-      tem = getProjTEM(lag10);
-    }
-    result.push({ fecha: new Date(cur), tem });
+    const lag = addBusinessDays(cur, -10); // 10 hábiles antes
+    result.push({ fecha: new Date(cur), tem: getTEMforDate(lag) });
     cur.setDate(cur.getDate()+1);
   }
   return result;
 }
 
-// Función inversa: retroceder N días hábiles
-function addBusinessDays_backward(d, n) {
-  const r = new Date(d);
-  let removed = 0;
-  while (removed < n) {
-    r.setDate(r.getDate()-1);
-    if (r.getDay()!==0&&r.getDay()!==6) removed++;
-  }
-  return r;
-}
-// Redefinir addBusinessDays para soportar n negativo
-function addBusinessDays(d, n) {
-  if (n === 0) return new Date(d);
-  if (n > 0) {
-    const r = new Date(d); let added = 0;
-    while (added < n) { r.setDate(r.getDate()+1); if (r.getDay()!==0&&r.getDay()!==6) added++; }
-    return r;
-  } else {
-    const r = new Date(d); let removed = 0;
-    while (removed < Math.abs(n)) { r.setDate(r.getDate()-1); if (r.getDay()!==0&&r.getDay()!==6) removed++; }
-    return r;
-  }
-}
-
-// TEM_avg (desfasado) = promedio aritmético de la serie lagueada
+// TEM_avg_lag = promedio aritmético de la serie diaria desfasada.
+// Días pasados sin dato histórico disponible (por el lag de 10bd) simplemente se omiten
+// del promedio — no se reemplazan con proyección.
 function calcTEMavgLagged(emision, vto) {
   const daily = buildDailyTEMLagged(emision, vto);
   if (!daily.length) return null;
-  return daily.reduce((s,d)=>s+d.tem, 0) / daily.length;
+  const vals = daily.map(d => d.tem).filter(v => v != null && isFinite(v));
+  if (!vals.length) return null;
+  return vals.reduce((s,v) => s+v, 0) / vals.length;
 }
 
 // Calcular métricas de un bono dual
 function calcDualFlows(def, precio, liq) {
-  const yf       = yearfrac0(def.emision, def.vto);
-  const periodos = yf * 12; // períodos mensuales
+  const yf       = yearfrac0(def.emision, def.vto);  // vida TOTAL emision→vto
+  const periodos = yf * 12; // meses totales del bono
 
   // ── Pata fija ──
   const intFija = 100*(Math.pow(1+def.temEmision, periodos)-1);
@@ -3296,9 +3287,12 @@ function calcDualFlows(def, precio, liq) {
   // ── Pata TAMAR (con desfasaje 10 días hábiles) ──
   const temAvgLag = calcTEMavgLagged(def.emision, def.vto);
   if (temAvgLag===null) return null;
-  // Intereses = VR × (1+TEM_avg_lag)^(periodos) − VR
+  // Intereses = VR × (1+TEM_avg_lag)^(periodos_totales) − VR
   const intTAMAR = 100*(Math.pow(1+temAvgLag, periodos)-1);
   const cfTAMAR  = 100+intTAMAR;
+
+  // Debug: verificar en consola que los valores son correctos
+  console.debug(`[DUAL] ${def.ticker} | YF=${yf.toFixed(4)} meses=${periodos.toFixed(2)} | TEM_avg_lag=${(temAvgLag*100).toFixed(4)}% | intTAMAR=${intTAMAR.toFixed(4)} | cfTAMAR=${cfTAMAR.toFixed(4)}`);
 
   const esVariable = cfTAMAR >= cfFija;
   const cfFinal    = Math.max(cfFija, cfTAMAR);
@@ -3327,9 +3321,7 @@ function calcDualFlows(def, precio, liq) {
   // TE al plazo = cfFinal/precio − 1
   const tePlazo = cfFinal/precio - 1;
 
-  const isCable = (typeof BOND_MODE!=='undefined'&&BOND_MODE==='CABLE');
-  const usdNow  = isCable ? (STATE.dolar?.cable||STATE.dolar?.mep||1430)
-                           : (STATE.dolar?.mep||1430);
+  const usdNow  = getLiveUSD();
   const usdBE   = usdNow * (1 + tePlazo);
 
   return {
