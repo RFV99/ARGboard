@@ -219,6 +219,8 @@
   .tag-bon { background: rgba(79,142,247,.15); color: var(--accent); }
   .tag-glo { background: rgba(45,212,191,.15); color: var(--teal); }
   .tag-bop { background: rgba(251,191,36,.15); color: var(--amber); }
+.tag-on-ny  { background: rgba(239,68,68,.18);  color:#f87171; }
+.tag-on-arg { background: rgba(56,189,248,.18);  color:#38bdf8; }
   .tag-lec { background: rgba(167,139,250,.15); color: var(--purple); }
   .tag-pes { background: rgba(120,130,160,.15); color: var(--muted); }
   .pos { color: var(--green); }
@@ -502,6 +504,7 @@
     <button class="tab" onclick="switchTab('capitalizables',this)">Capitalizables</button>
     <button class="tab" onclick="switchTab('duales',this)">Duales $</button>
     <button class="tab" onclick="switchTab('pesos',this)">Tasa fija $</button>
+    <button class="tab" onclick="switchTab('ons',this)">ONs</button>
   </div>
 
   <div class="panel" id="panel-calculadora">
@@ -691,6 +694,38 @@
   </div>
   <!-- ════════════ END DUALES PANEL ════════════ -->
 
+
+  <!-- ════════════ ONs PANEL ════════════ -->
+  <div class="panel" id="panel-ons">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="display:flex;gap:4px;">
+        <button class="period-btn active" id="ons-filter-all"   onclick="setONFilter('all',this)">Todas</button>
+        <button class="period-btn"        id="ons-filter-ny"    onclick="setONFilter('ny',this)">Ley NY</button>
+        <button class="period-btn"        id="ons-filter-arg"   onclick="setONFilter('arg',this)">Ley ARG</button>
+      </div>
+      <input id="ons-search" type="text" placeholder="Buscar ticker o empresa…" oninput="filterONsTable()"
+        style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);width:170px;">
+    </div>
+    <div class="tbl-wrap"><table id="tbl-ons"><thead><tr>
+      <th onclick="sortONs(0)">Ticker ↕</th>
+      <th onclick="sortONs(1)">Empresa ↕</th>
+      <th onclick="sortONs(2)">Vto ↕</th>
+      <th onclick="sortONs(3)">Cupón ↕</th>
+      <th onclick="sortONs(4)">Precio ↕</th>
+      <th onclick="sortONs(5)">TIR ↕</th>
+      <th onclick="sortONs(6)">Mac Dur ↕</th>
+      <th onclick="sortONs(7)">Mod Dur ↕</th>
+      <th onclick="sortONs(8)">Paridad ↕</th>
+      <th onclick="sortONs(9)">Paga ↕</th>
+      <th onclick="sortONs(10)">Rating ↕</th>
+      <th onclick="sortONs(11)">Call ↕</th>
+      <th onclick="sortONs(12)">Sector ↕</th>
+    </tr></thead><tbody id="tbody-ons">
+      <tr><td colspan="13" style="text-align:center;color:var(--muted);padding:18px;">Cargando…</td></tr>
+    </tbody></table></div>
+  </div>
+  <!-- ════════════ END ONs PANEL ════════════ -->
+
   <div class="panel active" id="panel-curvas">
     <div class="chart-grid">
       <div class="chart-card">
@@ -718,6 +753,10 @@
       <div class="chart-card">
         <div class="chart-title">HARD DOLLAR — Todos</div>
         <div class="chart-wrap" style="height:230px"><canvas id="c-scatter" role="img" aria-label="Scatter Duration TIR"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">ONs — Todos</div>
+        <div class="chart-wrap" style="height:230px"><canvas id="c-ons-curve" role="img" aria-label="Curva ONs"></canvas></div>
       </div>
       <div class="chart-card">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
@@ -1498,6 +1537,1718 @@ const PESOS_DEFS = [
   {ticker:'TY30P', nombre:'BONTE may-30 29.5%', cupon:0.295, vr:100},
 ];
 
+// ══════════════════════════════════════════════════════════════
+// ON_DEFS — Obligaciones Negociables
+// Generated from ONs.xlsx
+// Methodology: 30/360 interest accrual, semi-annual or quarterly
+// ══════════════════════════════════════════════════════════════
+const ON_DEFS = {
+  // ── TLCPO ──────────────────────────────────────────────────
+  TLCPO: {
+    grupo:'ONs NY', nombre:'ON TELECOM 2033', empresa:'Telecom',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Communications',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'TLCPD', tickerEXT:'TLCPC',
+    vr:100, cupon:0.0925,
+    cfs:[
+      {pago:'2025-11-28',corte:'2025-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2026-05-28',corte:'2026-05-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2026-11-28',corte:'2026-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2027-05-28',corte:'2027-05-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2027-11-28',corte:'2027-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2028-05-28',corte:'2028-05-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2028-11-28',corte:'2028-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2029-05-28',corte:'2029-05-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2029-11-28',corte:'2029-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2030-05-28',corte:'2030-05-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2030-11-28',corte:'2030-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2031-05-28',corte:'2031-05-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2031-11-28',corte:'2031-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2032-05-28',corte:'2032-05-28',dias:180,amort:50.0,cupon:0.0925},
+      {pago:'2032-11-28',corte:'2032-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2033-05-28',corte:'2033-05-28',dias:180,amort:50.0,cupon:0.0925}
+    ]
+  },
+  // ── VSCVO ──────────────────────────────────────────────────
+  VSCVO: {
+    grupo:'ONs NY', nombre:'ON VISTA ENERGY 2033', empresa:'Vista Energy',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCVD', tickerEXT:'VSCVC',
+    vr:100, cupon:0.085,
+    cfs:[
+      {pago:'2025-12-10',corte:'2025-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2026-06-10',corte:'2026-06-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2026-12-10',corte:'2026-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-06-10',corte:'2027-06-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-12-10',corte:'2027-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-06-10',corte:'2028-06-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-12-10',corte:'2028-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2029-06-10',corte:'2029-06-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2029-12-10',corte:'2029-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2030-06-10',corte:'2030-06-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2030-12-10',corte:'2030-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2031-06-10',corte:'2031-06-10',dias:180,amort:33.0,cupon:0.085},
+      {pago:'2031-12-10',corte:'2031-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2032-06-10',corte:'2032-06-10',dias:180,amort:33.0,cupon:0.085},
+      {pago:'2032-12-10',corte:'2032-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2033-06-10',corte:'2033-06-10',dias:180,amort:34.0,cupon:0.085}
+    ]
+  },
+  // ── BACGO ──────────────────────────────────────────────────
+  BACGO: {
+    grupo:'ONs NY', nombre:'ON BANCO MACRO 2029', empresa:'Banco Macro',
+    ley:'Extranjera', pago:'Semestral', rating:'B-', sector:'Financials',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'BACGD', tickerEXT:'BACGC',
+    vr:100, cupon:0.08,
+    cfs:[
+      {pago:'2025-12-23',corte:'2025-12-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-06-23',corte:'2026-06-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-12-23',corte:'2026-12-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-06-23',corte:'2027-06-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-12-23',corte:'2027-12-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2028-06-23',corte:'2028-06-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2028-12-23',corte:'2028-12-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2029-06-23',corte:'2029-06-23',dias:180,amort:100.0,cupon:0.08}
+    ]
+  },
+  // ── MGCOO ──────────────────────────────────────────────────
+  MGCOO: {
+    grupo:'ONs NY', nombre:'ON PAMPA ENERGÍA 2034', empresa:'Pampa Energía',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Utilities',
+    call:'Si', mep_cable:'CABLE',
+    tickerUSD:'MGCOD', tickerEXT:'MGCOC',
+    vr:100, cupon:0.07875,
+    cfs:[
+      {pago:'2025-06-16',corte:'2025-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2025-12-16',corte:'2025-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2026-06-16',corte:'2026-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2026-12-16',corte:'2026-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2027-06-16',corte:'2027-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2027-12-16',corte:'2027-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-06-16',corte:'2028-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-12-16',corte:'2028-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-06-16',corte:'2029-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-12-16',corte:'2029-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2030-06-16',corte:'2030-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2030-12-16',corte:'2030-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2031-06-16',corte:'2031-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2031-12-16',corte:'2031-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2032-06-16',corte:'2032-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2032-12-16',corte:'2032-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2033-06-16',corte:'2033-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2033-12-16',corte:'2033-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2034-06-16',corte:'2034-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2034-12-16',corte:'2034-12-16',dias:180,amort:100.0,cupon:0.07875}
+    ]
+  },
+  // ── IRCFO ──────────────────────────────────────────────────
+  IRCFO: {
+    grupo:'ONs NY', nombre:'ON IRSA 2028', empresa:'IRSA',
+    ley:'Extranjera', pago:'Semestral', rating:'AAA (Arg)', sector:'Real Estate',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'IRCFD', tickerEXT:'IRCFC',
+    vr:100, cupon:0.0875,
+    cfs:[
+      {pago:'2022-12-22',corte:'2022-12-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2023-06-22',corte:'2023-06-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2023-12-22',corte:'2023-12-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2024-06-22',corte:'2024-06-22',dias:180,amort:17.5,cupon:0.0875},
+      {pago:'2024-12-22',corte:'2024-12-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2025-06-22',corte:'2025-06-22',dias:180,amort:17.5,cupon:0.0875},
+      {pago:'2025-12-22',corte:'2025-12-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2026-06-22',corte:'2026-06-22',dias:180,amort:17.5,cupon:0.0875},
+      {pago:'2026-12-22',corte:'2026-12-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2027-06-22',corte:'2027-06-22',dias:180,amort:17.5,cupon:0.0875},
+      {pago:'2027-12-22',corte:'2027-12-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2028-06-22',corte:'2028-06-22',dias:180,amort:30.0,cupon:0.0875}
+    ]
+  },
+  // ── BYCHO ──────────────────────────────────────────────────
+  BYCHO: {
+    grupo:'ONs NY', nombre:'ON BANCO GALICIA 2028', empresa:'Galicia',
+    ley:'Extranjera', pago:'Semestral', rating:'B-', sector:'Financials',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'BYCHD', tickerEXT:'BYCHC',
+    vr:100, cupon:0.0775,
+    cfs:[
+      {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2028-04-10',corte:'2028-04-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2028-10-10',corte:'2028-10-10',dias:180,amort:100.0,cupon:0.0775}
+    ]
+  },
+  // ── TTCAO ──────────────────────────────────────────────────
+  TTCAO: {
+    grupo:'ONs NY', nombre:'ON TECPETROL 2033', empresa:'Tecpetrol',
+    ley:'Extranjera', pago:'Semestral', rating:'B1', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'TTCAD', tickerEXT:'TTCAC',
+    vr:100, cupon:0.07625,
+    cfs:[
+      {pago:'2025-07-22',corte:'2025-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2026-01-22',corte:'2026-01-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2026-07-22',corte:'2026-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2027-01-22',corte:'2027-01-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2027-07-22',corte:'2027-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-01-22',corte:'2028-01-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-07-22',corte:'2028-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-01-22',corte:'2029-01-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-07-22',corte:'2029-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2030-01-22',corte:'2030-01-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2030-07-22',corte:'2030-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2031-01-22',corte:'2031-01-22',dias:180,amort:33.0,cupon:0.07625},
+      {pago:'2031-07-22',corte:'2031-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2032-01-22',corte:'2032-01-22',dias:180,amort:33.0,cupon:0.07625},
+      {pago:'2032-07-22',corte:'2032-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2033-01-22',corte:'2033-01-22',dias:180,amort:34.0,cupon:0.07625}
+    ]
+  },
+  // ── YCAMO ──────────────────────────────────────────────────
+  YCAMO: {
+    grupo:'ONs NY', nombre:'ON YPF 2027', empresa:'YPF',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'YCAMD', tickerEXT:'YCAMC',
+    vr:100, cupon:0.0695,
+    cfs:[
+      {pago:'2018-01-21',corte:'2018-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2018-07-21',corte:'2018-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2019-01-21',corte:'2019-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2019-07-21',corte:'2019-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2020-01-21',corte:'2020-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2020-07-21',corte:'2020-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2021-01-21',corte:'2021-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2021-07-21',corte:'2021-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2022-01-21',corte:'2022-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2022-07-21',corte:'2022-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2023-01-21',corte:'2023-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2023-07-21',corte:'2023-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2024-01-21',corte:'2024-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2024-07-21',corte:'2024-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2025-01-21',corte:'2025-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2025-07-21',corte:'2025-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2026-01-21',corte:'2026-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2026-07-21',corte:'2026-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2027-01-21',corte:'2027-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2027-07-21',corte:'2027-07-21',dias:180,amort:100.0,cupon:0.0695}
+    ]
+  },
+  // ── YM34O ──────────────────────────────────────────────────
+  YM34O: {
+    grupo:'ONs NY', nombre:'ON YPF 2034', empresa:'YPF',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'YM34D', tickerEXT:'YM34C',
+    vr:100, cupon:0.0825,
+    cfs:[
+      {pago:'2025-07-17',corte:'2025-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2026-01-17',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2026-07-17',corte:'2026-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2027-01-17',corte:'2027-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2027-07-17',corte:'2027-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2028-01-17',corte:'2028-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2028-07-17',corte:'2028-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2029-01-17',corte:'2029-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2029-07-17',corte:'2029-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2030-01-17',corte:'2030-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2030-07-17',corte:'2030-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2031-01-17',corte:'2031-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2031-07-17',corte:'2031-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2032-01-17',corte:'2032-01-17',dias:180,amort:30.0,cupon:0.0825},
+      {pago:'2032-07-17',corte:'2032-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2033-01-17',corte:'2033-01-17',dias:180,amort:30.0,cupon:0.0825},
+      {pago:'2033-07-17',corte:'2033-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2034-01-17',corte:'2034-01-17',dias:180,amort:40.0,cupon:0.0825}
+    ]
+  },
+  // ── YMCXO ──────────────────────────────────────────────────
+  YMCXO: {
+    grupo:'ONs NY', nombre:'ON YPF 2031', empresa:'YPF',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'YMCXD', tickerEXT:'YMCXC',
+    vr:100, cupon:0.0875,
+    cfs:[
+      {pago:'2025-03-11',corte:'2025-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2025-09-11',corte:'2025-09-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2026-03-11',corte:'2026-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2026-09-11',corte:'2026-09-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2027-03-11',corte:'2027-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2027-09-11',corte:'2027-09-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2028-03-11',corte:'2028-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2028-09-11',corte:'2028-09-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2029-03-11',corte:'2029-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2029-09-11',corte:'2029-09-11',dias:180,amort:20.0,cupon:0.0875},
+      {pago:'2030-03-11',corte:'2030-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2030-09-11',corte:'2030-09-11',dias:180,amort:20.0,cupon:0.0875},
+      {pago:'2031-03-11',corte:'2031-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2031-09-11',corte:'2031-09-11',dias:180,amort:60.0,cupon:0.0875}
+    ]
+  },
+  // ── YMCIO ──────────────────────────────────────────────────
+  YMCIO: {
+    grupo:'ONs NY', nombre:'ON YPF STEP-UP 2029', empresa:'YPF',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'YMCID', tickerEXT:'YMCIC',
+    vr:100, cupon:0.025,
+    cfs:[
+      {pago:'2021-06-30',corte:'2021-06-30',dias:180,amort:0.0,cupon:0.025},
+      {pago:'2021-12-30',corte:'2021-12-30',dias:180,amort:0.0,cupon:0.025},
+      {pago:'2022-06-30',corte:'2022-06-30',dias:180,amort:0.0,cupon:0.025},
+      {pago:'2022-12-30',corte:'2022-12-30',dias:180,amort:0.0,cupon:0.025},
+      {pago:'2023-06-30',corte:'2023-06-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2023-12-30',corte:'2023-12-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2024-06-30',corte:'2024-06-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2024-12-30',corte:'2024-12-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2025-06-30',corte:'2025-06-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2025-12-30',corte:'2025-12-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2026-06-30',corte:'2026-06-30',dias:180,amort:0,cupon:0.09},
+      {pago:'2026-12-30',corte:'2026-12-30',dias:180,amort:0,cupon:0.09},
+      {pago:'2027-06-30',corte:'2027-06-30',dias:180,amort:0,cupon:0.09},
+      {pago:'2027-12-30',corte:'2027-12-30',dias:180,amort:0,cupon:0.09},
+      {pago:'2028-06-30',corte:'2028-06-30',dias:180,amort:0,cupon:0.09},
+      {pago:'2028-12-30',corte:'2028-12-30',dias:180,amort:0,cupon:0.09},
+      {pago:'2029-06-30',corte:'2029-06-30',dias:180,amort:0,cupon:0.09}
+    ]
+  },
+  // ── VSCTO ──────────────────────────────────────────────────
+  VSCTO: {
+    grupo:'ONs NY', nombre:'ON VISTA ENERGY 2035', empresa:'Vista Energy',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCTD', tickerEXT:'VSCTC',
+    vr:100, cupon:0.07625,
+    cfs:[
+      {pago:'2025-06-10',corte:'2025-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2025-12-10',corte:'2025-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2026-06-10',corte:'2026-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2026-12-10',corte:'2026-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2027-06-10',corte:'2027-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2027-12-10',corte:'2027-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-06-10',corte:'2028-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-12-10',corte:'2028-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-06-10',corte:'2029-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-12-10',corte:'2029-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2030-06-10',corte:'2030-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2030-12-10',corte:'2030-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2031-06-10',corte:'2031-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2031-12-10',corte:'2031-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2032-06-10',corte:'2032-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2032-12-10',corte:'2032-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2033-06-10',corte:'2033-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2033-12-10',corte:'2033-12-10',dias:180,amort:33.0,cupon:0.07625},
+      {pago:'2034-06-10',corte:'2034-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2034-12-10',corte:'2034-12-10',dias:180,amort:33.0,cupon:0.07625},
+      {pago:'2035-06-10',corte:'2035-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2035-12-10',corte:'2035-12-10',dias:180,amort:34.0,cupon:0.07625}
+    ]
+  },
+  // ── PLC4O ──────────────────────────────────────────────────
+  PLC4O: {
+    grupo:'ONs NY', nombre:'ON PLUSPETROL 2032', empresa:'Pluspetrol',
+    ley:'Extranjera', pago:'Semestral', rating:'B1', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'PLC4D', tickerEXT:'PLC4C',
+    vr:100, cupon:0.085,
+    cfs:[
+      {pago:'2025-11-30',corte:'2025-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2026-05-30',corte:'2026-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2026-11-30',corte:'2026-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-05-30',corte:'2027-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-11-30',corte:'2027-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-05-30',corte:'2028-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-11-30',corte:'2028-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2029-05-30',corte:'2029-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2029-11-30',corte:'2029-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2030-05-30',corte:'2030-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2030-11-30',corte:'2030-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2031-05-30',corte:'2031-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2031-11-30',corte:'2031-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2032-05-30',corte:'2032-05-30',dias:180,amort:100.0,cupon:0.085}
+    ]
+  },
+  // ── PNXCO ──────────────────────────────────────────────────
+  PNXCO: {
+    grupo:'ONs NY', nombre:'ON PAN AMERICAN 2032', empresa:'Pan American',
+    ley:'Extranjera', pago:'Semestral', rating:'B1', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'PNXCD', tickerEXT:'PNXCC',
+    vr:100, cupon:0.085,
+    cfs:[
+      {pago:'2024-10-30',corte:'2024-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2025-04-30',corte:'2025-04-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2025-10-30',corte:'2025-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2026-10-30',corte:'2026-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-10-30',corte:'2027-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-04-30',corte:'2028-04-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-10-30',corte:'2028-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2029-04-30',corte:'2029-04-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2029-10-30',corte:'2029-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2030-04-30',corte:'2030-04-30',dias:180,amort:0,cupon:0.085},
+      {pago:'2030-10-30',corte:'2030-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2031-04-30',corte:'2031-04-30',dias:180,amort:0,cupon:0.085},
+      {pago:'2031-10-30',corte:'2031-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2032-04-30',corte:'2032-04-30',dias:180,amort:0,cupon:0.085}
+    ]
+  },
+  // ── PNDCO ──────────────────────────────────────────────────
+  PNDCO: {
+    grupo:'ONs NY', nombre:'ON PAN AMERICAN 2027', empresa:'Pan American',
+    ley:'Extranjera', pago:'Semestral', rating:'B1', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'PNDCD', tickerEXT:'PNDCC',
+    vr:100, cupon:0.09125,
+    cfs:[
+      {pago:'2021-10-30',corte:'2021-10-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2022-04-30',corte:'2022-04-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2022-10-30',corte:'2022-10-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2023-04-30',corte:'2023-04-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2023-10-30',corte:'2023-10-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2024-04-30',corte:'2024-04-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2024-10-30',corte:'2024-10-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2025-04-30',corte:'2025-04-30',dias:180,amort:20.0,cupon:0.09125},
+      {pago:'2025-10-30',corte:'2025-10-30',dias:180,amort:20.0,cupon:0.09125},
+      {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:20.0,cupon:0.09125},
+      {pago:'2026-10-30',corte:'2026-10-30',dias:180,amort:20.0,cupon:0.09125},
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:20.0,cupon:0.09125}
+    ]
+  },
+  // ── MGCMO ──────────────────────────────────────────────────
+  MGCMO: {
+    grupo:'ONs NY', nombre:'ON PAMPA ENERGÍA 2031', empresa:'Pampa Energía',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Utilities',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'MGCMD', tickerEXT:'MGCMC',
+    vr:100, cupon:0.0795,
+    cfs:[
+      {pago:'2025-03-10',corte:'2025-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2025-09-10',corte:'2025-09-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2026-03-10',corte:'2026-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2026-09-10',corte:'2026-09-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2027-03-10',corte:'2027-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2027-09-10',corte:'2027-09-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2028-03-10',corte:'2028-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2028-09-10',corte:'2028-09-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2029-03-10',corte:'2029-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2029-09-10',corte:'2029-09-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2030-03-10',corte:'2030-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2030-09-10',corte:'2030-09-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2031-03-10',corte:'2031-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2031-09-10',corte:'2031-09-10',dias:180,amort:100.0,cupon:0.0795}
+    ]
+  },
+  // ── IRCPO ──────────────────────────────────────────────────
+  IRCPO: {
+    grupo:'ONs NY', nombre:'ON IRSA 2035', empresa:'IRSA',
+    ley:'Extranjera', pago:'Semestral', rating:'AAA (Arg)', sector:'Real Estate',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'IRCPD', tickerEXT:'IRCPC',
+    vr:100, cupon:0.08,
+    cfs:[
+      {pago:'2025-09-30',corte:'2025-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-03-31',corte:'2026-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-09-30',corte:'2026-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-03-31',corte:'2027-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-09-30',corte:'2027-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2028-03-31',corte:'2028-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2028-09-30',corte:'2028-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2029-03-31',corte:'2029-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2029-09-30',corte:'2029-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2030-03-31',corte:'2030-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2030-09-30',corte:'2030-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2031-03-31',corte:'2031-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2031-09-30',corte:'2031-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2032-03-31',corte:'2032-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2032-09-30',corte:'2032-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2033-03-31',corte:'2033-03-31',dias:180,amort:33.0,cupon:0.08},
+      {pago:'2033-09-30',corte:'2033-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2034-03-31',corte:'2034-03-31',dias:180,amort:33.0,cupon:0.08},
+      {pago:'2034-09-30',corte:'2034-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2035-03-31',corte:'2035-03-31',dias:180,amort:34.0,cupon:0.08}
+    ]
+  },
+  // ── BYC2O ──────────────────────────────────────────────────
+  BYC2O: {
+    grupo:'ONs NY', nombre:'ON BANCO GALICIA 2026', empresa:'Galicia',
+    ley:'Extranjera', pago:'Semestral', rating:'B-', sector:'Financials',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'BYC2P', tickerEXT:'BYC2C',
+    vr:100, cupon:0.0825,
+    cfs:[
+      {pago:'2017-01-19',corte:'2017-01-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2017-07-19',corte:'2017-07-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2018-01-19',corte:'2018-01-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2018-07-19',corte:'2018-07-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2019-01-19',corte:'2019-01-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2019-07-19',corte:'2019-07-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2020-01-19',corte:'2020-01-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2020-07-19',corte:'2020-07-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2021-01-19',corte:'2021-01-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2021-07-19',corte:'2021-07-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2022-01-19',corte:'2022-01-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2022-07-19',corte:'2022-07-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2023-01-19',corte:'2023-01-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2023-07-19',corte:'2023-07-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2024-01-19',corte:'2024-01-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2024-07-19',corte:'2024-07-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2025-01-19',corte:'2025-01-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2025-07-19',corte:'2025-07-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2026-01-19',corte:'2026-01-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2026-07-19',corte:'2026-07-19',dias:180,amort:100.0,cupon:0.07966}
+    ]
+  },
+  // ── BACAO ──────────────────────────────────────────────────
+  BACAO: {
+    grupo:'ONs NY', nombre:'ON BANCO MACRO 2026', empresa:'Banco Macro',
+    ley:'Extranjera', pago:'Semestral', rating:'B-', sector:'Financials',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'BACAD', tickerEXT:'BACAC',
+    vr:100, cupon:0.0675,
+    cfs:[
+      {pago:'2017-05-04',corte:'2017-05-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2017-11-04',corte:'2017-11-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2018-05-04',corte:'2018-05-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2018-11-04',corte:'2018-11-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2019-05-04',corte:'2019-05-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2019-11-04',corte:'2019-11-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2020-05-04',corte:'2020-05-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2020-11-04',corte:'2020-11-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2021-05-04',corte:'2021-05-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2021-11-04',corte:'2021-11-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2022-05-04',corte:'2022-05-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2022-11-04',corte:'2022-11-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2023-05-04',corte:'2023-05-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2023-11-04',corte:'2023-11-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2024-05-04',corte:'2024-05-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2024-11-04',corte:'2024-11-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2025-05-04',corte:'2025-05-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2025-11-04',corte:'2025-11-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2026-05-04',corte:'2026-05-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2026-11-04',corte:'2026-11-04',dias:180,amort:100.0,cupon:0.06643}
+    ]
+  },
+  // ── YFCJO ──────────────────────────────────────────────────
+  YFCJO: {
+    grupo:'ONs NY', nombre:'ON YPF NERGÍA ELÉCTRICA 2032', empresa:'YFCE',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Energy',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'YFCJD', tickerEXT:'YFCJC',
+    vr:100, cupon:0.07875,
+    cfs:[
+      {pago:'2025-04-16',corte:'2025-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2025-10-16',corte:'2025-10-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2026-04-16',corte:'2026-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2026-10-16',corte:'2026-10-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2027-04-16',corte:'2027-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2027-10-16',corte:'2027-10-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-04-16',corte:'2028-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-10-16',corte:'2028-10-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-04-16',corte:'2029-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-10-16',corte:'2029-10-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2030-04-16',corte:'2030-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2030-10-16',corte:'2030-10-16',dias:180,amort:33.0,cupon:0.07875},
+      {pago:'2031-04-16',corte:'2031-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2031-10-16',corte:'2031-10-16',dias:180,amort:33.0,cupon:0.07875},
+      {pago:'2032-04-16',corte:'2032-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2032-10-16',corte:'2032-10-16',dias:180,amort:34.0,cupon:0.07875}
+    ]
+  },
+  // ── DNC7O ──────────────────────────────────────────────────
+  DNC7O: {
+    grupo:'ONs NY', nombre:'ON EDENOR 2030', empresa:'Edenor',
+    ley:'Extranjera', pago:'Semestral', rating:'B-', sector:'Utilities',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'DNC7D', tickerEXT:'DNC7C',
+    vr:100, cupon:0.0975,
+    cfs:[
+      {pago:'2025-04-24',corte:'2025-04-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2025-10-24',corte:'2025-10-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2026-04-24',corte:'2026-04-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2026-10-24',corte:'2026-10-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2027-04-24',corte:'2027-04-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2027-10-24',corte:'2027-10-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2028-04-24',corte:'2028-04-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2028-10-24',corte:'2028-10-24',dias:180,amort:33.33,cupon:0.0975},
+      {pago:'2029-04-24',corte:'2029-04-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2029-10-24',corte:'2029-10-24',dias:180,amort:33.33,cupon:0.0975},
+      {pago:'2030-04-24',corte:'2030-04-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2030-10-24',corte:'2030-10-24',dias:180,amort:33.34,cupon:0.0975}
+    ]
+  },
+  // ── TTCDO ──────────────────────────────────────────────────
+  TTCDO: {
+    grupo:'ONs NY', nombre:'ON TECPETROL 2030', empresa:'Tecpetrol',
+    ley:'Extranjera', pago:'Semestral', rating:'B1', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'TTCDD', tickerEXT:'TTCDC',
+    vr:100, cupon:0.07625,
+    cfs:[
+      {pago:'2026-05-03',corte:'2026-05-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2026-11-03',corte:'2026-11-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2027-05-03',corte:'2027-05-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2027-11-03',corte:'2027-11-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-05-03',corte:'2028-05-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-11-03',corte:'2028-11-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-05-03',corte:'2029-05-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-11-03',corte:'2029-11-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2030-05-03',corte:'2030-05-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2030-11-03',corte:'2030-11-03',dias:180,amort:100.0,cupon:0.07625}
+    ]
+  },
+  // ── PLC5O ──────────────────────────────────────────────────
+  PLC5O: {
+    grupo:'ONs NY', nombre:'ON PLUSPETROL 2031', empresa:'Pluspetrol',
+    ley:'Extranjera', pago:'Semestral', rating:'B1', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'PLC5D', tickerEXT:'PLC5C',
+    vr:100, cupon:0.08125,
+    cfs:[
+      {pago:'2026-05-18',corte:'2026-05-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2026-11-18',corte:'2026-11-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2027-05-18',corte:'2027-05-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2027-11-18',corte:'2027-11-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2028-05-18',corte:'2028-05-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2028-11-18',corte:'2028-11-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2029-05-18',corte:'2029-05-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2029-11-18',corte:'2029-11-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2030-05-18',corte:'2030-05-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2030-11-18',corte:'2030-11-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2031-05-18',corte:'2031-05-18',dias:180,amort:100.0,cupon:0.08125}
+    ]
+  },
+  // ── MGCRO ──────────────────────────────────────────────────
+  MGCRO: {
+    grupo:'ONs NY', nombre:'ON PAMPA ENERGÍA 2037', empresa:'Pampa Energía',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Utilities',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'MGCRD', tickerEXT:'MGCRC',
+    vr:100, cupon:0.0775,
+    cfs:[
+      {pago:'2026-05-14',corte:'2026-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2026-11-14',corte:'2026-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2027-05-14',corte:'2027-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2027-11-14',corte:'2027-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2028-05-14',corte:'2028-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2028-11-14',corte:'2028-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2029-05-14',corte:'2029-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2029-11-14',corte:'2029-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2030-05-14',corte:'2030-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2030-11-14',corte:'2030-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2031-05-14',corte:'2031-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2031-11-14',corte:'2031-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2032-05-14',corte:'2032-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2032-11-14',corte:'2032-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2033-05-14',corte:'2033-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2033-11-14',corte:'2033-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2034-05-14',corte:'2034-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2034-11-14',corte:'2034-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2035-05-14',corte:'2035-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2035-11-14',corte:'2035-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2036-05-14',corte:'2036-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2036-11-14',corte:'2036-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2037-05-14',corte:'2037-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2037-11-14',corte:'2037-11-14',dias:180,amort:100.0,cupon:0.0775}
+    ]
+  },
+  // ── MGCRO ──────────────────────────────────────────────────
+  MGCRO: {
+    grupo:'ONs NY', nombre:'ON VISTA ENERGY 2038', empresa:'Vista Energy',
+    ley:'Extranjera', pago:'Semestral', rating:'B2', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCXD', tickerEXT:'VSCXC',
+    vr:100, cupon:0.07875,
+    cfs:[
+      {pago:'2026-10-08',corte:'2026-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2027-04-08',corte:'2027-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2027-10-08',corte:'2027-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-04-08',corte:'2028-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-10-08',corte:'2028-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-04-08',corte:'2029-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-10-08',corte:'2029-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2030-04-08',corte:'2030-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2030-10-08',corte:'2030-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2031-04-08',corte:'2031-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2031-10-08',corte:'2031-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2032-04-08',corte:'2032-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2032-10-08',corte:'2032-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2033-04-08',corte:'2033-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2033-10-08',corte:'2033-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2034-04-08',corte:'2034-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2034-10-08',corte:'2034-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2035-04-08',corte:'2035-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2035-10-08',corte:'2035-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2036-04-08',corte:'2036-04-08',dias:180,amort:33.0,cupon:0.07875},
+      {pago:'2036-10-08',corte:'2036-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2037-04-08',corte:'2037-04-08',dias:180,amort:33.0,cupon:0.07875},
+      {pago:'2037-10-08',corte:'2037-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2038-04-08',corte:'2038-04-08',dias:180,amort:34.0,cupon:0.07875}
+    ]
+  },
+  // ── PN35O ──────────────────────────────────────────────────
+  PN35O: {
+    grupo:'ONs ARG', nombre:'ON PAN AMERICAN 2029', empresa:'Pan American',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'PN35D', tickerEXT:'PN35C',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2025-03-27',corte:'2025-03-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-09-27',corte:'2025-09-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-03-27',corte:'2026-03-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-09-27',corte:'2026-09-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-03-27',corte:'2027-03-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-09-27',corte:'2027-09-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2028-03-27',corte:'2028-03-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2028-09-27',corte:'2028-09-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2029-03-27',corte:'2029-03-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2029-09-27',corte:'2029-09-27',dias:180,amort:100.0,cupon:0.07}
+    ]
+  },
+  // ── VSCRO ──────────────────────────────────────────────────
+  VSCRO: {
+    grupo:'ONs ARG', nombre:'ON VISTA ENERGY 2031', empresa:'Vista Energy',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCRD', tickerEXT:'VSCRC',
+    vr:100, cupon:0.0765,
+    cfs:[
+      {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2028-04-10',corte:'2028-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2028-10-10',corte:'2028-10-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2029-04-10',corte:'2029-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2029-10-10',corte:'2029-10-10',dias:180,amort:33.0,cupon:0.0765},
+      {pago:'2030-04-10',corte:'2030-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2030-10-10',corte:'2030-10-10',dias:180,amort:33.0,cupon:0.0765},
+      {pago:'2031-04-10',corte:'2031-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2031-10-10',corte:'2031-10-10',dias:180,amort:34.0,cupon:0.0765}
+    ]
+  },
+  // ── PN38O ──────────────────────────────────────────────────
+  PN38O: {
+    grupo:'ONs ARG', nombre:'ON PAN AMERICAN 2027', empresa:'Pan American',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'PN38D', tickerEXT:'PN38C',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2025-08-11',corte:'2025-08-11',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-02-11',corte:'2026-02-11',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-08-11',corte:'2026-08-11',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-02-11',corte:'2027-02-11',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-08-11',corte:'2027-08-11',dias:180,amort:100.0,cupon:0.065}
+    ]
+  },
+  // ── YM37O ──────────────────────────────────────────────────
+  YM37O: {
+    grupo:'ONs ARG', nombre:'ON YPF 2027', empresa:'YPF',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YM37D', tickerEXT:'YM37C',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2025-08-07',corte:'2025-08-07',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-11-07',corte:'2025-11-07',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-02-07',corte:'2026-02-07',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-05-07',corte:'2026-05-07',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-08-07',corte:'2026-08-07',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-11-07',corte:'2026-11-07',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-02-07',corte:'2027-02-07',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-05-07',corte:'2027-05-07',dias:180,amort:100.0,cupon:0.07}
+    ]
+  },
+  // ── DNC5O ──────────────────────────────────────────────────
+  DNC5O: {
+    grupo:'ONs ARG', nombre:'ON EDENOR 2028', empresa:'Edenor',
+    ley:'Local', pago:'Semestral', rating:'A', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'DNC5D', tickerEXT:'DNC5C',
+    vr:100, cupon:0.095,
+    cfs:[
+      {pago:'2025-02-05',corte:'2025-02-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2025-08-05',corte:'2025-08-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2026-02-05',corte:'2026-02-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2026-08-05',corte:'2026-08-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2027-02-05',corte:'2027-02-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2027-08-05',corte:'2027-08-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2028-02-05',corte:'2028-02-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2028-08-05',corte:'2028-08-05',dias:180,amort:100.0,cupon:0.095}
+    ]
+  },
+  // ── DNC3O ──────────────────────────────────────────────────
+  DNC3O: {
+    grupo:'ONs ARG', nombre:'ON EDENOR 2026', empresa:'Edenor',
+    ley:'Local', pago:'Semestral', rating:'A', sector:'Utilities',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'DNC3D', tickerEXT:'DNC3C',
+    vr:100, cupon:0.0975,
+    cfs:[
+      {pago:'2024-05-22',corte:'2024-05-22',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2024-11-22',corte:'2024-11-22',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2025-05-22',corte:'2025-05-22',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2025-11-22',corte:'2025-11-22',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2026-05-22',corte:'2026-05-22',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2026-11-22',corte:'2026-11-22',dias:180,amort:100.0,cupon:0.0975}
+    ]
+  },
+  // ── OTS2O ──────────────────────────────────────────────────
+  OTS2O: {
+    grupo:'ONs ARG', nombre:'ON OILTANKING 2027', empresa:'Oiltanking',
+    ley:'Local', pago:'Trimestral', rating:'AA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'OTS2D', tickerEXT:'OTS2C',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2024-07-24',corte:'2024-07-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2024-10-24',corte:'2024-10-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-01-24',corte:'2025-01-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-04-24',corte:'2025-04-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-07-24',corte:'2025-07-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-10-24',corte:'2025-10-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-01-24',corte:'2026-01-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-04-24',corte:'2026-04-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-07-24',corte:'2026-07-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-10-24',corte:'2026-10-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-01-24',corte:'2027-01-24',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-04-24',corte:'2027-04-24',dias:180,amort:100.0,cupon:0.07}
+    ]
+  },
+  // ── YMCYO ──────────────────────────────────────────────────
+  YMCYO: {
+    grupo:'ONs ARG', nombre:'ON YPF 2028', empresa:'YPF',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YMCYD', tickerEXT:'YMCYC',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2025-01-10',corte:'2025-01-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2025-07-10',corte:'2025-07-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-01-10',corte:'2026-01-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-07-10',corte:'2026-07-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-01-10',corte:'2027-01-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-07-10',corte:'2027-07-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-01-10',corte:'2028-01-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-04-10',corte:'2028-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-07-10',corte:'2028-07-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-10-10',corte:'2028-10-10',dias:180,amort:100.0,cupon:0.065}
+    ]
+  },
+  // ── XMC1O ──────────────────────────────────────────────────
+  XMC1O: {
+    grupo:'ONs ARG', nombre:'ON MINERA EXAR 2027', empresa:'Minera Exar',
+    ley:'Local', pago:'Semestral', rating:'AA', sector:'Mining',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'XMC1D', tickerEXT:'XMC1C',
+    vr:100, cupon:0.08,
+    cfs:[
+      {pago:'2025-05-11',corte:'2025-05-11',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2025-11-11',corte:'2025-11-11',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-05-11',corte:'2026-05-11',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-11-11',corte:'2026-11-11',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-05-11',corte:'2027-05-11',dias:180,amort:50.0,cupon:0.08},
+      {pago:'2027-11-11',corte:'2027-11-11',dias:180,amort:50.0,cupon:0.08}
+    ]
+  },
+  // ── LOC5O ──────────────────────────────────────────────────
+  LOC5O: {
+    grupo:'ONs ARG', nombre:'ON LOMA NEGRA 2027', empresa:'Loma Negra',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Industrials',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'LOC5D', tickerEXT:'LOC5C',
+    vr:100, cupon:0.08,
+    cfs:[
+      {pago:'2026-01-24',corte:'2026-01-24',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-07-24',corte:'2026-07-24',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-01-24',corte:'2027-01-24',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-07-24',corte:'2027-07-24',dias:180,amort:100.0,cupon:0.08}
+    ]
+  },
+  // ── OLC5O ──────────────────────────────────────────────────
+  OLC5O: {
+    grupo:'ONs ARG', nombre:'ON OLEODUCTOS DEL VALLE 2028', empresa:'Oleoductos Valle',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'OLC5D', tickerEXT:'OLC5C',
+    vr:100, cupon:0.0789,
+    cfs:[
+      {pago:'2025-12-12',corte:'2025-12-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2026-06-12',corte:'2026-06-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2026-12-12',corte:'2026-12-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2027-06-12',corte:'2027-06-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2027-12-12',corte:'2027-12-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2028-06-12',corte:'2028-06-12',dias:180,amort:100.0,cupon:0.0789}
+    ]
+  },
+  // ── PLC2O ──────────────────────────────────────────────────
+  PLC2O: {
+    grupo:'ONs ARG', nombre:'ON PLUSPETROL 2030', empresa:'Pluspetrol',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'PLC2D', tickerEXT:'PLC2C',
+    vr:100, cupon:0.075,
+    cfs:[
+      {pago:'2025-10-27',corte:'2025-10-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-04-27',corte:'2026-04-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-10-27',corte:'2026-10-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-04-27',corte:'2027-04-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-10-27',corte:'2027-10-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2028-04-27',corte:'2028-04-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2028-10-27',corte:'2028-10-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2029-04-27',corte:'2029-04-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2029-10-27',corte:'2029-10-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2030-01-27',corte:'2030-01-27',dias:180,amort:100.0,cupon:0.075}
+    ]
+  },
+  // ── YFCMO ──────────────────────────────────────────────────
+  YFCMO: {
+    grupo:'ONs ARG', nombre:'ON YPF ENERGÍA ELÉCTRICA 2027', empresa:'YFCE',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YFCMD', tickerEXT:'YFCMC',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2026-02-20',corte:'2026-02-20',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-05-20',corte:'2026-05-20',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-08-20',corte:'2026-08-20',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-11-20',corte:'2026-11-20',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-02-20',corte:'2027-02-20',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-05-20',corte:'2027-05-20',dias:180,amort:100.0,cupon:0.065}
+    ]
+  },
+  // ── VSCOO ──────────────────────────────────────────────────
+  VSCOO: {
+    grupo:'ONs ARG', nombre:'ON VISTA ENERGY 2027', empresa:'Vista Energy',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCOD', tickerEXT:'VSCOC',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2024-09-06',corte:'2024-09-06',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2025-03-06',corte:'2025-03-06',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2025-09-06',corte:'2025-09-06',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-03-06',corte:'2026-03-06',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-09-06',corte:'2026-09-06',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-03-06',corte:'2027-03-06',dias:180,amort:100.0,cupon:0.065}
+    ]
+  },
+  // ── PFC2O ──────────────────────────────────────────────────
+  PFC2O: {
+    grupo:'ONs ARG', nombre:'ON PROFERTIL 2027', empresa:'Profertil',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Agro',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'PFC2D', tickerEXT:'PFC2C',
+    vr:100, cupon:0.0725,
+    cfs:[
+      {pago:'2026-01-14',corte:'2026-01-14',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2026-07-14',corte:'2026-07-14',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-01-14',corte:'2027-01-14',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-07-14',corte:'2027-07-14',dias:180,amort:100.0,cupon:0.0725}
+    ]
+  },
+  // ── PN36O ──────────────────────────────────────────────────
+  PN36O: {
+    grupo:'ONs ARG', nombre:'ON PAN AMERICAN 2031', empresa:'Pan American',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'PN36D', tickerEXT:'PN36C',
+    vr:100, cupon:0.0725,
+    cfs:[
+      {pago:'2025-05-13',corte:'2025-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2025-11-13',corte:'2025-11-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2026-05-13',corte:'2026-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2026-11-13',corte:'2026-11-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-05-13',corte:'2027-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-11-13',corte:'2027-11-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-05-13',corte:'2028-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-11-13',corte:'2028-11-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2029-05-13',corte:'2029-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2029-11-13',corte:'2029-11-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2030-05-13',corte:'2030-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2030-11-13',corte:'2030-11-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2031-05-13',corte:'2031-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2031-11-13',corte:'2031-11-13',dias:180,amort:100.0,cupon:0.0725}
+    ]
+  },
+  // ── IRCJO ──────────────────────────────────────────────────
+  IRCJO: {
+    grupo:'ONs ARG', nombre:'ON IRSA 2027', empresa:'IRSA',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Real Estate',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'IRCJD', tickerEXT:'IRCJC',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2024-08-28',corte:'2024-08-28',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-02-28',corte:'2025-02-28',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-08-28',corte:'2025-08-28',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-02-28',corte:'2026-02-28',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-08-28',corte:'2026-08-28',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-02-28',corte:'2027-02-28',dias:180,amort:100.0,cupon:0.07}
+    ]
+  },
+  // ── CP36O ──────────────────────────────────────────────────
+  CP36O: {
+    grupo:'ONs ARG', nombre:'ON COMPAÑIA GENERAL DE COMBUSTIBLES 2027', empresa:'CGC',
+    ley:'Local', pago:'Semestral', rating:'A', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'CP36D', tickerEXT:'CP36C',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:100.0,cupon:0.065}
+    ]
+  },
+  // ── PLC3O ──────────────────────────────────────────────────
+  PLC3O: {
+    grupo:'ONs ARG', nombre:'ON PLUSPETROL 2028', empresa:'Pluspetrol',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'PLC3D', tickerEXT:'PLC3C',
+    vr:100, cupon:0.0725,
+    cfs:[
+      {pago:'2026-01-30',corte:'2026-01-30',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2026-07-30',corte:'2026-07-30',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-01-30',corte:'2027-01-30',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-07-30',corte:'2027-07-30',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-01-30',corte:'2028-01-30',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-04-30',corte:'2028-04-30',dias:180,amort:100.0,cupon:0.0725}
+    ]
+  },
+  // ── LOC4O ──────────────────────────────────────────────────
+  LOC4O: {
+    grupo:'ONs ARG', nombre:'ON LOMA NEGRA 2026', empresa:'Loma Negra',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Industrials',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'LOC4D', tickerEXT:'LOC4C',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2024-05-02',corte:'2024-05-02',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2024-11-02',corte:'2024-11-02',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-05-02',corte:'2025-05-02',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-11-02',corte:'2025-11-02',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-05-02',corte:'2026-05-02',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── HJCBO ──────────────────────────────────────────────────
+  HJCBO: {
+    grupo:'ONs ARG', nombre:'ON JOHN DEERE 2026', empresa:'John Deere',
+    ley:'Local', pago:'Trimestral', rating:'A', sector:'Agro',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'HJCBD', tickerEXT:'HJCBC',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2024-08-30',corte:'2024-08-30',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2024-11-30',corte:'2024-11-30',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-02-28',corte:'2025-02-28',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-05-30',corte:'2025-05-30',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-08-30',corte:'2025-08-30',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-11-30',corte:'2025-11-30',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-02-28',corte:'2026-02-28',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-05-30',corte:'2026-05-30',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── SXC2O ──────────────────────────────────────────────────
+  SXC2O: {
+    grupo:'ONs ARG', nombre:'ON MERCADO PAGO 2026', empresa:'Mercado Pago',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Financials',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'SXC2D', tickerEXT:'SXC2C',
+    vr:100, cupon:0.0498,
+    cfs:[
+      {pago:'2026-06-01',corte:'2026-06-01',dias:180,amort:100.0,cupon:0.0498}
+    ]
+  },
+  // ── CS45O ──────────────────────────────────────────────────
+  CS45O: {
+    grupo:'ONs ARG', nombre:'ON CRESUD 2026', empresa:'Cresud',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Agro/Real Estate',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'CS45D', tickerEXT:'CS45C',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2024-10-22',corte:'2024-10-22',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-04-22',corte:'2025-04-22',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-10-22',corte:'2025-10-22',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-04-22',corte:'2026-04-22',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-08-22',corte:'2026-08-22',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── YFCNO ──────────────────────────────────────────────────
+  YFCNO: {
+    grupo:'ONs ARG', nombre:'ON YPF ENERGIA ELECTRICA 2026', empresa:'YFCE',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YFCND', tickerEXT:'YFCNC',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2026-04-03',corte:'2026-04-03',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-10-03',corte:'2026-10-03',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── OTS5O ──────────────────────────────────────────────────
+  OTS5O: {
+    grupo:'ONs ARG', nombre:'ON OILTANKING EBYTEM 2026', empresa:'Oiltanking',
+    ley:'Local', pago:'Semestral', rating:'AA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'OTS5D', tickerEXT:'OTS5C',
+    vr:100, cupon:0.0669,
+    cfs:[
+      {pago:'2026-04-23',corte:'2026-04-23',dias:180,amort:0.0,cupon:0.0669},
+      {pago:'2026-10-23',corte:'2026-10-23',dias:180,amort:100.0,cupon:0.0669}
+    ]
+  },
+  // ── VSCNO ──────────────────────────────────────────────────
+  VSCNO: {
+    grupo:'ONs ARG', nombre:'ON VISTA ENERGY 2026', empresa:'Vista Energy',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCND', tickerEXT:'VSCNC',
+    vr:100, cupon:0.05,
+    cfs:[
+      {pago:'2024-06-05',corte:'2024-06-05',dias:180,amort:0.0,cupon:0.05},
+      {pago:'2024-12-05',corte:'2024-12-05',dias:180,amort:0.0,cupon:0.05},
+      {pago:'2025-06-05',corte:'2025-06-05',dias:180,amort:0.0,cupon:0.05},
+      {pago:'2025-12-05',corte:'2025-12-05',dias:180,amort:0.0,cupon:0.05},
+      {pago:'2026-10-23',corte:'2026-10-23',dias:180,amort:100.0,cupon:0.05}
+    ]
+  },
+  // ── YM41O ──────────────────────────────────────────────────
+  YM41O: {
+    grupo:'ONs ARG', nombre:'ON YPF 2027', empresa:'YPF',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YM41D', tickerEXT:'YM41C',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2026-01-08',corte:'2026-01-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-04-08',corte:'2026-04-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-07-08',corte:'2026-07-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-10-08',corte:'2026-10-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-01-08',corte:'2027-01-08',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── CS44O ──────────────────────────────────────────────────
+  CS44O: {
+    grupo:'ONs ARG', nombre:'ON CRESUD 2027', empresa:'Cresud',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Agro/Real Estate',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'CS44D', tickerEXT:'CS44C',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2024-07-17',corte:'2024-07-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-01-17',corte:'2025-01-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-07-17',corte:'2025-07-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-01-17',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-07-17',corte:'2026-07-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-01-17',corte:'2027-01-17',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── YFCGO ──────────────────────────────────────────────────
+  YFCGO: {
+    grupo:'ONs ARG', nombre:'ON YPF ENERGIA ELECTRICA 2027', empresa:'YFCE',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YFCGD', tickerEXT:'YFCGC',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2024-11-27',corte:'2024-11-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-02-27',corte:'2025-02-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-05-27',corte:'2025-05-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-08-27',corte:'2025-08-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-11-27',corte:'2025-11-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-02-27',corte:'2026-02-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-05-27',corte:'2026-05-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-08-27',corte:'2026-08-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-11-27',corte:'2026-11-27',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-02-27',corte:'2027-02-27',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── GN43O ──────────────────────────────────────────────────
+  GN43O: {
+    grupo:'ONs ARG', nombre:'ON GENNEIA 2027', empresa:'Genneia',
+    ley:'Local', pago:'Trimestral', rating:'AA+', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'GN43D', tickerEXT:'GN43C',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2024-09-08',corte:'2024-09-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2024-12-08',corte:'2024-12-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-03-08',corte:'2025-03-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-06-08',corte:'2025-06-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-09-08',corte:'2025-09-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-12-08',corte:'2025-12-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-03-08',corte:'2026-03-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-06-08',corte:'2026-06-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-09-08',corte:'2026-09-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-12-08',corte:'2026-12-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-03-08',corte:'2027-03-08',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── HJCFO ──────────────────────────────────────────────────
+  HJCFO: {
+    grupo:'ONs ARG', nombre:'ON JOHN DEERE 2026', empresa:'John Deere',
+    ley:'Local', pago:'Semestral', rating:'A', sector:'Agro',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'HJCFD', tickerEXT:'HJCFC',
+    vr:100, cupon:0.05,
+    cfs:[
+      {pago:'2025-04-21',corte:'2025-04-21',dias:180,amort:0.0,cupon:0.05},
+      {pago:'2025-10-21',corte:'2025-10-21',dias:180,amort:0.0,cupon:0.05},
+      {pago:'2026-04-21',corte:'2026-04-21',dias:180,amort:0.0,cupon:0.05},
+      {pago:'2026-10-21',corte:'2026-10-21',dias:180,amort:100.0,cupon:0.05}
+    ]
+  },
+  // ── YFCKO ──────────────────────────────────────────────────
+  YFCKO: {
+    grupo:'ONs ARG', nombre:'ON YPF ENERGÍA ELÉCTRICA 2026', empresa:'YFCE',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YFCKD', tickerEXT:'YFCKC',
+    vr:100, cupon:0.0525,
+    cfs:[
+      {pago:'2025-08-22',corte:'2025-08-22',dias:180,amort:0.0,cupon:0.0525},
+      {pago:'2025-11-22',corte:'2025-11-22',dias:180,amort:0.0,cupon:0.0525},
+      {pago:'2026-02-22',corte:'2026-02-22',dias:180,amort:0.0,cupon:0.0525},
+      {pago:'2026-05-22',corte:'2026-05-22',dias:180,amort:0.0,cupon:0.0525},
+      {pago:'2026-08-22',corte:'2026-08-22',dias:180,amort:0.0,cupon:0.0525},
+      {pago:'2026-11-22',corte:'2026-11-22',dias:180,amort:100.0,cupon:0.0525}
+    ]
+  },
+  // ── BYCWO ──────────────────────────────────────────────────
+  BYCWO: {
+    grupo:'ONs ARG', nombre:'ON BANCO GALICIA 2026', empresa:'Galicia',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Financials',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'BYCWD', tickerEXT:'BYCWC',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2026-05-14',corte:'2026-05-14',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-11-30',corte:'2026-11-30',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── BYCXO ──────────────────────────────────────────────────
+  BYCXO: {
+    grupo:'ONs ARG', nombre:'ON BANCO GALICIA 2026', empresa:'Galicia',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Financials',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'BYCXD', tickerEXT:'BYCXC',
+    vr:100, cupon:0.055,
+    cfs:[
+      {pago:'2026-06-22',corte:'2026-06-22',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2026-12-30',corte:'2026-12-30',dias:180,amort:100.0,cupon:0.055}
+    ]
+  },
+  // ── CP37O ──────────────────────────────────────────────────
+  CP37O: {
+    grupo:'ONs ARG', nombre:'ON COMPAÑIA GENERAL DE COMBUSTIBLES 2026', empresa:'CGC',
+    ley:'Local', pago:'Trimestral', rating:'A', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'CP37D', tickerEXT:'CP37C',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2025-06-10',corte:'2025-06-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-09-10',corte:'2025-09-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-12-10',corte:'2025-12-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-03-10',corte:'2026-03-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-06-10',corte:'2026-06-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-09-10',corte:'2026-09-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-12-10',corte:'2026-12-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-03-10',corte:'2027-03-10',dias:180,amort:100.0,cupon:0.07}
+    ]
+  },
+  // ── LMS8O ──────────────────────────────────────────────────
+  LMS8O: {
+    grupo:'ONs ARG', nombre:'ON ALUAR 2027', empresa:'Aluar',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Industrials',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'LMS8D', tickerEXT:'LMS8C',
+    vr:100, cupon:0.0625,
+    cfs:[
+      {pago:'2024-09-21',corte:'2024-09-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2024-12-21',corte:'2024-12-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2025-03-21',corte:'2025-03-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2025-06-21',corte:'2025-06-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2025-09-21',corte:'2025-09-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2025-12-21',corte:'2025-12-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2026-03-21',corte:'2026-03-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2026-06-21',corte:'2026-06-21',dias:180,amort:25.0,cupon:0.0625},
+      {pago:'2026-09-21',corte:'2026-09-21',dias:180,amort:25.0,cupon:0.0625},
+      {pago:'2026-12-21',corte:'2026-12-21',dias:180,amort:25.0,cupon:0.0625},
+      {pago:'2027-03-21',corte:'2027-03-21',dias:180,amort:25.0,cupon:0.0625}
+    ]
+  },
+  // ── VSCWO ──────────────────────────────────────────────────
+  VSCWO: {
+    grupo:'ONs ARG', nombre:'ON VISTA ENERGY ARGENTINA 2027', empresa:'Vista Energy Arg.',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'VSCWD', tickerEXT:'VSCWC',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2026-01-15',corte:'2026-01-15',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-04-15',corte:'2026-04-15',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-07-15',corte:'2026-07-15',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-10-15',corte:'2026-10-15',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-01-15',corte:'2027-01-15',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-04-15',corte:'2027-04-15',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── PN42O ──────────────────────────────────────────────────
+  PN42O: {
+    grupo:'ONs ARG', nombre:'ON PAN AMERICAN 2027', empresa:'Pan American',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'PN42D', tickerEXT:'PN42C',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2026-04-17',corte:'2026-04-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-10-17',corte:'2026-10-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-04-17',corte:'2027-04-17',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── RCCRO ──────────────────────────────────────────────────
+  RCCRO: {
+    grupo:'ONs ARG', nombre:'ON ARCOR 2027', empresa:'Arcor',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Consumo',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'RCCRD', tickerEXT:'RCCRC',
+    vr:100, cupon:0.0675,
+    cfs:[
+      {pago:'2025-11-09',corte:'2025-11-09',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2026-05-09',corte:'2026-05-09',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2026-11-09',corte:'2026-11-09',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2027-05-09',corte:'2027-05-09',dias:180,amort:100.0,cupon:0.0675}
+    ]
+  },
+  // ── YM38O ──────────────────────────────────────────────────
+  YM38O: {
+    grupo:'ONs ARG', nombre:'ON YPF 2027', empresa:'YPF',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YM38D', tickerEXT:'YM38C',
+    vr:100, cupon:0.075,
+    cfs:[
+      {pago:'2025-10-22',corte:'2025-10-22',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-01-22',corte:'2026-01-22',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-04-22',corte:'2026-04-22',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-07-22',corte:'2026-07-22',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-10-22',corte:'2026-10-22',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-01-22',corte:'2027-01-22',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-04-22',corte:'2027-04-22',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-07-22',corte:'2027-07-22',dias:180,amort:100.0,cupon:0.075}
+    ]
+  },
+  // ── SBC1O ──────────────────────────────────────────────────
+  SBC1O: {
+    grupo:'ONs ARG', nombre:'ON SCANIA 2027', empresa:'Scania',
+    ley:'Local', pago:'Trimestral', rating:'AA', sector:'Industrials',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'SBC1D', tickerEXT:'SBC1C',
+    vr:100, cupon:0.0875,
+    cfs:[
+      {pago:'2026-03-05',corte:'2026-03-05',dias:180,amort:14.0,cupon:0.0875},
+      {pago:'2026-06-05',corte:'2026-06-05',dias:180,amort:14.0,cupon:0.0875},
+      {pago:'2026-09-05',corte:'2026-09-05',dias:180,amort:14.0,cupon:0.0875},
+      {pago:'2026-12-05',corte:'2026-12-05',dias:180,amort:14.0,cupon:0.0875},
+      {pago:'2027-03-05',corte:'2027-03-05',dias:180,amort:14.0,cupon:0.0875},
+      {pago:'2027-06-05',corte:'2027-06-05',dias:180,amort:14.0,cupon:0.0875},
+      {pago:'2027-09-05',corte:'2027-09-05',dias:180,amort:16.0,cupon:0.0875}
+    ]
+  },
+  // ── PN34O ──────────────────────────────────────────────────
+  PN34O: {
+    grupo:'ONs ARG', nombre:'ON PAN AMERICAN 2027', empresa:'Pan American',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'PN34D', tickerEXT:'PN34C',
+    vr:100, cupon:0.0497,
+    cfs:[
+      {pago:'2025-03-27',corte:'2025-03-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2025-09-27',corte:'2025-09-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2026-03-27',corte:'2026-03-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2026-09-27',corte:'2026-09-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2027-03-27',corte:'2027-03-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2027-09-27',corte:'2027-09-27',dias:180,amort:100.0,cupon:0.0497}
+    ]
+  },
+  // ── TTCBO ──────────────────────────────────────────────────
+  TTCBO: {
+    grupo:'ONs ARG', nombre:'ON TECPETROL 2027', empresa:'Tecpetrol',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'TTCBD', tickerEXT:'TTCBC',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2026-04-16',corte:'2026-04-16',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-10-16',corte:'2026-10-16',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-04-16',corte:'2027-04-16',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-10-16',corte:'2027-10-16',dias:180,amort:100.0,cupon:0.065}
+    ]
+  },
+  // ── IRCNO ──────────────────────────────────────────────────
+  IRCNO: {
+    grupo:'ONs ARG', nombre:'ON IRSA 2027', empresa:'IRSA',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Real Estate',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'IRCND', tickerEXT:'IRCNC',
+    vr:100, cupon:0.0575,
+    cfs:[
+      {pago:'2025-07-23',corte:'2025-07-23',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2026-01-23',corte:'2026-01-23',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2026-07-23',corte:'2026-07-23',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2027-01-23',corte:'2027-01-23',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2027-07-23',corte:'2027-07-23',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2027-10-23',corte:'2027-10-23',dias:180,amort:100.0,cupon:0.0575}
+    ]
+  },
+  // ── HJCHO ──────────────────────────────────────────────────
+  HJCHO: {
+    grupo:'ONs ARG', nombre:'ON JOHN DEERE 2028', empresa:'John Deere',
+    ley:'Local', pago:'Semestral', rating:'A', sector:'Agro',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'HJCHD', tickerEXT:'HJCHC',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2025-07-17',corte:'2025-07-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-01-17',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-07-17',corte:'2026-07-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-01-17',corte:'2027-01-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-07-17',corte:'2027-07-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2028-01-17',corte:'2028-01-17',dias:180,amort:100.0,cupon:0.07}
+    ]
+  },
+  // ── GN48O ──────────────────────────────────────────────────
+  GN48O: {
+    grupo:'ONs ARG', nombre:'ON GENNEIA 2028', empresa:'Genneia',
+    ley:'Local', pago:'Semestral', rating:'AA+', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'GN48D', tickerEXT:'GN48C',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2025-09-05',corte:'2025-09-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-03-05',corte:'2026-03-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-09-05',corte:'2026-09-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-03-05',corte:'2027-03-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-09-05',corte:'2027-09-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-03-05',corte:'2028-03-05',dias:180,amort:100.0,cupon:0.065}
+    ]
+  },
+  // ── YM40O ──────────────────────────────────────────────────
+  YM40O: {
+    grupo:'ONs ARG', nombre:'ON YPF 2028', empresa:'YPF',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YM40D', tickerEXT:'YM40C',
+    vr:100, cupon:0.075,
+    cfs:[
+      {pago:'2025-11-28',corte:'2025-11-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-02-28',corte:'2026-02-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-05-28',corte:'2026-05-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-08-28',corte:'2026-08-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-11-28',corte:'2026-11-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-02-28',corte:'2027-02-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-05-28',corte:'2027-05-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-08-28',corte:'2027-08-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-11-28',corte:'2027-11-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2028-02-28',corte:'2028-02-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2028-05-28',corte:'2028-05-28',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2028-08-28',corte:'2028-08-28',dias:180,amort:100.0,cupon:0.075}
+    ]
+  },
+  // ── MGCNO ──────────────────────────────────────────────────
+  MGCNO: {
+    grupo:'ONs ARG', nombre:'ON PAMPA ENERGÍA 2028', empresa:'Pampa Energía',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'MGCND', tickerEXT:'MGCNC',
+    vr:100, cupon:0.0575,
+    cfs:[
+      {pago:'2025-04-04',corte:'2025-04-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2025-10-04',corte:'2025-10-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2026-04-04',corte:'2026-04-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2026-10-04',corte:'2026-10-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2027-04-04',corte:'2027-04-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2027-10-04',corte:'2027-10-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2028-04-04',corte:'2028-04-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2028-10-04',corte:'2028-10-04',dias:180,amort:100.0,cupon:0.0575}
+    ]
+  },
+  // ── LMS7O ──────────────────────────────────────────────────
+  LMS7O: {
+    grupo:'ONs ARG', nombre:'ON ALUAR 2028', empresa:'Aluar',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Industrials',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'LMS7D', tickerEXT:'LMS7C',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2024-04-12',corte:'2024-04-12',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2024-07-12',corte:'2024-07-12',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2024-10-12',corte:'2024-10-12',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-01-12',corte:'2025-01-12',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-04-12',corte:'2025-04-12',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-07-12',corte:'2025-07-12',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-10-12',corte:'2025-10-12',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-01-12',corte:'2026-01-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2026-04-12',corte:'2026-04-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2026-07-12',corte:'2026-07-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2026-10-12',corte:'2026-10-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2027-01-12',corte:'2027-01-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2027-04-12',corte:'2027-04-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2027-07-12',corte:'2027-07-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2027-10-12',corte:'2027-10-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2028-01-12',corte:'2028-01-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2028-04-12',corte:'2028-04-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2028-07-12',corte:'2028-07-12',dias:180,amort:8.33,cupon:0.07},
+      {pago:'2028-10-12',corte:'2028-10-12',dias:180,amort:8.37,cupon:0.07}
+    ]
+  },
+  // ── SBC2O ──────────────────────────────────────────────────
+  SBC2O: {
+    grupo:'ONs ARG', nombre:'ON SCANIA 2029', empresa:'Scania',
+    ley:'Local', pago:'Trimestral', rating:'AA', sector:'Industrials',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'SBC2D', tickerEXT:'SBC2C',
+    vr:100, cupon:0.0749,
+    cfs:[
+      {pago:'2026-01-16',corte:'2026-01-16',dias:180,amort:0,cupon:0.0749}
+    ]
+  },
+  // ── LOC6O ──────────────────────────────────────────────────
+  LOC6O: {
+    grupo:'ONs ARG', nombre:'ON LOMA NEGRA 2029', empresa:'Loma Negra',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Industrials',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'LOC6D', tickerEXT:'LOC6C',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2026-01-23',corte:'2026-01-23',dias:180,amort:0,cupon:0.065}
+    ]
+  },
+  // ── YM42O ──────────────────────────────────────────────────
+  YM42O: {
+    grupo:'ONs ARG', nombre:'ON YPF 2029', empresa:'YPF',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YM42D', tickerEXT:'YM42C',
+    vr:100, cupon:0.07,
+    cfs:[
+      {pago:'2025-12-02',corte:'2025-12-02',dias:180,amort:0,cupon:0.07}
+    ]
+  },
+  // ── VSCPO ──────────────────────────────────────────────────
+  VSCPO: {
+    grupo:'ONs ARG', nombre:'ON VISTA ENERGY 2029', empresa:'Vista Energy',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCPD', tickerEXT:'VSCPC',
+    vr:100, cupon:0.08,
+    cfs:[
+      {pago:'2024-05-03',corte:'2024-05-03',dias:180,amort:0,cupon:0.08}
+    ]
+  },
+  // ── NPCCO ──────────────────────────────────────────────────
+  NPCCO: {
+    grupo:'ONs ARG', nombre:'ON CENTRAL PUERTO 2029', empresa:'Central Puerto',
+    ley:'Local', pago:'Semestral', rating:'AA+', sector:'Utilities',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'NPCCD', tickerEXT:'NPCCC',
+    vr:100, cupon:0.08,
+    cfs:[
+      {pago:'2025-08-25',corte:'2025-08-25',dias:180,amort:0,cupon:0.08}
+    ]
+  },
+  // ── PN41O ──────────────────────────────────────────────────
+  PN41O: {
+    grupo:'ONs ARG', nombre:'ON PAN AMERICAN 2029', empresa:'Pan American',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'PN41D', tickerEXT:'PN41C',
+    vr:100, cupon:0.075,
+    cfs:[
+      {pago:'2025-08-27',corte:'2025-08-27',dias:180,amort:0,cupon:0.075}
+    ]
+  },
+  // ── IRCOO ──────────────────────────────────────────────────
+  IRCOO: {
+    grupo:'ONs ARG', nombre:'ON IRSA 2029', empresa:'IRSA',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Real Estate',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'IRCOD', tickerEXT:'IRCOC',
+    vr:100, cupon:0.0725,
+    cfs:[
+      {pago:'2024-10-23',corte:'2024-10-23',dias:180,amort:0,cupon:0.0725}
+    ]
+  },
+  // ── TTC9O ──────────────────────────────────────────────────
+  TTC9O: {
+    grupo:'ONs ARG', nombre:'ON TECPETROL 2029', empresa:'Tecpetrol',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'TTC9D', tickerEXT:'TTC9C',
+    vr:100, cupon:0.068,
+    cfs:[
+      {pago:'2024-10-24',corte:'2024-10-24',dias:180,amort:0,cupon:0.068}
+    ]
+  },
+  // ── VSCUO ──────────────────────────────────────────────────
+  VSCUO: {
+    grupo:'ONs ARG', nombre:'ON VISTA ENERGY 2030', empresa:'Vista Energy',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'VSCUD', tickerEXT:'VSCUC',
+    vr:100, cupon:0.075,
+    cfs:[
+      {pago:'2025-03-07',corte:'2025-03-07',dias:180,amort:0,cupon:0.075}
+    ]
+  },
+  // ── YM39O ──────────────────────────────────────────────────
+  YM39O: {
+    grupo:'ONs ARG', nombre:'ON YPF 2030', empresa:'YPF',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'CABLE',
+    tickerUSD:'YM39D', tickerEXT:'YM39C',
+    vr:100, cupon:0.0875,
+    cfs:[
+      {pago:'2025-07-22',corte:'2025-07-22',dias:180,amort:0,cupon:0.0875}
+    ]
+  },
+  // ── MSSEO ──────────────────────────────────────────────────
+  MSSEO: {
+    grupo:'ONs ARG', nombre:'ON MSU 2026', empresa:'MSU Energy',
+    ley:'Local', pago:'Semestral', rating:'A+', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'MSSED', tickerEXT:'MSSEC',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2023-07-17',corte:'2023-07-17',dias:180,amort:0,cupon:0.065}
+    ]
+  },
+  // ── PLC6O ──────────────────────────────────────────────────
+  PLC6O: {
+    grupo:'ONs ARG', nombre:'ON PLUSPETROL 2029', empresa:'Pluspetrol',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'PLC6D', tickerEXT:'PLC6C',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2026-02-27',corte:'2026-02-27',dias:180,amort:0,cupon:0.065}
+    ]
+  },
+  // ── TLCQO ──────────────────────────────────────────────────
+  TLCQO: {
+    grupo:'ONs ARG', nombre:'ON TELECOM 2027', empresa:'Telecom',
+    ley:'Local', pago:'Trimestral', rating:'AA+', sector:'Communications',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'TLCQD', tickerEXT:'TLCQC',
+    vr:100, cupon:0.075,
+    cfs:[
+      {pago:'2025-07-02',corte:'2025-07-02',dias:180,amort:0,cupon:0.075}
+    ]
+  },
+  // ── MGCTO ──────────────────────────────────────────────────
+  MGCTO: {
+    grupo:'ONs ARG', nombre:'ON PAMPA 2029', empresa:'Pampa Energía',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Utilities',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'MGCTD', tickerEXT:'MGCTC',
+    vr:100, cupon:0.0549,
+    cfs:[
+      {pago:'2026-04-01',corte:'2026-04-01',dias:180,amort:0,cupon:0.0549}
+    ]
+  },
+  // ── BYCUO ──────────────────────────────────────────────────
+  BYCUO: {
+    grupo:'ONs ARG', nombre:'ON GALICIA 2026', empresa:'Galicia',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Financials',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'BYCUD', tickerEXT:'BYCUC',
+    vr:100, cupon:0.059,
+    cfs:[
+      {pago:'2025-05-27',corte:'2025-05-27',dias:180,amort:0,cupon:0.059}
+    ]
+  },
+  // ── CP40O ──────────────────────────────────────────────────
+  CP40O: {
+    grupo:'ONs ARG', nombre:'ON COMPAÑIA GENERAL DE COMBUSTIBLES 2028', empresa:'CGC',
+    ley:'Local', pago:'Trimestral', rating:'A', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'CP40D', tickerEXT:'CP40C',
+    vr:100, cupon:0.095,
+    cfs:[
+      {pago:'2026-03-09',corte:'2026-03-09',dias:180,amort:0,cupon:0.095}
+    ]
+  },
+  // ── TLCUO ──────────────────────────────────────────────────
+  TLCUO: {
+    grupo:'ONs ARG', nombre:'ON TELECOM 2029', empresa:'Telecom',
+    ley:'Local', pago:'Semestral', rating:'AA+', sector:'Communications',
+    call:'No', mep_cable:'MEP',
+    tickerUSD:'TLCUD', tickerEXT:'TLCUC',
+    vr:100, cupon:0.065,
+    cfs:[
+      {pago:'2026-03-05',corte:'2026-03-05',dias:180,amort:0,cupon:0.065}
+    ]
+  },
+  // ── LMS9O ──────────────────────────────────────────────────
+  LMS9O: {
+    grupo:'ONs ARG', nombre:'ON ALUAR 2026', empresa:'Aluar',
+    ley:'Local', pago:'Trimestral', rating:'AAA', sector:'Industrials',
+    call:'No', mep_cable:'CABLE',
+    tickerUSD:'LMS9D', tickerEXT:'LMS9C',
+    vr:100, cupon:0.06,
+    cfs:[
+      {pago:'2024-09-13',corte:'2024-09-13',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2024-12-13',corte:'2024-12-13',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-03-13',corte:'2025-03-13',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-06-13',corte:'2025-06-13',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-09-13',corte:'2025-09-13',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2025-12-13',corte:'2025-12-13',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-03-13',corte:'2026-03-13',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-06-13',corte:'2026-06-13',dias:180,amort:100.0,cupon:0.06}
+    ]
+  },
+  // ── YM43O ──────────────────────────────────────────────────
+  YM43O: {
+    grupo:'ONs ARG', nombre:'ON YPF 2030', empresa:'YPF',
+    ley:'Local', pago:'Semestral', rating:'AAA', sector:'Oil & Gas',
+    call:'Sí', mep_cable:'MEP',
+    tickerUSD:'YM43D', tickerEXT:'YM43C',
+    vr:100, cupon:0.055,
+    cfs:[
+      {pago:'2027-01-14',corte:'2027-01-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2027-07-14',corte:'2027-07-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2028-01-14',corte:'2028-01-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2028-07-14',corte:'2028-07-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2029-01-14',corte:'2029-01-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2029-07-14',corte:'2029-07-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2030-01-14',corte:'2030-01-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2030-04-14',corte:'2030-04-14',dias:180,amort:100.0,cupon:0.055}
+    ]
+  },
+};
+
 // TC Implícitos — tickers ARS y USD para computar MEP/Cable
 // TC Implícitos — data912 format: "AL30" (ARS), "AL30D" (USD), "AL30C" (cable)
 const TC_PAIRS = [
@@ -1600,7 +3351,7 @@ function calcLecapMetrics(precio, vpv, dias) {
 let STATE = {
   bonds: [],
   lecaps: [],
-  bonares: [], globales: [], bopreales: [], lecapCalc: [], pesos: [],
+  bonares: [], globales: [], bopreales: [], lecapCalc: [], pesos: [], ons: [],
   tcMep: {}, tcCable: {},
   dolar: {},
   riesgoPais: null,
@@ -1628,9 +3379,10 @@ async function fetchAll() {
   hideError();
 
   try {
-    // Fetch in parallel — bonds + lecaps + dólar
-    const [bondsRaw, lecapsRaw, dolarRaw, rpRaw] = await Promise.allSettled([
+    // Fetch in parallel — bonds + corp(ONs) + lecaps + dólar
+    const [bondsRaw, corpRaw, lecapsRaw, dolarRaw, rpRaw] = await Promise.allSettled([
       proxyFetch('/api/bonds'),
+      proxyFetch('/api/corp').catch(()=>fetch('https://data912.com/live/arg_corp').then(r=>r.json()).catch(()=>[])),
       proxyFetch('/api/lecaps'),
       proxyFetch('/api/dolar'),
       proxyFetch('/api/riesgo_pais'),
@@ -1638,7 +3390,9 @@ async function fetchAll() {
 
     if (bondsRaw.status === 'fulfilled') {
       STATE.bonds = bondsRaw.value;
-      processBonds(STATE.bonds);
+      const corpData = (corpRaw.status === 'fulfilled') ? corpRaw.value : [];
+      STATE.corp = Array.isArray(corpData) ? corpData : (corpData.data || []);
+      processBonds(STATE.bonds, STATE.corp);
     } else {
       showError('bonds: ' + bondsRaw.reason.message);
     }
@@ -1707,8 +3461,13 @@ function getPrice(map, ticker) {
   return null;
 }
 
-function processBonds(rawArr) {
+function processBonds(rawArr, corpArr) {
   const map = priceMap(rawArr);
+  // Merge corp (ON) prices into the same map
+  if (Array.isArray(corpArr)) {
+    const corpMap = priceMap(corpArr);
+    Object.assign(map, corpMap);
+  }
   STATE.bonares = [];
   STATE.globales = [];
   STATE.bopreales = [];
@@ -1737,9 +3496,36 @@ function processBonds(rawArr) {
     else STATE.bopreales.push(rec);
   }
 
+  // ── Process ONs ──
+  STATE.ons = [];
+  for (const [ticker, def] of Object.entries(ON_DEFS)) {
+    // ONs priced in USD directly via tickerUSD (MEP) or tickerEXT (cable)
+    const isONcable = def.mep_cable === 'CABLE';
+    const priceTicker = (BOND_MODE === 'CABLE' || isONcable) ? def.tickerEXT : def.tickerUSD;
+    const livePrice = map[priceTicker.toUpperCase()];
+    const precio = livePrice ? parseFloat(livePrice.c ?? livePrice.px_bid ?? 0) : null;
+    if (!precio || precio <= 0) continue;
+    const flows = futureCFs(def, LIQ);
+    if (!flows.length) continue;
+    const tir = calcTIRFromFlows(flows, precio);
+    if (!isFinite(tir) || tir <= -1) continue;
+    const {macaulay, modified} = calcDurationFromFlows(flows, tir);
+    const convex = calcConvexityFromFlows(flows, tir);
+    const tna = (Math.pow(1+tir, 180/365)-1)*2;
+    const paridad = precio / def.vr;
+    STATE.ons.push({
+      ticker, nombre:def.nombre, empresa:def.empresa, grupo:def.grupo,
+      ley:def.ley, pago:def.pago, rating:def.rating, sector:def.sector,
+      call:def.call, mep_cable:def.mep_cable,
+      cupon:def.cupon, vr:def.vr, precio, tir, tna, macaulay, modified, convex, paridad,
+      vto:def.cfs[def.cfs.length-1].pago, live:!!livePrice, def
+    });
+  }
+
   // TC implícitos: MEP = arsPrice / usdPrice, Cable = arsPrice / extPrice
   computeTC(map);
   STATE._hdSorted = null; // reset sort when new data arrives
+  STATE._onsSorted = null; // reset ON sort
 }
 
 function computeTC(map) {
@@ -1920,7 +3706,96 @@ function renderBondTable(tbodyId, data, tag) {
   </tr>`).join('');
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// ONs TABLE RENDER + SORT + FILTER
+// ═══════════════════════════════════════════════════════════════
+let onsFilter = 'all';
+let onsSortCol = 5; // default sort by TIR
+let onsSortDir = 1;
+
+function setONFilter(f, btn) {
+  onsFilter = f;
+  document.querySelectorAll('#panel-ons .period-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderONsTable();
+}
+
+function sortONs(col) {
+  if (onsSortCol === col) onsSortDir *= -1;
+  else { onsSortCol = col; onsSortDir = 1; }
+  renderONsTable();
+}
+
+function filterONsTable() { renderONsTable(); }
+
+function getONsData() {
+  let data = [...STATE.ons];
+  if (onsFilter === 'ny')  data = data.filter(o => o.ley === 'Extranjera');
+  if (onsFilter === 'arg') data = data.filter(o => o.ley === 'Local');
+  const q = (document.getElementById('ons-search')?.value || '').toLowerCase().trim();
+  if (q) data = data.filter(o => o.ticker.toLowerCase().includes(q) || o.empresa.toLowerCase().includes(q) || o.nombre.toLowerCase().includes(q));
+  // sort
+  const col = onsSortCol;
+  data.sort((a,b) => {
+    let va, vb;
+    if (col===0)  { va=a.ticker;    vb=b.ticker; }
+    else if (col===1)  { va=a.empresa;   vb=b.empresa; }
+    else if (col===2)  { va=a.vto;       vb=b.vto; }
+    else if (col===3)  { va=a.cupon||0;  vb=b.cupon||0; }
+    else if (col===4)  { va=a.precio||0; vb=b.precio||0; }
+    else if (col===5)  { va=a.tir||0;    vb=b.tir||0; }
+    else if (col===6)  { va=a.macaulay||0;  vb=b.macaulay||0; }
+    else if (col===7)  { va=a.modified||0;  vb=b.modified||0; }
+    else if (col===8)  { va=a.paridad||0;   vb=b.paridad||0; }
+    else if (col===9)  { va=a.mep_cable||''; vb=b.mep_cable||''; }
+    else if (col===10) { va=a.rating||'';    vb=b.rating||''; }
+    else if (col===11) { va=a.call||'';      vb=b.call||''; }
+    else if (col===12) { va=a.sector||'';    vb=b.sector||''; }
+    else { va=0; vb=0; }
+    if (typeof va === 'string') return onsSortDir * va.localeCompare(vb);
+    return onsSortDir * ((va||0) - (vb||0));
+  });
+  return data;
+}
+
+function renderONsTable() {
+  const tbody = document.getElementById('tbody-ons');
+  if (!tbody) return;
+  const data = getONsData();
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:2rem">Sin datos — presioná Actualizar</td></tr>';
+    return;
+  }
+  const allTirs = data.map(o => o.tir);
+  tbody.innerHTML = data.map(o => {
+    const hc = tirColor(o.tir, allTirs);
+    const leyTag = o.ley === 'Extranjera'
+      ? '<span style="background:rgba(239,68,68,.18);color:#f87171;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;">NY</span>'
+      : '<span style="background:rgba(56,189,248,.18);color:#38bdf8;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;">ARG</span>';
+    const vtoFmt = o.vto ? o.vto.slice(0,7).replace('-','/') : '—';
+    const cuponStr = o.cupon ? (o.cupon*100).toFixed(3)+'%' : '—';
+    const parClass = o.paridad < 1 ? 'neg' : 'pos';
+    return `<tr style="cursor:pointer" onclick="openBondModal('${o.ticker}')">
+      <td><span class="ticker">${o.ticker} ${liveDot(o.live)}</span> ${leyTag}</td>
+      <td style="font-size:11px">${o.empresa}</td>
+      <td style="font-size:11px">${vtoFmt}</td>
+      <td>${cuponStr}</td>
+      <td>${o.precio ? f2(o.precio) : '—'}</td>
+      <td ${hc}>${pct(o.tir)}</td>
+      <td>${f4(o.macaulay)}</td>
+      <td>${f4(o.modified)}</td>
+      <td class="${parClass}">${f4(o.paridad)}</td>
+      <td style="font-size:10px;color:var(--muted)">${o.mep_cable}</td>
+      <td style="font-size:10px">${o.rating}</td>
+      <td style="font-size:10px">${o.call==='Sí'?'✓':'—'}</td>
+      <td style="font-size:10px;color:var(--muted)">${o.sector}</td>
+    </tr>`;
+  }).join('');
+}
+
 function renderAllTables() {
+  renderONsTable();
   // Hard Dollar: use user-sorted list if available, else default TIR asc
   let allHD = STATE._hdSorted;
   if (!allHD) {
@@ -2147,6 +4022,23 @@ function buildCharts() {
         }
       }
     });
+  }
+
+
+  // ── ONs Curve (Duration vs TIR) ──
+  const onsData = STATE.ons.filter(o => o.modified && o.tir && isFinite(o.tir) && isFinite(o.modified) && o.tir > 0);
+  if (onsData.length >= 2) {
+    const onsNY  = onsData.filter(o => o.ley === 'Extranjera');
+    const onsARG = onsData.filter(o => o.ley === 'Local');
+    const allXs = onsData.map(o => o.modified), allYs = onsData.map(o => o.tir*100);
+    const onsCoef = polyFit(allXs, allYs);
+    const onsCurve = polyLine(onsCoef, Math.min(...allXs)-.1, Math.max(...allXs)+.1);
+    const isDarkON = !document.documentElement.classList.contains('light');
+    makeScatterChart('c-ons-curve', [
+      {label:'Curva',data:onsCurve,type:'line',borderColor:'rgba(251,191,36,.5)',borderWidth:1.5,pointRadius:0,fill:false},
+      {label:'Ley NY',  data:onsNY.map(o=>({x:o.modified,y:o.tir*100,ticker:o.ticker})), backgroundColor:'#f87171',borderColor:'#f87171',pointRadius:5,pointHoverRadius:7},
+      {label:'Ley ARG', data:onsARG.map(o=>({x:o.modified,y:o.tir*100,ticker:o.ticker})),backgroundColor:'#38bdf8',borderColor:'#38bdf8',pointRadius:5,pointHoverRadius:7},
+    ]);
   }
 
   // ── Scatter todo USD — with poly fit ──
@@ -2515,6 +4407,7 @@ document.addEventListener('click', e => {
     if (!ap) return;
     if (ap.id === 'panel-harddollar')    { populateHistSelects(); loadHistChart('hd'); }
     else if (ap.id === 'panel-pesos')    { populateHistSelects(); loadHistChart('pes'); }
+    else if (ap.id === 'panel-ons')      { renderONsTable(); }
   }, 80);
 });
 
@@ -2766,10 +4659,10 @@ let bondPastVisible = false;
 
 function openBondModal(ticker) {
   bondPastVisible = false;
-  const allBonds = [...STATE.bonares,...STATE.globales,...STATE.bopreales,...STATE.pesos];
+  const allBonds = [...STATE.bonares,...STATE.globales,...STATE.bopreales,...STATE.pesos,...STATE.ons];
   const bond = allBonds.find(b=>b.ticker===ticker);
   const lec = STATE.lecapCalc.find(l=>l.ticker===ticker);
-  const def = BOND_DEFS[ticker];
+  const def = BOND_DEFS[ticker] || ON_DEFS[ticker];
   const lecDef = LECAP_DEFS.find(l=>l.ticker===ticker);
 
   if (!def && !lecDef) return;
@@ -2965,6 +4858,8 @@ function calcInstruments() {
     list.push({ticker, nombre:def.nombre, grupo:def.grupo, type:'bond'});
   for (const l of LECAP_DEFS)
     list.push({ticker:l.ticker, nombre:`${l.isBoncap?'BONCAP':'LECAP'} ${l.vto.slice(0,7)}`, grupo:'Capitalizables', type:'lecap'});
+  for (const [ticker,def] of Object.entries(ON_DEFS))
+    list.push({ticker, nombre:def.nombre, grupo:def.grupo, type:'on'});
   return list;
 }
 
@@ -3020,9 +4915,11 @@ function calcSelect(ticker) {
 function getCalcLivePrice(ticker) {
   const bond=[...STATE.bonares,...STATE.globales,...STATE.bopreales,...STATE.pesos].find(b=>b.ticker===ticker);
   if(bond?.precio) return bond.precio;
+  const onBond = STATE.ons.find(o=>o.ticker===ticker);
+  if(onBond?.precio) return onBond.precio;
   const lec=STATE.lecapCalc.find(l=>l.ticker===ticker);
   if(lec?.precio) return lec.precio;
-  const def=BOND_DEFS[ticker]; if(def) return def.vr; // use vr as fallback
+  const def=BOND_DEFS[ticker]||ON_DEFS[ticker]; if(def) return def.vr; // use vr as fallback
   return null;
 }
 
@@ -3050,9 +4947,9 @@ function runCalc() {
   const liqStr = document.getElementById('calc-liq').value;
   const liqDate = liqStr ? new Date(liqStr+'T00:00:00') : new Date(LIQ);
 
-  const def = BOND_DEFS[calcSelected];
+  const def = BOND_DEFS[calcSelected] || ON_DEFS[calcSelected];
   const lecDef = LECAP_DEFS.find(l=>l.ticker===calcSelected);
-  const activeDef = def; // all bonds now in BOND_DEFS
+  const activeDef = def; // all bonds now in BOND_DEFS / ON_DEFS
 
   let tirCalc, macCalc, modCalc, vtoStr, cuponStr, liveRefTir;
 
@@ -3065,7 +4962,7 @@ function runCalc() {
     macCalc = dur.macaulay; modCalc = dur.modified;
     vtoStr = activeDef.cfs[activeDef.cfs.length-1].pago;
     const firstCupon=activeDef.cfs.find(r=>r.cupon>0); cuponStr=firstCupon?(firstCupon.cupon*100).toFixed(3)+'%':'—';
-    const liveB=[...STATE.bonares,...STATE.globales,...STATE.bopreales,...STATE.pesos].find(b=>b.ticker===calcSelected);
+    const liveB=[...STATE.bonares,...STATE.globales,...STATE.bopreales,...STATE.pesos,...STATE.ons].find(b=>b.ticker===calcSelected);
     liveRefTir=liveB?.tir??null;
   } else if (lecDef) {
     const diasCalc=Math.round((new Date(lecDef.vto)-liqDate)/86400000);
