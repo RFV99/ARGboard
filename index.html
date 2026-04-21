@@ -826,8 +826,10 @@ function computeBondRows(def, liqDate) {
     const isPast = pagoDt <= liq;
     // Días = hardcoded from Excel (row.dias). First row (emision) has null.
     const dias = row.dias || 0;
-    // Interés = VR_prev * cupon% * dias / 360  (exact Excel formula)
-    const interes = vr * row.cupon * dias / 360;
+    // Interés = Excel pre-computed value if available, else VR_prev * cupon% * dias / 360
+    const interes = (typeof row.interes === 'number' && isFinite(row.interes))
+      ? row.interes
+      : vr * row.cupon * dias / 360;
     // Amortización = data from Excel
     const amort = row.amort;
     // VR = VR_prev - amortizacion
@@ -1543,7 +1545,13 @@ const PESOS_DEFS = [
 
 // ==================================================================
 // ON_DEFS  Obligaciones Negociables
-// Generated from ONs.xlsx (data_only extraction)
+// Extracted from ONs.xlsx with data_only=True
+// Each flow has: {pago, corte, dias, amort, cupon} where:
+//   pago  = WORKDAY-adjusted payment date (used for XIRR)
+//   corte = contractual cutoff date (used for accrued interest lookup)
+//   dias  = DAYS360 between cortes
+//   amort = amortization % of face
+//   cupon = annual coupon rate
 // Interest formula: VR_residual * cupon * dias / 360
 // ==================================================================
 const ON_DEFS = {
@@ -1555,10 +1563,10 @@ const ON_DEFS = {
     vr:100, cupon:0.0675,
     cfs:[
       {pago:'2017-05-04',corte:'2017-05-04',dias:180,amort:0.0,cupon:0.0675},
-      {pago:'2017-11-04',corte:'2017-11-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2017-11-06',corte:'2017-11-04',dias:180,amort:0.0,cupon:0.0675},
       {pago:'2018-05-04',corte:'2018-05-04',dias:180,amort:0.0,cupon:0.0675},
-      {pago:'2018-11-04',corte:'2018-11-04',dias:180,amort:0.0,cupon:0.0675},
-      {pago:'2019-05-04',corte:'2019-05-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2018-11-05',corte:'2018-11-04',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2019-05-06',corte:'2019-05-04',dias:180,amort:0.0,cupon:0.0675},
       {pago:'2019-11-04',corte:'2019-11-04',dias:180,amort:0.0,cupon:0.0675},
       {pago:'2020-05-04',corte:'2020-05-04',dias:180,amort:0.0,cupon:0.0675},
       {pago:'2020-11-04',corte:'2020-11-04',dias:180,amort:0.0,cupon:0.0675},
@@ -1567,14 +1575,13 @@ const ON_DEFS = {
       {pago:'2022-05-04',corte:'2022-05-04',dias:180,amort:0.0,cupon:0.06643},
       {pago:'2022-11-04',corte:'2022-11-04',dias:180,amort:0.0,cupon:0.06643},
       {pago:'2023-05-04',corte:'2023-05-04',dias:180,amort:0.0,cupon:0.06643},
-      {pago:'2023-11-04',corte:'2023-11-04',dias:180,amort:0.0,cupon:0.06643},
-      {pago:'2024-05-04',corte:'2024-05-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2023-11-06',corte:'2023-11-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2024-05-06',corte:'2024-05-04',dias:180,amort:0.0,cupon:0.06643},
       {pago:'2024-11-04',corte:'2024-11-04',dias:180,amort:0.0,cupon:0.06643},
-      {pago:'2025-05-04',corte:'2025-05-04',dias:180,amort:0.0,cupon:0.06643},
+      {pago:'2025-05-05',corte:'2025-05-04',dias:180,amort:0.0,cupon:0.06643},
       {pago:'2025-11-04',corte:'2025-11-04',dias:180,amort:0.0,cupon:0.06643},
       {pago:'2026-05-04',corte:'2026-05-04',dias:180,amort:0.0,cupon:0.06643},
-      {pago:'2026-11-04',corte:'2026-11-04',dias:180,amort:100.0,cupon:0.06643},
-      {pago:'2026-11-04',corte:'2026-11-04',dias:0,amort:0,cupon:0.5195580274591128}
+      {pago:'2026-11-04',corte:'2026-11-04',dias:180,amort:100.0,cupon:0.06643}
     ]
   },
   BACGO: {
@@ -1590,8 +1597,8 @@ const ON_DEFS = {
       {pago:'2027-06-23',corte:'2027-06-23',dias:180,amort:0.0,cupon:0.08},
       {pago:'2027-12-23',corte:'2027-12-23',dias:180,amort:0.0,cupon:0.08},
       {pago:'2028-06-23',corte:'2028-06-23',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2028-12-23',corte:'2028-12-23',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2029-06-23',corte:'2029-06-23',dias:180,amort:100.0,cupon:0.08}
+      {pago:'2028-12-26',corte:'2028-12-23',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2029-06-25',corte:'2029-06-23',dias:180,amort:100.0,cupon:0.08}
     ]
   },
   BYC2O: {
@@ -1605,10 +1612,10 @@ const ON_DEFS = {
       {pago:'2017-07-19',corte:'2017-07-19',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2018-01-19',corte:'2018-01-19',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2018-07-19',corte:'2018-07-19',dias:180,amort:0.0,cupon:0.0825},
-      {pago:'2019-01-19',corte:'2019-01-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2019-01-21',corte:'2019-01-19',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2019-07-19',corte:'2019-07-19',dias:180,amort:0.0,cupon:0.0825},
-      {pago:'2020-01-19',corte:'2020-01-19',dias:180,amort:0.0,cupon:0.0825},
-      {pago:'2020-07-19',corte:'2020-07-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2020-01-20',corte:'2020-01-19',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2020-07-20',corte:'2020-07-19',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2021-01-19',corte:'2021-01-19',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2021-07-19',corte:'2021-07-19',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2022-01-19',corte:'2022-01-19',dias:180,amort:0.0,cupon:0.07966},
@@ -1617,11 +1624,10 @@ const ON_DEFS = {
       {pago:'2023-07-19',corte:'2023-07-19',dias:180,amort:0.0,cupon:0.07966},
       {pago:'2024-01-19',corte:'2024-01-19',dias:180,amort:0.0,cupon:0.07966},
       {pago:'2024-07-19',corte:'2024-07-19',dias:180,amort:0.0,cupon:0.07966},
-      {pago:'2025-01-19',corte:'2025-01-19',dias:180,amort:0.0,cupon:0.07966},
-      {pago:'2025-07-19',corte:'2025-07-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2025-01-20',corte:'2025-01-19',dias:180,amort:0.0,cupon:0.07966},
+      {pago:'2025-07-21',corte:'2025-07-19',dias:180,amort:0.0,cupon:0.07966},
       {pago:'2026-01-19',corte:'2026-01-19',dias:180,amort:0.0,cupon:0.07966},
-      {pago:'2026-07-19',corte:'2026-07-19',dias:180,amort:100.0,cupon:0.07966},
-      {pago:'2026-07-19',corte:'2026-07-19',dias:0,amort:0,cupon:0.2438356165930105}
+      {pago:'2026-07-20',corte:'2026-07-19',dias:180,amort:100.0,cupon:0.07966}
     ]
   },
   BYCHO: {
@@ -1634,9 +1640,9 @@ const ON_DEFS = {
       {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2026-10-13',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2027-04-12',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2027-10-11',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2028-04-10',corte:'2028-04-10',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2028-10-10',corte:'2028-10-10',dias:180,amort:100.0,cupon:0.0775}
     ]
@@ -1651,9 +1657,9 @@ const ON_DEFS = {
       {pago:'2025-04-24',corte:'2025-04-24',dias:180,amort:0.0,cupon:0.0975},
       {pago:'2025-10-24',corte:'2025-10-24',dias:180,amort:0.0,cupon:0.0975},
       {pago:'2026-04-24',corte:'2026-04-24',dias:180,amort:0.0,cupon:0.0975},
-      {pago:'2026-10-24',corte:'2026-10-24',dias:180,amort:0.0,cupon:0.0975},
-      {pago:'2027-04-24',corte:'2027-04-24',dias:180,amort:0.0,cupon:0.0975},
-      {pago:'2027-10-24',corte:'2027-10-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2026-10-26',corte:'2026-10-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2027-04-26',corte:'2027-04-24',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2027-10-25',corte:'2027-10-24',dias:180,amort:0.0,cupon:0.0975},
       {pago:'2028-04-24',corte:'2028-04-24',dias:180,amort:0.0,cupon:0.0975},
       {pago:'2028-10-24',corte:'2028-10-24',dias:180,amort:33.33,cupon:0.0975},
       {pago:'2029-04-24',corte:'2029-04-24',dias:180,amort:0.0,cupon:0.0975},
@@ -1672,9 +1678,9 @@ const ON_DEFS = {
       {pago:'2022-12-22',corte:'2022-12-22',dias:164,amort:0.0,cupon:0.0875},
       {pago:'2023-06-22',corte:'2023-06-22',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2023-12-22',corte:'2023-12-22',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2024-06-22',corte:'2024-06-22',dias:180,amort:17.5,cupon:0.0875},
-      {pago:'2024-12-22',corte:'2024-12-22',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2025-06-22',corte:'2025-06-22',dias:180,amort:17.5,cupon:0.0875},
+      {pago:'2024-06-24',corte:'2024-06-22',dias:180,amort:17.5,cupon:0.0875},
+      {pago:'2024-12-23',corte:'2024-12-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2025-06-23',corte:'2025-06-22',dias:180,amort:17.5,cupon:0.0875},
       {pago:'2025-12-22',corte:'2025-12-22',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2026-06-22',corte:'2026-06-22',dias:180,amort:17.5,cupon:0.0875},
       {pago:'2026-12-22',corte:'2026-12-22',dias:180,amort:0.0,cupon:0.0875},
@@ -1696,10 +1702,10 @@ const ON_DEFS = {
       {pago:'2027-03-31',corte:'2027-03-31',dias:180,amort:0.0,cupon:0.08},
       {pago:'2027-09-30',corte:'2027-09-30',dias:180,amort:0.0,cupon:0.08},
       {pago:'2028-03-31',corte:'2028-03-31',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2028-09-30',corte:'2028-09-30',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2029-03-31',corte:'2029-03-31',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2029-09-30',corte:'2029-09-30',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2030-03-31',corte:'2030-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2028-10-02',corte:'2028-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2029-04-03',corte:'2029-03-31',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2029-10-01',corte:'2029-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2030-04-01',corte:'2030-03-31',dias:180,amort:0.0,cupon:0.08},
       {pago:'2030-09-30',corte:'2030-09-30',dias:180,amort:0.0,cupon:0.08},
       {pago:'2031-03-31',corte:'2031-03-31',dias:180,amort:0.0,cupon:0.08},
       {pago:'2031-09-30',corte:'2031-09-30',dias:180,amort:0.0,cupon:0.08},
@@ -1708,8 +1714,8 @@ const ON_DEFS = {
       {pago:'2033-03-31',corte:'2033-03-31',dias:180,amort:33.0,cupon:0.08},
       {pago:'2033-09-30',corte:'2033-09-30',dias:180,amort:0.0,cupon:0.08},
       {pago:'2034-03-31',corte:'2034-03-31',dias:180,amort:33.0,cupon:0.08},
-      {pago:'2034-09-30',corte:'2034-09-30',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2035-03-31',corte:'2035-03-31',dias:180,amort:34.0,cupon:0.08}
+      {pago:'2034-10-02',corte:'2034-09-30',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2035-04-03',corte:'2035-03-31',dias:180,amort:34.0,cupon:0.08}
     ]
   },
   MGCMO: {
@@ -1726,10 +1732,10 @@ const ON_DEFS = {
       {pago:'2027-03-10',corte:'2027-03-10',dias:180,amort:0.0,cupon:0.0795},
       {pago:'2027-09-10',corte:'2027-09-10',dias:180,amort:0.0,cupon:0.0795},
       {pago:'2028-03-10',corte:'2028-03-10',dias:180,amort:0.0,cupon:0.0795},
-      {pago:'2028-09-10',corte:'2028-09-10',dias:180,amort:0.0,cupon:0.0795},
-      {pago:'2029-03-10',corte:'2029-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2028-09-11',corte:'2028-09-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2029-03-12',corte:'2029-03-10',dias:180,amort:0.0,cupon:0.0795},
       {pago:'2029-09-10',corte:'2029-09-10',dias:180,amort:0.0,cupon:0.0795},
-      {pago:'2030-03-10',corte:'2030-03-10',dias:180,amort:0.0,cupon:0.0795},
+      {pago:'2030-03-11',corte:'2030-03-10',dias:180,amort:0.0,cupon:0.0795},
       {pago:'2030-09-10',corte:'2030-09-10',dias:180,amort:0.0,cupon:0.0795},
       {pago:'2031-03-10',corte:'2031-03-10',dias:180,amort:0.0,cupon:0.0795},
       {pago:'2031-09-10',corte:'2031-09-10',dias:180,amort:100.0,cupon:0.0795}
@@ -1749,10 +1755,10 @@ const ON_DEFS = {
       {pago:'2027-06-16',corte:'2027-06-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2027-12-16',corte:'2027-12-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2028-06-16',corte:'2028-06-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2028-12-16',corte:'2028-12-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2029-06-16',corte:'2029-06-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2029-12-16',corte:'2029-12-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2030-06-16',corte:'2030-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-12-18',corte:'2028-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-06-18',corte:'2029-06-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-12-17',corte:'2029-12-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2030-06-17',corte:'2030-06-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2030-12-16',corte:'2030-12-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2031-06-16',corte:'2031-06-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2031-12-16',corte:'2031-12-16',dias:180,amort:0.0,cupon:0.07875},
@@ -1761,7 +1767,7 @@ const ON_DEFS = {
       {pago:'2033-06-16',corte:'2033-06-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2033-12-16',corte:'2033-12-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2034-06-16',corte:'2034-06-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2034-12-16',corte:'2034-12-16',dias:180,amort:100.0,cupon:0.07875}
+      {pago:'2034-12-18',corte:'2034-12-16',dias:180,amort:100.0,cupon:0.07875}
     ]
   },
   MGCRO: {
@@ -1772,10 +1778,10 @@ const ON_DEFS = {
     vr:100, cupon:0.0775,
     cfs:[
       {pago:'2026-05-14',corte:'2026-05-14',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2026-11-14',corte:'2026-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2026-11-16',corte:'2026-11-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2027-05-14',corte:'2027-05-14',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2027-11-14',corte:'2027-11-14',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2028-05-14',corte:'2028-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2027-11-15',corte:'2027-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2028-05-15',corte:'2028-05-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2028-11-14',corte:'2028-11-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2029-05-14',corte:'2029-05-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2029-11-14',corte:'2029-11-14',dias:180,amort:0.0,cupon:0.0775},
@@ -1784,17 +1790,17 @@ const ON_DEFS = {
       {pago:'2031-05-14',corte:'2031-05-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2031-11-14',corte:'2031-11-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2032-05-14',corte:'2032-05-14',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2032-11-14',corte:'2032-11-14',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2033-05-14',corte:'2033-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2032-11-15',corte:'2032-11-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2033-05-16',corte:'2033-05-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2033-11-14',corte:'2033-11-14',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2034-05-14',corte:'2034-05-14',dias:180,amort:0.0,cupon:0.0775},
+      {pago:'2034-05-15',corte:'2034-05-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2034-11-14',corte:'2034-11-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2035-05-14',corte:'2035-05-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2035-11-14',corte:'2035-11-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2036-05-14',corte:'2036-05-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2036-11-14',corte:'2036-11-14',dias:180,amort:0.0,cupon:0.0775},
       {pago:'2037-05-14',corte:'2037-05-14',dias:180,amort:0.0,cupon:0.0775},
-      {pago:'2037-11-14',corte:'2037-11-14',dias:180,amort:100.0,cupon:0.0775}
+      {pago:'2037-11-16',corte:'2037-11-14',dias:180,amort:100.0,cupon:0.0775}
     ]
   },
   PLC4O: {
@@ -1804,20 +1810,20 @@ const ON_DEFS = {
     tickerUSD:'PLC4D', tickerEXT:'PLC4C',
     vr:100, cupon:0.085,
     cfs:[
-      {pago:'2025-11-30',corte:'2025-11-30',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2026-05-30',corte:'2026-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2025-12-01',corte:'2025-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2026-06-01',corte:'2026-05-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2026-11-30',corte:'2026-11-30',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2027-05-30',corte:'2027-05-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-05-31',corte:'2027-05-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2027-11-30',corte:'2027-11-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2028-05-30',corte:'2028-05-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2028-11-30',corte:'2028-11-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2029-05-30',corte:'2029-05-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2029-11-30',corte:'2029-11-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2030-05-30',corte:'2030-05-30',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2030-11-30',corte:'2030-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2030-12-02',corte:'2030-11-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2031-05-30',corte:'2031-05-30',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2031-11-30',corte:'2031-11-30',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2032-05-30',corte:'2032-05-30',dias:180,amort:100.0,cupon:0.085}
+      {pago:'2031-12-01',corte:'2031-11-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2032-05-31',corte:'2032-05-30',dias:180,amort:100.0,cupon:0.085}
     ]
   },
   PLC5O: {
@@ -1832,12 +1838,12 @@ const ON_DEFS = {
       {pago:'2027-05-18',corte:'2027-05-18',dias:180,amort:0.0,cupon:0.08125},
       {pago:'2027-11-18',corte:'2027-11-18',dias:180,amort:0.0,cupon:0.08125},
       {pago:'2028-05-18',corte:'2028-05-18',dias:180,amort:0.0,cupon:0.08125},
-      {pago:'2028-11-18',corte:'2028-11-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2028-11-20',corte:'2028-11-18',dias:180,amort:0.0,cupon:0.08125},
       {pago:'2029-05-18',corte:'2029-05-18',dias:180,amort:0.0,cupon:0.08125},
-      {pago:'2029-11-18',corte:'2029-11-18',dias:180,amort:0.0,cupon:0.08125},
-      {pago:'2030-05-18',corte:'2030-05-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2029-11-19',corte:'2029-11-18',dias:180,amort:0.0,cupon:0.08125},
+      {pago:'2030-05-20',corte:'2030-05-18',dias:180,amort:0.0,cupon:0.08125},
       {pago:'2030-11-18',corte:'2030-11-18',dias:180,amort:0.0,cupon:0.08125},
-      {pago:'2031-05-18',corte:'2031-05-18',dias:180,amort:100.0,cupon:0.08125}
+      {pago:'2031-05-19',corte:'2031-05-18',dias:180,amort:100.0,cupon:0.08125}
     ]
   },
   PNDCO: {
@@ -1847,10 +1853,10 @@ const ON_DEFS = {
     tickerUSD:'PNDCD', tickerEXT:'PNDCC',
     vr:100, cupon:0.09125,
     cfs:[
-      {pago:'2021-10-30',corte:'2021-10-30',dias:180,amort:0.0,cupon:0.09125},
-      {pago:'2022-04-30',corte:'2022-04-30',dias:180,amort:0.0,cupon:0.09125},
-      {pago:'2022-10-30',corte:'2022-10-30',dias:180,amort:0.0,cupon:0.09125},
-      {pago:'2023-04-30',corte:'2023-04-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2021-11-01',corte:'2021-10-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2022-05-02',corte:'2022-04-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2022-10-31',corte:'2022-10-30',dias:180,amort:0.0,cupon:0.09125},
+      {pago:'2023-05-01',corte:'2023-04-30',dias:180,amort:0.0,cupon:0.09125},
       {pago:'2023-10-30',corte:'2023-10-30',dias:180,amort:0.0,cupon:0.09125},
       {pago:'2024-04-30',corte:'2024-04-30',dias:180,amort:0.0,cupon:0.09125},
       {pago:'2024-10-30',corte:'2024-10-30',dias:180,amort:0.0,cupon:0.09125},
@@ -1858,8 +1864,7 @@ const ON_DEFS = {
       {pago:'2025-10-30',corte:'2025-10-30',dias:180,amort:20.0,cupon:0.09125},
       {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:20.0,cupon:0.09125},
       {pago:'2026-10-30',corte:'2026-10-30',dias:180,amort:20.0,cupon:0.09125},
-      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:20.0,cupon:0.09125},
-      {pago:'2027-04-30',corte:'2027-04-30',dias:0,amort:0,cupon:0.49910178255744964}
+      {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:20.0,cupon:0.09125}
     ]
   },
   PNXCO: {
@@ -1875,8 +1880,8 @@ const ON_DEFS = {
       {pago:'2026-04-30',corte:'2026-04-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2026-10-30',corte:'2026-10-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2027-04-30',corte:'2027-04-30',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2027-10-30',corte:'2027-10-30',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2028-04-30',corte:'2028-04-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2027-11-01',corte:'2027-10-30',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-05-02',corte:'2028-04-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2028-10-30',corte:'2028-10-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2029-04-30',corte:'2029-04-30',dias:180,amort:0.0,cupon:0.085},
       {pago:'2029-10-30',corte:'2029-10-30',dias:180,amort:0.0,cupon:0.085},
@@ -1896,10 +1901,10 @@ const ON_DEFS = {
     cfs:[
       {pago:'2025-11-28',corte:'2025-11-28',dias:180,amort:0.0,cupon:0.0925},
       {pago:'2026-05-28',corte:'2026-05-28',dias:180,amort:0.0,cupon:0.0925},
-      {pago:'2026-11-28',corte:'2026-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2026-11-30',corte:'2026-11-28',dias:180,amort:0.0,cupon:0.0925},
       {pago:'2027-05-28',corte:'2027-05-28',dias:180,amort:0.0,cupon:0.0925},
-      {pago:'2027-11-28',corte:'2027-11-28',dias:180,amort:0.0,cupon:0.0925},
-      {pago:'2028-05-28',corte:'2028-05-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2027-11-29',corte:'2027-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2028-05-29',corte:'2028-05-28',dias:180,amort:0.0,cupon:0.0925},
       {pago:'2028-11-28',corte:'2028-11-28',dias:180,amort:0.0,cupon:0.0925},
       {pago:'2029-05-28',corte:'2029-05-28',dias:180,amort:0.0,cupon:0.0925},
       {pago:'2029-11-28',corte:'2029-11-28',dias:180,amort:0.0,cupon:0.0925},
@@ -1908,8 +1913,8 @@ const ON_DEFS = {
       {pago:'2031-05-28',corte:'2031-05-28',dias:180,amort:0.0,cupon:0.0925},
       {pago:'2031-11-28',corte:'2031-11-28',dias:180,amort:0.0,cupon:0.0925},
       {pago:'2032-05-28',corte:'2032-05-28',dias:180,amort:50.0,cupon:0.0925},
-      {pago:'2032-11-28',corte:'2032-11-28',dias:180,amort:0.0,cupon:0.0925},
-      {pago:'2033-05-28',corte:'2033-05-28',dias:180,amort:50.0,cupon:0.0925}
+      {pago:'2032-11-29',corte:'2032-11-28',dias:180,amort:0.0,cupon:0.0925},
+      {pago:'2033-05-30',corte:'2033-05-28',dias:180,amort:50.0,cupon:0.0925}
     ]
   },
   TTCAO: {
@@ -1924,17 +1929,17 @@ const ON_DEFS = {
       {pago:'2026-07-22',corte:'2026-07-22',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2027-01-22',corte:'2027-01-22',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2027-07-22',corte:'2027-07-22',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2028-01-22',corte:'2028-01-22',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2028-07-22',corte:'2028-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-01-24',corte:'2028-01-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-07-24',corte:'2028-07-22',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2029-01-22',corte:'2029-01-22',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2029-07-22',corte:'2029-07-22',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-07-23',corte:'2029-07-22',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2030-01-22',corte:'2030-01-22',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2030-07-22',corte:'2030-07-22',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2031-01-22',corte:'2031-01-22',dias:180,amort:33.0,cupon:0.07625},
       {pago:'2031-07-22',corte:'2031-07-22',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2032-01-22',corte:'2032-01-22',dias:180,amort:33.0,cupon:0.07625},
       {pago:'2032-07-22',corte:'2032-07-22',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2033-01-22',corte:'2033-01-22',dias:180,amort:34.0,cupon:0.07625}
+      {pago:'2033-01-24',corte:'2033-01-22',dias:180,amort:34.0,cupon:0.07625}
     ]
   },
   TTCDO: {
@@ -1944,16 +1949,16 @@ const ON_DEFS = {
     tickerUSD:'TTCDD', tickerEXT:'TTCDC',
     vr:100, cupon:0.07625,
     cfs:[
-      {pago:'2026-05-03',corte:'2026-05-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2026-05-04',corte:'2026-05-03',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2026-11-03',corte:'2026-11-03',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2027-05-03',corte:'2027-05-03',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2027-11-03',corte:'2027-11-03',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2028-05-03',corte:'2028-05-03',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2028-11-03',corte:'2028-11-03',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2029-05-03',corte:'2029-05-03',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2029-11-03',corte:'2029-11-03',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-11-05',corte:'2029-11-03',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2030-05-03',corte:'2030-05-03',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2030-11-03',corte:'2030-11-03',dias:180,amort:100.0,cupon:0.07625}
+      {pago:'2030-11-04',corte:'2030-11-03',dias:180,amort:100.0,cupon:0.07625}
     ]
   },
   VSCTO: {
@@ -1969,9 +1974,9 @@ const ON_DEFS = {
       {pago:'2026-12-10',corte:'2026-12-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2027-06-10',corte:'2027-06-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2027-12-10',corte:'2027-12-10',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2028-06-10',corte:'2028-06-10',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2028-12-10',corte:'2028-12-10',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2029-06-10',corte:'2029-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-06-12',corte:'2028-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2028-12-11',corte:'2028-12-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2029-06-11',corte:'2029-06-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2029-12-10',corte:'2029-12-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2030-06-10',corte:'2030-06-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2030-12-10',corte:'2030-12-10',dias:180,amort:0.0,cupon:0.07625},
@@ -1980,10 +1985,10 @@ const ON_DEFS = {
       {pago:'2032-06-10',corte:'2032-06-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2032-12-10',corte:'2032-12-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2033-06-10',corte:'2033-06-10',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2033-12-10',corte:'2033-12-10',dias:180,amort:33.0,cupon:0.07625},
-      {pago:'2034-06-10',corte:'2034-06-10',dias:180,amort:0.0,cupon:0.07625},
-      {pago:'2034-12-10',corte:'2034-12-10',dias:180,amort:33.0,cupon:0.07625},
-      {pago:'2035-06-10',corte:'2035-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2033-12-12',corte:'2033-12-10',dias:180,amort:33.0,cupon:0.07625},
+      {pago:'2034-06-12',corte:'2034-06-10',dias:180,amort:0.0,cupon:0.07625},
+      {pago:'2034-12-11',corte:'2034-12-10',dias:180,amort:33.0,cupon:0.07625},
+      {pago:'2035-06-11',corte:'2035-06-10',dias:180,amort:0.0,cupon:0.07625},
       {pago:'2035-12-10',corte:'2035-12-10',dias:180,amort:34.0,cupon:0.07625}
     ]
   },
@@ -1999,9 +2004,9 @@ const ON_DEFS = {
       {pago:'2026-12-10',corte:'2026-12-10',dias:180,amort:0.0,cupon:0.085},
       {pago:'2027-06-10',corte:'2027-06-10',dias:180,amort:0.0,cupon:0.085},
       {pago:'2027-12-10',corte:'2027-12-10',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2028-06-10',corte:'2028-06-10',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2028-12-10',corte:'2028-12-10',dias:180,amort:0.0,cupon:0.085},
-      {pago:'2029-06-10',corte:'2029-06-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-06-12',corte:'2028-06-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2028-12-11',corte:'2028-12-10',dias:180,amort:0.0,cupon:0.085},
+      {pago:'2029-06-11',corte:'2029-06-10',dias:180,amort:0.0,cupon:0.085},
       {pago:'2029-12-10',corte:'2029-12-10',dias:180,amort:0.0,cupon:0.085},
       {pago:'2030-06-10',corte:'2030-06-10',dias:180,amort:0.0,cupon:0.085},
       {pago:'2030-12-10',corte:'2030-12-10',dias:180,amort:0.0,cupon:0.085},
@@ -2022,9 +2027,9 @@ const ON_DEFS = {
       {pago:'2026-10-08',corte:'2026-10-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2027-04-08',corte:'2027-04-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2027-10-08',corte:'2027-10-08',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2028-04-08',corte:'2028-04-08',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2028-10-08',corte:'2028-10-08',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2029-04-08',corte:'2029-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-04-10',corte:'2028-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-10-09',corte:'2028-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2029-04-09',corte:'2029-04-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2029-10-08',corte:'2029-10-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2030-04-08',corte:'2030-04-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2030-10-08',corte:'2030-10-08',dias:180,amort:0.0,cupon:0.07875},
@@ -2033,10 +2038,10 @@ const ON_DEFS = {
       {pago:'2032-04-08',corte:'2032-04-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2032-10-08',corte:'2032-10-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2033-04-08',corte:'2033-04-08',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2033-10-08',corte:'2033-10-08',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2034-04-08',corte:'2034-04-08',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2034-10-08',corte:'2034-10-08',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2035-04-08',corte:'2035-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2033-10-10',corte:'2033-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2034-04-10',corte:'2034-04-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2034-10-09',corte:'2034-10-08',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2035-04-09',corte:'2035-04-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2035-10-08',corte:'2035-10-08',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2036-04-08',corte:'2036-04-08',dias:180,amort:33.0,cupon:0.07875},
       {pago:'2036-10-08',corte:'2036-10-08',dias:180,amort:0.0,cupon:0.07875},
@@ -2052,20 +2057,20 @@ const ON_DEFS = {
     tickerUSD:'YCAMD', tickerEXT:'YCAMC',
     vr:100, cupon:0.0695,
     cfs:[
-      {pago:'2018-01-21',corte:'2018-01-21',dias:180,amort:0.0,cupon:0.0695},
-      {pago:'2018-07-21',corte:'2018-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2018-01-22',corte:'2018-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2018-07-23',corte:'2018-07-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2019-01-21',corte:'2019-01-21',dias:180,amort:0.0,cupon:0.0695},
-      {pago:'2019-07-21',corte:'2019-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2019-07-22',corte:'2019-07-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2020-01-21',corte:'2020-01-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2020-07-21',corte:'2020-07-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2021-01-21',corte:'2021-01-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2021-07-21',corte:'2021-07-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2022-01-21',corte:'2022-01-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2022-07-21',corte:'2022-07-21',dias:180,amort:0.0,cupon:0.0695},
-      {pago:'2023-01-21',corte:'2023-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2023-01-23',corte:'2023-01-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2023-07-21',corte:'2023-07-21',dias:180,amort:0.0,cupon:0.0695},
-      {pago:'2024-01-21',corte:'2024-01-21',dias:180,amort:0.0,cupon:0.0695},
-      {pago:'2024-07-21',corte:'2024-07-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2024-01-22',corte:'2024-01-21',dias:180,amort:0.0,cupon:0.0695},
+      {pago:'2024-07-22',corte:'2024-07-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2025-01-21',corte:'2025-01-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2025-07-21',corte:'2025-07-21',dias:180,amort:0.0,cupon:0.0695},
       {pago:'2026-01-21',corte:'2026-01-21',dias:180,amort:0.0,cupon:0.0695},
@@ -2086,8 +2091,8 @@ const ON_DEFS = {
       {pago:'2026-04-16',corte:'2026-04-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2026-10-16',corte:'2026-10-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2027-04-16',corte:'2027-04-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2027-10-16',corte:'2027-10-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2028-04-16',corte:'2028-04-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2027-10-18',corte:'2027-10-16',dias:180,amort:0.0,cupon:0.07875},
+      {pago:'2028-04-17',corte:'2028-04-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2028-10-16',corte:'2028-10-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2029-04-16',corte:'2029-04-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2029-10-16',corte:'2029-10-16',dias:180,amort:0.0,cupon:0.07875},
@@ -2096,7 +2101,7 @@ const ON_DEFS = {
       {pago:'2031-04-16',corte:'2031-04-16',dias:180,amort:0.0,cupon:0.07875},
       {pago:'2031-10-16',corte:'2031-10-16',dias:180,amort:33.0,cupon:0.07875},
       {pago:'2032-04-16',corte:'2032-04-16',dias:180,amort:0.0,cupon:0.07875},
-      {pago:'2032-10-16',corte:'2032-10-16',dias:180,amort:34.0,cupon:0.07875}
+      {pago:'2032-10-18',corte:'2032-10-16',dias:180,amort:34.0,cupon:0.07875}
     ]
   },
   YM34O: {
@@ -2107,10 +2112,10 @@ const ON_DEFS = {
     vr:100, cupon:0.0825,
     cfs:[
       {pago:'2025-07-17',corte:'2025-07-17',dias:180,amort:0.0,cupon:0.0825},
-      {pago:'2026-01-17',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2026-01-19',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2026-07-17',corte:'2026-07-17',dias:180,amort:0.0,cupon:0.0825},
-      {pago:'2027-01-17',corte:'2027-01-17',dias:180,amort:0.0,cupon:0.0825},
-      {pago:'2027-07-17',corte:'2027-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2027-01-18',corte:'2027-01-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2027-07-19',corte:'2027-07-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2028-01-17',corte:'2028-01-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2028-07-17',corte:'2028-07-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2029-01-17',corte:'2029-01-17',dias:180,amort:0.0,cupon:0.0825},
@@ -2119,10 +2124,10 @@ const ON_DEFS = {
       {pago:'2030-07-17',corte:'2030-07-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2031-01-17',corte:'2031-01-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2031-07-17',corte:'2031-07-17',dias:180,amort:0.0,cupon:0.0825},
-      {pago:'2032-01-17',corte:'2032-01-17',dias:180,amort:30.0,cupon:0.0825},
-      {pago:'2032-07-17',corte:'2032-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2032-01-19',corte:'2032-01-17',dias:180,amort:30.0,cupon:0.0825},
+      {pago:'2032-07-19',corte:'2032-07-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2033-01-17',corte:'2033-01-17',dias:180,amort:30.0,cupon:0.0825},
-      {pago:'2033-07-17',corte:'2033-07-17',dias:180,amort:0.0,cupon:0.0825},
+      {pago:'2033-07-18',corte:'2033-07-17',dias:180,amort:0.0,cupon:0.0825},
       {pago:'2034-01-17',corte:'2034-01-17',dias:180,amort:40.0,cupon:0.0825}
     ]
   },
@@ -2138,8 +2143,8 @@ const ON_DEFS = {
       {pago:'2022-06-30',corte:'2022-06-30',dias:180,amort:0.0,cupon:0.025},
       {pago:'2022-12-30',corte:'2022-12-30',dias:180,amort:0.0,cupon:0.025},
       {pago:'2023-06-30',corte:'2023-06-30',dias:180,amort:0.0,cupon:0.09},
-      {pago:'2023-12-30',corte:'2023-12-30',dias:180,amort:0.0,cupon:0.09},
-      {pago:'2024-06-30',corte:'2024-06-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2024-01-01',corte:'2023-12-30',dias:180,amort:0.0,cupon:0.09},
+      {pago:'2024-07-01',corte:'2024-06-30',dias:180,amort:0.0,cupon:0.09},
       {pago:'2024-12-30',corte:'2024-12-30',dias:180,amort:0.0,cupon:0.09},
       {pago:'2025-06-30',corte:'2025-06-30',dias:180,amort:0.0,cupon:0.09},
       {pago:'2025-12-30',corte:'2025-12-30',dias:180,amort:0.0,cupon:0.09},
@@ -2148,8 +2153,8 @@ const ON_DEFS = {
       {pago:'2027-06-30',corte:'2027-06-30',dias:180,amort:14.285714285714286,cupon:0.09},
       {pago:'2027-12-30',corte:'2027-12-30',dias:180,amort:14.285714285714286,cupon:0.09},
       {pago:'2028-06-30',corte:'2028-06-30',dias:180,amort:14.285714285714286,cupon:0.09},
-      {pago:'2028-12-30',corte:'2028-12-30',dias:180,amort:14.285714285714286,cupon:0.09},
-      {pago:'2029-06-30',corte:'2029-06-30',dias:180,amort:14.285714285714286,cupon:0.09}
+      {pago:'2029-01-02',corte:'2028-12-30',dias:180,amort:14.285714285714286,cupon:0.09},
+      {pago:'2029-07-02',corte:'2029-06-30',dias:180,amort:14.285714285714286,cupon:0.09}
     ]
   },
   YMCXO: {
@@ -2164,10 +2169,10 @@ const ON_DEFS = {
       {pago:'2026-03-11',corte:'2026-03-11',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2026-09-11',corte:'2026-09-11',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2027-03-11',corte:'2027-03-11',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2027-09-11',corte:'2027-09-11',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2028-03-11',corte:'2028-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2027-09-13',corte:'2027-09-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2028-03-13',corte:'2028-03-11',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2028-09-11',corte:'2028-09-11',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2029-03-11',corte:'2029-03-11',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2029-03-12',corte:'2029-03-11',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2029-09-11',corte:'2029-09-11',dias:180,amort:20.0,cupon:0.0875},
       {pago:'2030-03-11',corte:'2030-03-11',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2030-09-11',corte:'2030-09-11',dias:180,amort:20.0,cupon:0.0875},
@@ -2183,8 +2188,7 @@ const ON_DEFS = {
     vr:100, cupon:0.059,
     cfs:[
       {pago:'2025-11-27',corte:'2025-11-27',dias:180,amort:0.0,cupon:0.059},
-      {pago:'2026-05-29',corte:'2026-05-29',dias:182,amort:100.0,cupon:0.059},
-      {pago:'2026-05-29',corte:'2026-05-29',dias:0,amort:0,cupon:0.1013698630212856}
+      {pago:'2026-05-29',corte:'2026-05-29',dias:182,amort:100.0,cupon:0.059}
     ]
   },
   BYCWO: {
@@ -2195,8 +2199,7 @@ const ON_DEFS = {
     vr:100, cupon:0.06,
     cfs:[
       {pago:'2026-05-14',corte:'2026-05-14',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2026-11-30',corte:'2026-11-30',dias:196,amort:100.0,cupon:0.06},
-      {pago:'2026-11-30',corte:'2026-11-30',dias:0,amort:0,cupon:0.5926757338792535}
+      {pago:'2026-11-30',corte:'2026-11-30',dias:196,amort:100.0,cupon:0.06}
     ]
   },
   BYCXO: {
@@ -2207,8 +2210,7 @@ const ON_DEFS = {
     vr:100, cupon:0.055,
     cfs:[
       {pago:'2026-06-22',corte:'2026-06-22',dias:180,amort:0.0,cupon:0.055},
-      {pago:'2026-12-30',corte:'2026-12-30',dias:188,amort:100.0,cupon:0.055},
-      {pago:'2026-12-30',corte:'2026-12-30',dias:0,amort:0,cupon:0.6766517142377793}
+      {pago:'2026-12-30',corte:'2026-12-30',dias:188,amort:100.0,cupon:0.055}
     ]
   },
   CP36O: {
@@ -2221,9 +2223,9 @@ const ON_DEFS = {
       {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.065},
       {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.065},
       {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:100.0,cupon:0.065}
+      {pago:'2026-10-13',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-04-12',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-10-11',corte:'2027-10-10',dias:180,amort:100.0,cupon:0.065}
     ]
   },
   CP37O: {
@@ -2240,8 +2242,7 @@ const ON_DEFS = {
       {pago:'2026-06-10',corte:'2026-06-10',dias:90,amort:0.0,cupon:0.07},
       {pago:'2026-09-10',corte:'2026-09-10',dias:90,amort:0.0,cupon:0.07},
       {pago:'2026-12-10',corte:'2026-12-10',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2027-03-10',corte:'2027-03-10',dias:90,amort:100.0,cupon:0.07},
-      {pago:'2027-03-10',corte:'2027-03-10',dias:0,amort:0,cupon:0.8568757037933598}
+      {pago:'2027-03-10',corte:'2027-03-10',dias:90,amort:100.0,cupon:0.07}
     ]
   },
   CP40O: {
@@ -2271,10 +2272,9 @@ const ON_DEFS = {
       {pago:'2024-07-17',corte:'2024-07-17',dias:180,amort:0.0,cupon:0.06},
       {pago:'2025-01-17',corte:'2025-01-17',dias:180,amort:0.0,cupon:0.06},
       {pago:'2025-07-17',corte:'2025-07-17',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2026-01-17',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-01-19',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.06},
       {pago:'2026-07-17',corte:'2026-07-17',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2027-01-17',corte:'2027-01-17',dias:180,amort:100.0,cupon:0.06},
-      {pago:'2027-01-17',corte:'2027-01-17',dias:0,amort:0,cupon:0.7278300820501726}
+      {pago:'2027-01-18',corte:'2027-01-17',dias:180,amort:100.0,cupon:0.06}
     ]
   },
   CS45O: {
@@ -2288,8 +2288,7 @@ const ON_DEFS = {
       {pago:'2025-04-22',corte:'2025-04-22',dias:180,amort:0.0,cupon:0.06},
       {pago:'2025-10-22',corte:'2025-10-22',dias:180,amort:0.0,cupon:0.06},
       {pago:'2026-04-22',corte:'2026-04-22',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2026-08-22',corte:'2026-08-22',dias:120,amort:100.0,cupon:0.06},
-      {pago:'2026-08-22',corte:'2026-08-22',dias:0,amort:0,cupon:0.33972602797557416}
+      {pago:'2026-08-24',corte:'2026-08-22',dias:120,amort:100.0,cupon:0.06}
     ]
   },
   DNC3O: {
@@ -2302,10 +2301,9 @@ const ON_DEFS = {
       {pago:'2024-05-22',corte:'2024-05-22',dias:75,amort:0.0,cupon:0.0975},
       {pago:'2024-11-22',corte:'2024-11-22',dias:180,amort:0.0,cupon:0.0975},
       {pago:'2025-05-22',corte:'2025-05-22',dias:180,amort:0.0,cupon:0.0975},
-      {pago:'2025-11-22',corte:'2025-11-22',dias:180,amort:0.0,cupon:0.0975},
+      {pago:'2025-11-24',corte:'2025-11-22',dias:180,amort:0.0,cupon:0.0975},
       {pago:'2026-05-22',corte:'2026-05-22',dias:180,amort:0.0,cupon:0.0975},
-      {pago:'2026-11-22',corte:'2026-11-22',dias:180,amort:100.0,cupon:0.0975},
-      {pago:'2026-11-22',corte:'2026-11-22',dias:0,amort:0,cupon:0.5646098310458855}
+      {pago:'2026-11-24',corte:'2026-11-22',dias:180,amort:100.0,cupon:0.0975}
     ]
   },
   DNC5O: {
@@ -2321,8 +2319,8 @@ const ON_DEFS = {
       {pago:'2026-08-05',corte:'2026-08-05',dias:180,amort:0.0,cupon:0.095},
       {pago:'2027-02-05',corte:'2027-02-05',dias:180,amort:0.0,cupon:0.095},
       {pago:'2027-08-05',corte:'2027-08-05',dias:180,amort:0.0,cupon:0.095},
-      {pago:'2028-02-05',corte:'2028-02-05',dias:180,amort:0.0,cupon:0.095},
-      {pago:'2028-08-05',corte:'2028-08-05',dias:180,amort:100.0,cupon:0.095}
+      {pago:'2028-02-07',corte:'2028-02-05',dias:180,amort:0.0,cupon:0.095},
+      {pago:'2028-08-07',corte:'2028-08-05',dias:180,amort:100.0,cupon:0.095}
     ]
   },
   GN43O: {
@@ -2332,18 +2330,17 @@ const ON_DEFS = {
     tickerUSD:'GN43D', tickerEXT:'GN43C',
     vr:100, cupon:0.06,
     cfs:[
-      {pago:'2024-09-08',corte:'2024-09-08',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2024-12-08',corte:'2024-12-08',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2025-03-08',corte:'2025-03-08',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2025-06-08',corte:'2025-06-08',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2024-09-09',corte:'2024-09-08',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2024-12-09',corte:'2024-12-08',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2025-03-10',corte:'2025-03-08',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2025-06-09',corte:'2025-06-08',dias:90,amort:0.0,cupon:0.06},
       {pago:'2025-09-08',corte:'2025-09-08',dias:90,amort:0.0,cupon:0.06},
       {pago:'2025-12-08',corte:'2025-12-08',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2026-03-08',corte:'2026-03-08',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2026-03-09',corte:'2026-03-08',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-06-08',corte:'2026-06-08',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-09-08',corte:'2026-09-08',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2026-12-08',corte:'2026-12-08',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2027-03-08',corte:'2027-03-08',dias:90,amort:100.0,cupon:0.06},
-      {pago:'2027-03-08',corte:'2027-03-08',dias:0,amort:0,cupon:0.855094920204069}
+      {pago:'2026-12-09',corte:'2026-12-08',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2027-03-08',corte:'2027-03-08',dias:90,amort:100.0,cupon:0.06}
     ]
   },
   GN48O: {
@@ -2355,10 +2352,10 @@ const ON_DEFS = {
     cfs:[
       {pago:'2025-09-05',corte:'2025-09-05',dias:180,amort:0.0,cupon:0.065},
       {pago:'2026-03-05',corte:'2026-03-05',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2026-09-05',corte:'2026-09-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-09-07',corte:'2026-09-05',dias:180,amort:0.0,cupon:0.065},
       {pago:'2027-03-05',corte:'2027-03-05',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-09-05',corte:'2027-09-05',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2028-03-05',corte:'2028-03-05',dias:180,amort:100.0,cupon:0.065}
+      {pago:'2027-09-06',corte:'2027-09-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-03-06',corte:'2028-03-05',dias:180,amort:100.0,cupon:0.065}
     ]
   },
   HJCBO: {
@@ -2369,14 +2366,13 @@ const ON_DEFS = {
     vr:100, cupon:0.06,
     cfs:[
       {pago:'2024-08-30',corte:'2024-08-30',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2024-11-30',corte:'2024-11-30',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2024-12-02',corte:'2024-11-30',dias:90,amort:0.0,cupon:0.06},
       {pago:'2025-02-28',corte:'2025-02-28',dias:88,amort:0.0,cupon:0.06},
       {pago:'2025-05-30',corte:'2025-05-30',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2025-08-30',corte:'2025-08-30',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2025-11-30',corte:'2025-11-30',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2026-02-28',corte:'2026-02-28',dias:88,amort:0.0,cupon:0.06},
-      {pago:'2026-05-30',corte:'2026-05-30',dias:90,amort:100.0,cupon:0.06},
-      {pago:'2026-05-30',corte:'2026-05-30',dias:0,amort:0,cupon:0.10958904110356131}
+      {pago:'2025-09-01',corte:'2025-08-30',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2025-12-01',corte:'2025-11-30',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2026-03-02',corte:'2026-02-28',dias:88,amort:0.0,cupon:0.06},
+      {pago:'2026-06-01',corte:'2026-05-30',dias:90,amort:100.0,cupon:0.06}
     ]
   },
   HJCFO: {
@@ -2389,8 +2385,7 @@ const ON_DEFS = {
       {pago:'2025-04-21',corte:'2025-04-21',dias:180,amort:0.0,cupon:0.05},
       {pago:'2025-10-21',corte:'2025-10-21',dias:180,amort:0.0,cupon:0.05},
       {pago:'2026-04-21',corte:'2026-04-21',dias:180,amort:0.0,cupon:0.05},
-      {pago:'2026-10-21',corte:'2026-10-21',dias:180,amort:100.0,cupon:0.05},
-      {pago:'2026-10-21',corte:'2026-10-21',dias:0,amort:0,cupon:0.49863013737034284}
+      {pago:'2026-10-21',corte:'2026-10-21',dias:180,amort:100.0,cupon:0.05}
     ]
   },
   HJCHO: {
@@ -2401,10 +2396,10 @@ const ON_DEFS = {
     vr:100, cupon:0.07,
     cfs:[
       {pago:'2025-07-17',corte:'2025-07-17',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2026-01-17',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-01-19',corte:'2026-01-17',dias:180,amort:0.0,cupon:0.07},
       {pago:'2026-07-17',corte:'2026-07-17',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2027-01-17',corte:'2027-01-17',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2027-07-17',corte:'2027-07-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-01-18',corte:'2027-01-17',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-07-19',corte:'2027-07-17',dias:180,amort:0.0,cupon:0.07},
       {pago:'2028-01-17',corte:'2028-01-17',dias:180,amort:100.0,cupon:0.07}
     ]
   },
@@ -2418,10 +2413,9 @@ const ON_DEFS = {
       {pago:'2024-08-28',corte:'2024-08-28',dias:180,amort:0.0,cupon:0.07},
       {pago:'2025-02-28',corte:'2025-02-28',dias:180,amort:0.0,cupon:0.07},
       {pago:'2025-08-28',corte:'2025-08-28',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2026-02-28',corte:'2026-02-28',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-03-02',corte:'2026-02-28',dias:180,amort:0.0,cupon:0.07},
       {pago:'2026-08-28',corte:'2026-08-28',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2027-02-28',corte:'2027-02-28',dias:180,amort:100.0,cupon:0.07},
-      {pago:'2027-02-28',corte:'2027-02-28',dias:0,amort:0,cupon:0.8406495333888864}
+      {pago:'2027-03-01',corte:'2027-02-28',dias:180,amort:100.0,cupon:0.07}
     ]
   },
   IRCNO: {
@@ -2434,9 +2428,9 @@ const ON_DEFS = {
       {pago:'2025-07-23',corte:'2025-07-23',dias:270,amort:0.0,cupon:0.0575},
       {pago:'2026-01-23',corte:'2026-01-23',dias:180,amort:0.0,cupon:0.0575},
       {pago:'2026-07-23',corte:'2026-07-23',dias:180,amort:0.0,cupon:0.0575},
-      {pago:'2027-01-23',corte:'2027-01-23',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2027-01-25',corte:'2027-01-23',dias:180,amort:0.0,cupon:0.0575},
       {pago:'2027-07-23',corte:'2027-07-23',dias:180,amort:0.0,cupon:0.0575},
-      {pago:'2027-10-23',corte:'2027-10-23',dias:90,amort:100.0,cupon:0.0575}
+      {pago:'2027-10-25',corte:'2027-10-23',dias:90,amort:100.0,cupon:0.0575}
     ]
   },
   IRCOO: {
@@ -2449,10 +2443,10 @@ const ON_DEFS = {
       {pago:'2025-07-23',corte:'2025-07-23',dias:270,amort:0.0,cupon:0.0725},
       {pago:'2026-01-23',corte:'2026-01-23',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2026-07-23',corte:'2026-07-23',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2027-01-23',corte:'2027-01-23',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-01-25',corte:'2027-01-23',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2027-07-23',corte:'2027-07-23',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2028-01-23',corte:'2028-01-23',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2028-07-23',corte:'2028-07-23',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-01-24',corte:'2028-01-23',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-07-24',corte:'2028-07-23',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2029-01-23',corte:'2029-01-23',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2029-07-23',corte:'2029-07-23',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2029-10-23',corte:'2029-10-23',dias:90,amort:100.0,cupon:0.0725}
@@ -2467,15 +2461,15 @@ const ON_DEFS = {
     cfs:[
       {pago:'2024-04-12',corte:'2024-04-12',dias:180,amort:0.0,cupon:0.07},
       {pago:'2024-07-12',corte:'2024-07-12',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2024-10-12',corte:'2024-10-12',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2025-01-12',corte:'2025-01-12',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2025-04-12',corte:'2025-04-12',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2025-07-12',corte:'2025-07-12',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2025-10-12',corte:'2025-10-12',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2024-10-14',corte:'2024-10-12',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2025-01-13',corte:'2025-01-12',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2025-04-14',corte:'2025-04-12',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2025-07-14',corte:'2025-07-12',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2025-10-13',corte:'2025-10-12',dias:90,amort:0.0,cupon:0.07},
       {pago:'2026-01-12',corte:'2026-01-12',dias:90,amort:8.33,cupon:0.07},
-      {pago:'2026-04-12',corte:'2026-04-12',dias:90,amort:8.33,cupon:0.07},
-      {pago:'2026-07-12',corte:'2026-07-12',dias:90,amort:8.33,cupon:0.07},
-      {pago:'2026-10-12',corte:'2026-10-12',dias:90,amort:8.33,cupon:0.07},
+      {pago:'2026-04-13',corte:'2026-04-12',dias:90,amort:8.33,cupon:0.07},
+      {pago:'2026-07-13',corte:'2026-07-12',dias:90,amort:8.33,cupon:0.07},
+      {pago:'2026-10-13',corte:'2026-10-12',dias:90,amort:8.33,cupon:0.07},
       {pago:'2027-01-12',corte:'2027-01-12',dias:90,amort:8.33,cupon:0.07},
       {pago:'2027-04-12',corte:'2027-04-12',dias:90,amort:8.33,cupon:0.07},
       {pago:'2027-07-12',corte:'2027-07-12',dias:90,amort:8.33,cupon:0.07},
@@ -2493,18 +2487,17 @@ const ON_DEFS = {
     tickerUSD:'LMS8D', tickerEXT:'LMS8C',
     vr:100, cupon:0.0625,
     cfs:[
-      {pago:'2024-09-21',corte:'2024-09-21',dias:180,amort:0.0,cupon:0.0625},
-      {pago:'2024-12-21',corte:'2024-12-21',dias:90,amort:0.0,cupon:0.0625},
+      {pago:'2024-09-23',corte:'2024-09-21',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2024-12-23',corte:'2024-12-21',dias:90,amort:0.0,cupon:0.0625},
       {pago:'2025-03-21',corte:'2025-03-21',dias:90,amort:0.0,cupon:0.0625},
-      {pago:'2025-06-21',corte:'2025-06-21',dias:90,amort:0.0,cupon:0.0625},
-      {pago:'2025-09-21',corte:'2025-09-21',dias:90,amort:0.0,cupon:0.0625},
-      {pago:'2025-12-21',corte:'2025-12-21',dias:90,amort:0.0,cupon:0.0625},
-      {pago:'2026-03-21',corte:'2026-03-21',dias:90,amort:0.0,cupon:0.0625},
-      {pago:'2026-06-21',corte:'2026-06-21',dias:90,amort:25.0,cupon:0.0625},
+      {pago:'2025-06-23',corte:'2025-06-21',dias:90,amort:0.0,cupon:0.0625},
+      {pago:'2025-09-22',corte:'2025-09-21',dias:90,amort:0.0,cupon:0.0625},
+      {pago:'2025-12-22',corte:'2025-12-21',dias:90,amort:0.0,cupon:0.0625},
+      {pago:'2026-03-25',corte:'2026-03-21',dias:90,amort:0.0,cupon:0.0625},
+      {pago:'2026-06-22',corte:'2026-06-21',dias:90,amort:25.0,cupon:0.0625},
       {pago:'2026-09-21',corte:'2026-09-21',dias:90,amort:25.0,cupon:0.0625},
       {pago:'2026-12-21',corte:'2026-12-21',dias:90,amort:25.0,cupon:0.0625},
-      {pago:'2027-03-21',corte:'2027-03-21',dias:90,amort:25.0,cupon:0.0625},
-      {pago:'2027-03-21',corte:'2027-03-21',dias:0,amort:0,cupon:0.532647097604643}
+      {pago:'2027-03-22',corte:'2027-03-21',dias:90,amort:25.0,cupon:0.0625}
     ]
   },
   LMS9O: {
@@ -2518,11 +2511,10 @@ const ON_DEFS = {
       {pago:'2024-12-13',corte:'2024-12-13',dias:90,amort:0.0,cupon:0.06},
       {pago:'2025-03-13',corte:'2025-03-13',dias:90,amort:0.0,cupon:0.06},
       {pago:'2025-06-13',corte:'2025-06-13',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2025-09-13',corte:'2025-09-13',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2025-12-13',corte:'2025-12-13',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2025-09-15',corte:'2025-09-13',dias:90,amort:0.0,cupon:0.06},
+      {pago:'2025-12-15',corte:'2025-12-13',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-03-13',corte:'2026-03-13',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2026-06-13',corte:'2026-06-13',dias:90,amort:100.0,cupon:0.06},
-      {pago:'2026-06-13',corte:'2026-06-13',dias:0,amort:0,cupon:0.15068493152489645}
+      {pago:'2026-06-16',corte:'2026-06-13',dias:90,amort:100.0,cupon:0.06}
     ]
   },
   LOC4O: {
@@ -2533,11 +2525,10 @@ const ON_DEFS = {
     vr:100, cupon:0.06,
     cfs:[
       {pago:'2024-05-02',corte:'2024-05-02',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2024-11-02',corte:'2024-11-02',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2024-11-04',corte:'2024-11-02',dias:180,amort:0.0,cupon:0.06},
       {pago:'2025-05-02',corte:'2025-05-02',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2025-11-02',corte:'2025-11-02',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2026-05-02',corte:'2026-05-02',dias:180,amort:100.0,cupon:0.06},
-      {pago:'2026-05-02',corte:'2026-05-02',dias:0,amort:0,cupon:0.03287671232821131}
+      {pago:'2025-11-03',corte:'2025-11-02',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-05-04',corte:'2026-05-02',dias:180,amort:100.0,cupon:0.06}
     ]
   },
   LOC5O: {
@@ -2547,10 +2538,10 @@ const ON_DEFS = {
     tickerUSD:'LOC5D', tickerEXT:'LOC5C',
     vr:100, cupon:0.08,
     cfs:[
-      {pago:'2026-01-24',corte:'2026-01-24',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-01-26',corte:'2026-01-24',dias:180,amort:0.0,cupon:0.08},
       {pago:'2026-07-24',corte:'2026-07-24',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2027-01-24',corte:'2027-01-24',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2027-07-24',corte:'2027-07-24',dias:180,amort:100.0,cupon:0.08}
+      {pago:'2027-01-25',corte:'2027-01-24',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2027-07-26',corte:'2027-07-24',dias:180,amort:100.0,cupon:0.08}
     ]
   },
   LOC6O: {
@@ -2561,10 +2552,10 @@ const ON_DEFS = {
     vr:100, cupon:0.065,
     cfs:[
       {pago:'2026-07-23',corte:'2026-07-23',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-01-23',corte:'2027-01-23',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-01-25',corte:'2027-01-23',dias:180,amort:0.0,cupon:0.065},
       {pago:'2027-07-23',corte:'2027-07-23',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2028-01-23',corte:'2028-01-23',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2028-07-23',corte:'2028-07-23',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-01-24',corte:'2028-01-23',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-07-24',corte:'2028-07-23',dias:180,amort:0.0,cupon:0.065},
       {pago:'2029-01-23',corte:'2029-01-23',dias:180,amort:100.0,cupon:0.065}
     ]
   },
@@ -2576,10 +2567,10 @@ const ON_DEFS = {
     vr:100, cupon:0.0575,
     cfs:[
       {pago:'2025-04-04',corte:'2025-04-04',dias:180,amort:0.0,cupon:0.0575},
-      {pago:'2025-10-04',corte:'2025-10-04',dias:180,amort:0.0,cupon:0.0575},
-      {pago:'2026-04-04',corte:'2026-04-04',dias:180,amort:0.0,cupon:0.0575},
-      {pago:'2026-10-04',corte:'2026-10-04',dias:180,amort:0.0,cupon:0.0575},
-      {pago:'2027-04-04',corte:'2027-04-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2025-10-06',corte:'2025-10-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2026-04-06',corte:'2026-04-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2026-10-05',corte:'2026-10-04',dias:180,amort:0.0,cupon:0.0575},
+      {pago:'2027-04-05',corte:'2027-04-04',dias:180,amort:0.0,cupon:0.0575},
       {pago:'2027-10-04',corte:'2027-10-04',dias:180,amort:0.0,cupon:0.0575},
       {pago:'2028-04-04',corte:'2028-04-04',dias:180,amort:0.0,cupon:0.0575},
       {pago:'2028-10-04',corte:'2028-10-04',dias:180,amort:100.0,cupon:0.0575}
@@ -2595,9 +2586,9 @@ const ON_DEFS = {
       {pago:'2026-10-01',corte:'2026-10-01',dias:180,amort:0.0,cupon:0.0549},
       {pago:'2027-04-01',corte:'2027-04-01',dias:180,amort:0.0,cupon:0.0549},
       {pago:'2027-10-01',corte:'2027-10-01',dias:180,amort:0.0,cupon:0.0549},
-      {pago:'2028-04-01',corte:'2028-04-01',dias:180,amort:0.0,cupon:0.0549},
-      {pago:'2028-10-01',corte:'2028-10-01',dias:180,amort:0.0,cupon:0.0549},
-      {pago:'2029-04-01',corte:'2029-04-01',dias:180,amort:100.0,cupon:0.0549}
+      {pago:'2028-04-03',corte:'2028-04-01',dias:180,amort:0.0,cupon:0.0549},
+      {pago:'2028-10-02',corte:'2028-10-01',dias:180,amort:0.0,cupon:0.0549},
+      {pago:'2029-04-03',corte:'2029-04-01',dias:180,amort:100.0,cupon:0.0549}
     ]
   },
   MSSEO: {
@@ -2609,8 +2600,7 @@ const ON_DEFS = {
     cfs:[
       {pago:'2024-07-17',corte:'2024-07-17',dias:360,amort:0.0,cupon:0.065},
       {pago:'2025-07-17',corte:'2025-07-17',dias:360,amort:0.0,cupon:0.065},
-      {pago:'2026-07-17',corte:'2026-07-17',dias:360,amort:100.0,cupon:0.065},
-      {pago:'2026-07-17',corte:'2026-07-17',dias:0,amort:0,cupon:0.2356164384441932}
+      {pago:'2026-07-17',corte:'2026-07-17',dias:360,amort:100.0,cupon:0.065}
     ]
   },
   NPCCO: {
@@ -2626,8 +2616,8 @@ const ON_DEFS = {
       {pago:'2027-08-25',corte:'2027-08-25',dias:180,amort:0.0,cupon:0.08},
       {pago:'2028-02-25',corte:'2028-02-25',dias:180,amort:0.0,cupon:0.08},
       {pago:'2028-08-25',corte:'2028-08-25',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2029-02-25',corte:'2029-02-25',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2029-08-25',corte:'2029-08-25',dias:180,amort:100.0,cupon:0.08}
+      {pago:'2029-02-26',corte:'2029-02-25',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2029-08-27',corte:'2029-08-25',dias:180,amort:100.0,cupon:0.08}
     ]
   },
   OLC5O: {
@@ -2639,9 +2629,9 @@ const ON_DEFS = {
     cfs:[
       {pago:'2025-12-12',corte:'2025-12-12',dias:180,amort:0.0,cupon:0.0789},
       {pago:'2026-06-12',corte:'2026-06-12',dias:180,amort:0.0,cupon:0.0789},
-      {pago:'2026-12-12',corte:'2026-12-12',dias:180,amort:0.0,cupon:0.0789},
-      {pago:'2027-06-12',corte:'2027-06-12',dias:180,amort:0.0,cupon:0.0789},
-      {pago:'2027-12-12',corte:'2027-12-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2026-12-14',corte:'2026-12-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2027-06-14',corte:'2027-06-12',dias:180,amort:0.0,cupon:0.0789},
+      {pago:'2027-12-13',corte:'2027-12-12',dias:180,amort:0.0,cupon:0.0789},
       {pago:'2028-06-12',corte:'2028-06-12',dias:180,amort:100.0,cupon:0.0789}
     ]
   },
@@ -2652,14 +2642,14 @@ const ON_DEFS = {
     tickerUSD:'OLC7D', tickerEXT:'OLC7C',
     vr:100, cupon:0.069,
     cfs:[
-      {pago:'2026-08-23',corte:'2026-08-23',dias:180,amort:0.0,cupon:0.069},
+      {pago:'2026-08-24',corte:'2026-08-23',dias:180,amort:0.0,cupon:0.069},
       {pago:'2027-02-23',corte:'2027-02-23',dias:180,amort:0.0,cupon:0.069},
       {pago:'2027-08-23',corte:'2027-08-23',dias:180,amort:0.0,cupon:0.069},
       {pago:'2028-02-23',corte:'2028-02-23',dias:180,amort:0.0,cupon:0.069},
       {pago:'2028-08-23',corte:'2028-08-23',dias:180,amort:0.0,cupon:0.069},
       {pago:'2029-02-23',corte:'2029-02-23',dias:180,amort:0.0,cupon:0.069},
       {pago:'2029-08-23',corte:'2029-08-23',dias:180,amort:0.0,cupon:0.069},
-      {pago:'2030-02-23',corte:'2030-02-23',dias:180,amort:100.0,cupon:0.069}
+      {pago:'2030-02-25',corte:'2030-02-23',dias:180,amort:100.0,cupon:0.069}
     ]
   },
   OTS2O: {
@@ -2675,13 +2665,12 @@ const ON_DEFS = {
       {pago:'2025-04-24',corte:'2025-04-24',dias:90,amort:0.0,cupon:0.07},
       {pago:'2025-07-24',corte:'2025-07-24',dias:90,amort:0.0,cupon:0.07},
       {pago:'2025-10-24',corte:'2025-10-24',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2026-01-24',corte:'2026-01-24',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2026-01-26',corte:'2026-01-24',dias:90,amort:0.0,cupon:0.07},
       {pago:'2026-04-24',corte:'2026-04-24',dias:90,amort:0.0,cupon:0.07},
       {pago:'2026-07-24',corte:'2026-07-24',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2026-10-24',corte:'2026-10-24',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2027-01-24',corte:'2027-01-24',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2027-04-24',corte:'2027-04-24',dias:90,amort:100.0,cupon:0.07},
-      {pago:'2027-04-24',corte:'2027-04-24',dias:0,amort:0,cupon:0.9689542993128928}
+      {pago:'2026-10-26',corte:'2026-10-24',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2027-01-25',corte:'2027-01-24',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2027-04-26',corte:'2027-04-24',dias:90,amort:100.0,cupon:0.07}
     ]
   },
   OTS5O: {
@@ -2692,8 +2681,7 @@ const ON_DEFS = {
     vr:100, cupon:0.0669,
     cfs:[
       {pago:'2026-04-23',corte:'2026-04-23',dias:180,amort:0.0,cupon:0.0669},
-      {pago:'2026-10-23',corte:'2026-10-23',dias:180,amort:100.0,cupon:0.0669},
-      {pago:'2026-10-23',corte:'2026-10-23',dias:0,amort:0,cupon:0.48809330459547046}
+      {pago:'2026-10-23',corte:'2026-10-23',dias:180,amort:100.0,cupon:0.0669}
     ]
   },
   PFC2O: {
@@ -2724,8 +2712,8 @@ const ON_DEFS = {
       {pago:'2028-04-27',corte:'2028-04-27',dias:183,amort:0.0,cupon:0.075},
       {pago:'2028-10-27',corte:'2028-10-27',dias:183,amort:0.0,cupon:0.075},
       {pago:'2029-04-27',corte:'2029-04-27',dias:182,amort:0.0,cupon:0.075},
-      {pago:'2029-10-27',corte:'2029-10-27',dias:183,amort:0.0,cupon:0.075},
-      {pago:'2030-01-27',corte:'2030-01-27',dias:92,amort:100.0,cupon:0.075}
+      {pago:'2029-10-29',corte:'2029-10-27',dias:183,amort:0.0,cupon:0.075},
+      {pago:'2030-01-28',corte:'2030-01-27',dias:92,amort:100.0,cupon:0.075}
     ]
   },
   PLC3O: {
@@ -2737,10 +2725,10 @@ const ON_DEFS = {
     cfs:[
       {pago:'2026-01-30',corte:'2026-01-30',dias:270,amort:0.0,cupon:0.0725},
       {pago:'2026-07-30',corte:'2026-07-30',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2027-01-30',corte:'2027-01-30',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-02-01',corte:'2027-01-30',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2027-07-30',corte:'2027-07-30',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2028-01-30',corte:'2028-01-30',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2028-04-30',corte:'2028-04-30',dias:90,amort:100.0,cupon:0.0725}
+      {pago:'2028-01-31',corte:'2028-01-30',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-05-02',corte:'2028-04-30',dias:90,amort:100.0,cupon:0.0725}
     ]
   },
   PLC6O: {
@@ -2752,8 +2740,8 @@ const ON_DEFS = {
     cfs:[
       {pago:'2026-11-27',corte:'2026-11-27',dias:270,amort:0.0,cupon:0.065},
       {pago:'2027-05-27',corte:'2027-05-27',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-11-27',corte:'2027-11-27',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2028-05-27',corte:'2028-05-27',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-11-29',corte:'2027-11-27',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-05-29',corte:'2028-05-27',dias:180,amort:0.0,cupon:0.065},
       {pago:'2028-11-27',corte:'2028-11-27',dias:180,amort:0.0,cupon:0.065},
       {pago:'2029-02-27',corte:'2029-02-27',dias:90,amort:100.0,cupon:0.065}
     ]
@@ -2766,10 +2754,10 @@ const ON_DEFS = {
     vr:100, cupon:0.0497,
     cfs:[
       {pago:'2025-03-27',corte:'2025-03-27',dias:180,amort:0.0,cupon:0.0497},
-      {pago:'2025-09-27',corte:'2025-09-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2025-09-29',corte:'2025-09-27',dias:180,amort:0.0,cupon:0.0497},
       {pago:'2026-03-27',corte:'2026-03-27',dias:180,amort:0.0,cupon:0.0497},
-      {pago:'2026-09-27',corte:'2026-09-27',dias:180,amort:0.0,cupon:0.0497},
-      {pago:'2027-03-27',corte:'2027-03-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2026-09-28',corte:'2026-09-27',dias:180,amort:0.0,cupon:0.0497},
+      {pago:'2027-03-29',corte:'2027-03-27',dias:180,amort:0.0,cupon:0.0497},
       {pago:'2027-09-27',corte:'2027-09-27',dias:180,amort:100.0,cupon:0.0497}
     ]
   },
@@ -2781,10 +2769,10 @@ const ON_DEFS = {
     vr:100, cupon:0.07,
     cfs:[
       {pago:'2025-03-27',corte:'2025-03-27',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2025-09-27',corte:'2025-09-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2025-09-29',corte:'2025-09-27',dias:180,amort:0.0,cupon:0.07},
       {pago:'2026-03-27',corte:'2026-03-27',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2026-09-27',corte:'2026-09-27',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2027-03-27',corte:'2027-03-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-09-28',corte:'2026-09-27',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-03-29',corte:'2027-03-27',dias:180,amort:0.0,cupon:0.07},
       {pago:'2027-09-27',corte:'2027-09-27',dias:180,amort:0.0,cupon:0.07},
       {pago:'2028-03-27',corte:'2028-03-27',dias:180,amort:0.0,cupon:0.07},
       {pago:'2028-09-27',corte:'2028-09-27',dias:180,amort:0.0,cupon:0.07},
@@ -2804,10 +2792,10 @@ const ON_DEFS = {
       {pago:'2026-05-13',corte:'2026-05-13',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2026-11-13',corte:'2026-11-13',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2027-05-13',corte:'2027-05-13',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2027-11-13',corte:'2027-11-13',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2028-05-13',corte:'2028-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2027-11-15',corte:'2027-11-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2028-05-15',corte:'2028-05-13',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2028-11-13',corte:'2028-11-13',dias:180,amort:0.0,cupon:0.0725},
-      {pago:'2029-05-13',corte:'2029-05-13',dias:180,amort:0.0,cupon:0.0725},
+      {pago:'2029-05-14',corte:'2029-05-13',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2029-11-13',corte:'2029-11-13',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2030-05-13',corte:'2030-05-13',dias:180,amort:0.0,cupon:0.0725},
       {pago:'2030-11-13',corte:'2030-11-13',dias:180,amort:0.0,cupon:0.0725},
@@ -2827,8 +2815,8 @@ const ON_DEFS = {
       {pago:'2026-05-13',corte:'2026-05-13',dias:180,amort:0.0,cupon:0.0625},
       {pago:'2026-11-13',corte:'2026-11-13',dias:180,amort:0.0,cupon:0.0625},
       {pago:'2027-05-13',corte:'2027-05-13',dias:180,amort:0.0,cupon:0.0625},
-      {pago:'2027-11-13',corte:'2027-11-13',dias:180,amort:0.0,cupon:0.0625},
-      {pago:'2028-05-13',corte:'2028-05-13',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2027-11-15',corte:'2027-11-13',dias:180,amort:0.0,cupon:0.0625},
+      {pago:'2028-05-15',corte:'2028-05-13',dias:180,amort:0.0,cupon:0.0625},
       {pago:'2028-11-13',corte:'2028-11-13',dias:180,amort:100.0,cupon:0.0625}
     ]
   },
@@ -2855,10 +2843,10 @@ const ON_DEFS = {
     cfs:[
       {pago:'2026-02-27',corte:'2026-02-27',dias:180,amort:0.0,cupon:0.075},
       {pago:'2026-08-27',corte:'2026-08-27',dias:180,amort:0.0,cupon:0.075},
-      {pago:'2027-02-27',corte:'2027-02-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-03-01',corte:'2027-02-27',dias:180,amort:0.0,cupon:0.075},
       {pago:'2027-08-27',corte:'2027-08-27',dias:180,amort:0.0,cupon:0.075},
-      {pago:'2028-02-27',corte:'2028-02-27',dias:180,amort:0.0,cupon:0.075},
-      {pago:'2028-08-27',corte:'2028-08-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2028-02-28',corte:'2028-02-27',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2028-08-28',corte:'2028-08-27',dias:180,amort:0.0,cupon:0.075},
       {pago:'2029-02-27',corte:'2029-02-27',dias:180,amort:0.0,cupon:0.075},
       {pago:'2029-08-27',corte:'2029-08-27',dias:180,amort:100.0,cupon:0.075}
     ]
@@ -2871,9 +2859,8 @@ const ON_DEFS = {
     vr:100, cupon:0.06,
     cfs:[
       {pago:'2026-04-17',corte:'2026-04-17',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2026-10-17',corte:'2026-10-17',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2027-04-17',corte:'2027-04-17',dias:180,amort:100.0,cupon:0.06},
-      {pago:'2027-04-17',corte:'2027-04-17',dias:0,amort:0,cupon:0.9774318898877159}
+      {pago:'2026-10-19',corte:'2026-10-17',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2027-04-19',corte:'2027-04-17',dias:180,amort:100.0,cupon:0.06}
     ]
   },
   PQCRO: {
@@ -2889,8 +2876,8 @@ const ON_DEFS = {
       {pago:'2026-10-22',corte:'2026-10-22',dias:180,amort:0.0,cupon:0.0675},
       {pago:'2027-04-22',corte:'2027-04-22',dias:180,amort:0.0,cupon:0.0675},
       {pago:'2027-10-22',corte:'2027-10-22',dias:180,amort:0.0,cupon:0.0675},
-      {pago:'2028-04-22',corte:'2028-04-22',dias:180,amort:0.0,cupon:0.0675},
-      {pago:'2028-10-22',corte:'2028-10-22',dias:180,amort:100.0,cupon:0.0675}
+      {pago:'2028-04-24',corte:'2028-04-22',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2028-10-23',corte:'2028-10-22',dias:180,amort:100.0,cupon:0.0675}
     ]
   },
   RCCRO: {
@@ -2900,10 +2887,10 @@ const ON_DEFS = {
     tickerUSD:'RCCRD', tickerEXT:'RCCRC',
     vr:100, cupon:0.0675,
     cfs:[
-      {pago:'2025-11-09',corte:'2025-11-09',dias:180,amort:0.0,cupon:0.0675},
-      {pago:'2026-05-09',corte:'2026-05-09',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2025-11-10',corte:'2025-11-09',dias:180,amort:0.0,cupon:0.0675},
+      {pago:'2026-05-11',corte:'2026-05-09',dias:180,amort:0.0,cupon:0.0675},
       {pago:'2026-11-09',corte:'2026-11-09',dias:180,amort:0.0,cupon:0.0675},
-      {pago:'2027-05-09',corte:'2027-05-09',dias:180,amort:100.0,cupon:0.0675}
+      {pago:'2027-05-10',corte:'2027-05-09',dias:180,amort:100.0,cupon:0.0675}
     ]
   },
   SBC1O: {
@@ -2915,12 +2902,11 @@ const ON_DEFS = {
     cfs:[
       {pago:'2026-03-05',corte:'2026-03-05',dias:180,amort:14.0,cupon:0.0875},
       {pago:'2026-06-05',corte:'2026-06-05',dias:90,amort:14.0,cupon:0.0875},
-      {pago:'2026-09-05',corte:'2026-09-05',dias:90,amort:14.0,cupon:0.0875},
-      {pago:'2026-12-05',corte:'2026-12-05',dias:90,amort:14.0,cupon:0.0875},
+      {pago:'2026-09-07',corte:'2026-09-05',dias:90,amort:14.0,cupon:0.0875},
+      {pago:'2026-12-09',corte:'2026-12-05',dias:90,amort:14.0,cupon:0.0875},
       {pago:'2027-03-05',corte:'2027-03-05',dias:90,amort:14.0,cupon:0.0875},
-      {pago:'2027-06-05',corte:'2027-06-05',dias:90,amort:14.0,cupon:0.0875},
-      {pago:'2027-09-05',corte:'2027-09-05',dias:90,amort:16.0,cupon:0.0875},
-      {pago:'2027-09-05',corte:'2027-09-05',dias:0,amort:0,cupon:0.7370407420940215}
+      {pago:'2027-06-07',corte:'2027-06-05',dias:90,amort:14.0,cupon:0.0875},
+      {pago:'2027-09-06',corte:'2027-09-05',dias:90,amort:16.0,cupon:0.0875}
     ]
   },
   SBC2O: {
@@ -2932,13 +2918,13 @@ const ON_DEFS = {
     cfs:[
       {pago:'2026-07-16',corte:'2026-07-16',dias:180,amort:9.0,cupon:0.0749},
       {pago:'2026-10-16',corte:'2026-10-16',dias:90,amort:9.0,cupon:0.0749},
-      {pago:'2027-01-16',corte:'2027-01-16',dias:90,amort:9.0,cupon:0.0749},
+      {pago:'2027-01-18',corte:'2027-01-16',dias:90,amort:9.0,cupon:0.0749},
       {pago:'2027-04-16',corte:'2027-04-16',dias:90,amort:9.0,cupon:0.0749},
       {pago:'2027-07-16',corte:'2027-07-16',dias:90,amort:9.0,cupon:0.0749},
-      {pago:'2027-10-16',corte:'2027-10-16',dias:90,amort:9.0,cupon:0.0749},
-      {pago:'2028-01-16',corte:'2028-01-16',dias:90,amort:9.0,cupon:0.0749},
-      {pago:'2028-04-16',corte:'2028-04-16',dias:90,amort:9.0,cupon:0.0749},
-      {pago:'2028-07-16',corte:'2028-07-16',dias:90,amort:9.0,cupon:0.0749},
+      {pago:'2027-10-18',corte:'2027-10-16',dias:90,amort:9.0,cupon:0.0749},
+      {pago:'2028-01-17',corte:'2028-01-16',dias:90,amort:9.0,cupon:0.0749},
+      {pago:'2028-04-17',corte:'2028-04-16',dias:90,amort:9.0,cupon:0.0749},
+      {pago:'2028-07-17',corte:'2028-07-16',dias:90,amort:9.0,cupon:0.0749},
       {pago:'2028-10-16',corte:'2028-10-16',dias:90,amort:9.0,cupon:0.0749},
       {pago:'2029-01-16',corte:'2029-01-16',dias:90,amort:10.0,cupon:0.0749}
     ]
@@ -2950,8 +2936,7 @@ const ON_DEFS = {
     tickerUSD:'SXC2D', tickerEXT:'SXC2C',
     vr:100, cupon:0.0498,
     cfs:[
-      {pago:'2026-06-01',corte:'2026-06-01',dias:235,amort:100.0,cupon:0.0498},
-      {pago:'2026-06-01',corte:'2026-06-01',dias:0,amort:0,cupon:0.10958904107056604}
+      {pago:'2026-06-01',corte:'2026-06-01',dias:235,amort:100.0,cupon:0.0498}
     ]
   },
   TLCQO: {
@@ -2963,11 +2948,11 @@ const ON_DEFS = {
     cfs:[
       {pago:'2025-10-02',corte:'2025-10-02',dias:90,amort:0.0,cupon:0.075},
       {pago:'2026-01-02',corte:'2026-01-02',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2026-04-02',corte:'2026-04-02',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2026-04-06',corte:'2026-04-02',dias:90,amort:0.0,cupon:0.075},
       {pago:'2026-07-02',corte:'2026-07-02',dias:90,amort:0.0,cupon:0.075},
       {pago:'2026-10-02',corte:'2026-10-02',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2027-01-02',corte:'2027-01-02',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2027-04-02',corte:'2027-04-02',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2027-01-04',corte:'2027-01-02',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2027-04-05',corte:'2027-04-02',dias:90,amort:0.0,cupon:0.075},
       {pago:'2027-07-02',corte:'2027-07-02',dias:90,amort:100.0,cupon:0.075}
     ]
   },
@@ -2978,10 +2963,10 @@ const ON_DEFS = {
     tickerUSD:'TLCUD', tickerEXT:'TLCUC',
     vr:100, cupon:0.065,
     cfs:[
-      {pago:'2026-09-05',corte:'2026-09-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2026-09-07',corte:'2026-09-05',dias:180,amort:0.0,cupon:0.065},
       {pago:'2027-03-05',corte:'2027-03-05',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-09-05',corte:'2027-09-05',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2028-03-05',corte:'2028-03-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-09-06',corte:'2027-09-05',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2028-03-06',corte:'2028-03-05',dias:180,amort:0.0,cupon:0.065},
       {pago:'2028-09-05',corte:'2028-09-05',dias:180,amort:0.0,cupon:0.065},
       {pago:'2029-03-05',corte:'2029-03-05',dias:180,amort:100.0,cupon:0.065}
     ]
@@ -2996,9 +2981,9 @@ const ON_DEFS = {
       {pago:'2025-04-24',corte:'2025-04-24',dias:180,amort:0.0,cupon:0.068},
       {pago:'2025-10-24',corte:'2025-10-24',dias:180,amort:0.0,cupon:0.068},
       {pago:'2026-04-24',corte:'2026-04-24',dias:180,amort:0.0,cupon:0.068},
-      {pago:'2026-10-24',corte:'2026-10-24',dias:180,amort:0.0,cupon:0.068},
-      {pago:'2027-04-24',corte:'2027-04-24',dias:180,amort:0.0,cupon:0.068},
-      {pago:'2027-10-24',corte:'2027-10-24',dias:180,amort:0.0,cupon:0.068},
+      {pago:'2026-10-26',corte:'2026-10-24',dias:180,amort:0.0,cupon:0.068},
+      {pago:'2027-04-26',corte:'2027-04-24',dias:180,amort:0.0,cupon:0.068},
+      {pago:'2027-10-25',corte:'2027-10-24',dias:180,amort:0.0,cupon:0.068},
       {pago:'2028-04-24',corte:'2028-04-24',dias:180,amort:0.0,cupon:0.068},
       {pago:'2028-10-24',corte:'2028-10-24',dias:180,amort:0.0,cupon:0.068},
       {pago:'2029-04-24',corte:'2029-04-24',dias:180,amort:0.0,cupon:0.068},
@@ -3015,7 +3000,7 @@ const ON_DEFS = {
       {pago:'2026-04-16',corte:'2026-04-16',dias:180,amort:0.0,cupon:0.065},
       {pago:'2026-10-16',corte:'2026-10-16',dias:180,amort:0.0,cupon:0.065},
       {pago:'2027-04-16',corte:'2027-04-16',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-10-16',corte:'2027-10-16',dias:180,amort:100.0,cupon:0.065}
+      {pago:'2027-10-18',corte:'2027-10-16',dias:180,amort:100.0,cupon:0.065}
     ]
   },
   VSCNO: {
@@ -3029,8 +3014,7 @@ const ON_DEFS = {
       {pago:'2024-12-05',corte:'2024-12-05',dias:180,amort:0.0,cupon:0.05},
       {pago:'2025-06-05',corte:'2025-06-05',dias:180,amort:0.0,cupon:0.05},
       {pago:'2025-12-05',corte:'2025-12-05',dias:180,amort:0.0,cupon:0.05},
-      {pago:'2026-10-23',corte:'2026-10-23',dias:318,amort:100.0,cupon:0.05},
-      {pago:'2026-06-05',corte:'2026-06-05',dias:0,amort:0,cupon:0.5041095895760448}
+      {pago:'2026-10-23',corte:'2026-10-23',dias:318,amort:100.0,cupon:0.05}
     ]
   },
   VSCOO: {
@@ -3042,11 +3026,10 @@ const ON_DEFS = {
     cfs:[
       {pago:'2024-09-06',corte:'2024-09-06',dias:180,amort:0.0,cupon:0.065},
       {pago:'2025-03-06',corte:'2025-03-06',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2025-09-06',corte:'2025-09-06',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2025-09-08',corte:'2025-09-06',dias:180,amort:0.0,cupon:0.065},
       {pago:'2026-03-06',corte:'2026-03-06',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2026-09-06',corte:'2026-09-06',dias:180,amort:0.0,cupon:0.065},
-      {pago:'2027-03-06',corte:'2027-03-06',dias:180,amort:100.0,cupon:0.065},
-      {pago:'2027-03-06',corte:'2027-03-06',dias:0,amort:0,cupon:0.8615794570746564}
+      {pago:'2026-09-07',corte:'2026-09-06',dias:180,amort:0.0,cupon:0.065},
+      {pago:'2027-03-08',corte:'2027-03-06',dias:180,amort:100.0,cupon:0.065}
     ]
   },
   VSCPO: {
@@ -3056,10 +3039,10 @@ const ON_DEFS = {
     tickerUSD:'VSCPD', tickerEXT:'VSCPC',
     vr:100, cupon:0.08,
     cfs:[
-      {pago:'2024-11-03',corte:'2024-11-03',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2025-05-03',corte:'2025-05-03',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2024-11-04',corte:'2024-11-03',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2025-05-05',corte:'2025-05-03',dias:180,amort:0.0,cupon:0.08},
       {pago:'2025-11-03',corte:'2025-11-03',dias:180,amort:0.0,cupon:0.08},
-      {pago:'2026-05-03',corte:'2026-05-03',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2026-05-04',corte:'2026-05-03',dias:180,amort:0.0,cupon:0.08},
       {pago:'2026-11-03',corte:'2026-11-03',dias:180,amort:0.0,cupon:0.08},
       {pago:'2027-05-03',corte:'2027-05-03',dias:180,amort:0.0,cupon:0.08},
       {pago:'2027-11-03',corte:'2027-11-03',dias:180,amort:25.0,cupon:0.08},
@@ -3078,9 +3061,9 @@ const ON_DEFS = {
       {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.0765},
       {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.0765},
       {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.0765},
-      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.0765},
-      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.0765},
-      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2026-10-13',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2027-04-12',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.0765},
+      {pago:'2027-10-11',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.0765},
       {pago:'2028-04-10',corte:'2028-04-10',dias:180,amort:0.0,cupon:0.0765},
       {pago:'2028-10-10',corte:'2028-10-10',dias:180,amort:0.0,cupon:0.0765},
       {pago:'2029-04-10',corte:'2029-04-10',dias:180,amort:0.0,cupon:0.0765},
@@ -3098,10 +3081,10 @@ const ON_DEFS = {
     tickerUSD:'VSCUD', tickerEXT:'VSCUC',
     vr:100, cupon:0.075,
     cfs:[
-      {pago:'2025-09-07',corte:'2025-09-07',dias:180,amort:0.0,cupon:0.075},
-      {pago:'2026-03-07',corte:'2026-03-07',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2025-09-08',corte:'2025-09-07',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2026-03-09',corte:'2026-03-07',dias:180,amort:0.0,cupon:0.075},
       {pago:'2026-09-07',corte:'2026-09-07',dias:180,amort:0.0,cupon:0.075},
-      {pago:'2027-03-07',corte:'2027-03-07',dias:180,amort:0.0,cupon:0.075},
+      {pago:'2027-03-08',corte:'2027-03-07',dias:180,amort:0.0,cupon:0.075},
       {pago:'2027-09-07',corte:'2027-09-07',dias:180,amort:0.0,cupon:0.075},
       {pago:'2028-03-07',corte:'2028-03-07',dias:180,amort:0.0,cupon:0.075},
       {pago:'2028-09-07',corte:'2028-09-07',dias:180,amort:0.0,cupon:0.075},
@@ -3122,8 +3105,7 @@ const ON_DEFS = {
       {pago:'2026-07-15',corte:'2026-07-15',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-10-15',corte:'2026-10-15',dias:90,amort:0.0,cupon:0.06},
       {pago:'2027-01-15',corte:'2027-01-15',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2027-04-15',corte:'2027-04-15',dias:90,amort:100.0,cupon:0.06},
-      {pago:'2027-04-15',corte:'2027-04-15',dias:0,amort:0,cupon:0.9592202240702355}
+      {pago:'2027-04-15',corte:'2027-04-15',dias:90,amort:100.0,cupon:0.06}
     ]
   },
   XMC1O: {
@@ -3133,7 +3115,7 @@ const ON_DEFS = {
     tickerUSD:'XMC1D', tickerEXT:'XMC1C',
     vr:100, cupon:0.08,
     cfs:[
-      {pago:'2025-05-11',corte:'2025-05-11',dias:180,amort:0.0,cupon:0.08},
+      {pago:'2025-05-12',corte:'2025-05-11',dias:180,amort:0.0,cupon:0.08},
       {pago:'2025-11-11',corte:'2025-11-11',dias:180,amort:0.0,cupon:0.08},
       {pago:'2026-05-11',corte:'2026-05-11',dias:180,amort:0.0,cupon:0.08},
       {pago:'2026-11-11',corte:'2026-11-11',dias:180,amort:0.0,cupon:0.08},
@@ -3157,8 +3139,7 @@ const ON_DEFS = {
       {pago:'2026-05-27',corte:'2026-05-27',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-08-27',corte:'2026-08-27',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-11-27',corte:'2026-11-27',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2027-02-27',corte:'2027-02-27',dias:90,amort:100.0,cupon:0.06},
-      {pago:'2027-02-27',corte:'2027-02-27',dias:0,amort:0,cupon:0.8356099944146292}
+      {pago:'2027-03-01',corte:'2027-02-27',dias:90,amort:100.0,cupon:0.06}
     ]
   },
   YFCKO: {
@@ -3169,12 +3150,11 @@ const ON_DEFS = {
     vr:100, cupon:0.0525,
     cfs:[
       {pago:'2025-08-22',corte:'2025-08-22',dias:270,amort:0.0,cupon:0.0525},
-      {pago:'2025-11-22',corte:'2025-11-22',dias:90,amort:0.0,cupon:0.0525},
-      {pago:'2026-02-22',corte:'2026-02-22',dias:90,amort:0.0,cupon:0.0525},
+      {pago:'2025-11-24',corte:'2025-11-22',dias:90,amort:0.0,cupon:0.0525},
+      {pago:'2026-02-23',corte:'2026-02-22',dias:90,amort:0.0,cupon:0.0525},
       {pago:'2026-05-22',corte:'2026-05-22',dias:90,amort:0.0,cupon:0.0525},
-      {pago:'2026-08-22',corte:'2026-08-22',dias:90,amort:0.0,cupon:0.0525},
-      {pago:'2026-11-22',corte:'2026-11-22',dias:90,amort:100.0,cupon:0.0525},
-      {pago:'2026-11-22',corte:'2026-11-22',dias:0,amort:0,cupon:0.5821006493631422}
+      {pago:'2026-08-24',corte:'2026-08-22',dias:90,amort:0.0,cupon:0.0525},
+      {pago:'2026-11-24',corte:'2026-11-22',dias:90,amort:100.0,cupon:0.0525}
     ]
   },
   YFCMO: {
@@ -3188,7 +3168,7 @@ const ON_DEFS = {
       {pago:'2026-05-20',corte:'2026-05-20',dias:90,amort:0.0,cupon:0.065},
       {pago:'2026-08-20',corte:'2026-08-20',dias:90,amort:0.0,cupon:0.065},
       {pago:'2026-11-20',corte:'2026-11-20',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2027-02-20',corte:'2027-02-20',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2027-02-22',corte:'2027-02-20',dias:90,amort:0.0,cupon:0.065},
       {pago:'2027-05-20',corte:'2027-05-20',dias:90,amort:100.0,cupon:0.065}
     ]
   },
@@ -3199,9 +3179,8 @@ const ON_DEFS = {
     tickerUSD:'YFCND', tickerEXT:'YFCNC',
     vr:100, cupon:0.06,
     cfs:[
-      {pago:'2026-04-03',corte:'2026-04-03',dias:180,amort:0.0,cupon:0.06},
-      {pago:'2026-10-03',corte:'2026-10-03',dias:180,amort:100.0,cupon:0.06},
-      {pago:'2026-10-03',corte:'2026-10-03',dias:0,amort:0,cupon:0.4547945210595542}
+      {pago:'2026-04-06',corte:'2026-04-03',dias:180,amort:0.0,cupon:0.06},
+      {pago:'2026-10-05',corte:'2026-10-03',dias:180,amort:100.0,cupon:0.06}
     ]
   },
   YM37O: {
@@ -3213,11 +3192,11 @@ const ON_DEFS = {
     cfs:[
       {pago:'2025-08-07',corte:'2025-08-07',dias:90,amort:0.0,cupon:0.07},
       {pago:'2025-11-07',corte:'2025-11-07',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2026-02-07',corte:'2026-02-07',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2026-02-09',corte:'2026-02-07',dias:90,amort:0.0,cupon:0.07},
       {pago:'2026-05-07',corte:'2026-05-07',dias:90,amort:0.0,cupon:0.07},
       {pago:'2026-08-07',corte:'2026-08-07',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2026-11-07',corte:'2026-11-07',dias:90,amort:0.0,cupon:0.07},
-      {pago:'2027-02-07',corte:'2027-02-07',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2026-11-09',corte:'2026-11-07',dias:90,amort:0.0,cupon:0.07},
+      {pago:'2027-02-08',corte:'2027-02-07',dias:90,amort:0.0,cupon:0.07},
       {pago:'2027-05-07',corte:'2027-05-07',dias:90,amort:100.0,cupon:0.07}
     ]
   },
@@ -3249,10 +3228,10 @@ const ON_DEFS = {
       {pago:'2026-07-22',corte:'2026-07-22',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2027-01-22',corte:'2027-01-22',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2027-07-22',corte:'2027-07-22',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2028-01-22',corte:'2028-01-22',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2028-07-22',corte:'2028-07-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2028-01-24',corte:'2028-01-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2028-07-24',corte:'2028-07-22',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2029-01-22',corte:'2029-01-22',dias:180,amort:0.0,cupon:0.0875},
-      {pago:'2029-07-22',corte:'2029-07-22',dias:180,amort:0.0,cupon:0.0875},
+      {pago:'2029-07-23',corte:'2029-07-22',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2030-01-22',corte:'2030-01-22',dias:180,amort:0.0,cupon:0.0875},
       {pago:'2030-07-22',corte:'2030-07-22',dias:180,amort:100.0,cupon:0.0875}
     ]
@@ -3265,16 +3244,16 @@ const ON_DEFS = {
     vr:100, cupon:0.075,
     cfs:[
       {pago:'2025-11-28',corte:'2025-11-28',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2026-02-28',corte:'2026-02-28',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2026-03-02',corte:'2026-02-28',dias:90,amort:0.0,cupon:0.075},
       {pago:'2026-05-28',corte:'2026-05-28',dias:88,amort:0.0,cupon:0.075},
       {pago:'2026-08-28',corte:'2026-08-28',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2026-11-28',corte:'2026-11-28',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2027-02-28',corte:'2027-02-28',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2026-11-30',corte:'2026-11-28',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2027-03-01',corte:'2027-02-28',dias:90,amort:0.0,cupon:0.075},
       {pago:'2027-05-28',corte:'2027-05-28',dias:88,amort:0.0,cupon:0.075},
-      {pago:'2027-08-28',corte:'2027-08-28',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2027-11-28',corte:'2027-11-28',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2027-08-30',corte:'2027-08-28',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2027-11-29',corte:'2027-11-28',dias:90,amort:0.0,cupon:0.075},
       {pago:'2028-02-28',corte:'2028-02-28',dias:90,amort:0.0,cupon:0.075},
-      {pago:'2028-05-28',corte:'2028-05-28',dias:90,amort:0.0,cupon:0.075},
+      {pago:'2028-05-29',corte:'2028-05-28',dias:90,amort:0.0,cupon:0.075},
       {pago:'2028-08-28',corte:'2028-08-28',dias:90,amort:100.0,cupon:0.075}
     ]
   },
@@ -3289,8 +3268,7 @@ const ON_DEFS = {
       {pago:'2026-04-08',corte:'2026-04-08',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-07-08',corte:'2026-07-08',dias:90,amort:0.0,cupon:0.06},
       {pago:'2026-10-08',corte:'2026-10-08',dias:90,amort:0.0,cupon:0.06},
-      {pago:'2027-01-08',corte:'2027-01-08',dias:90,amort:100.0,cupon:0.06},
-      {pago:'2027-01-08',corte:'2027-01-08',dias:0,amort:0,cupon:0.7040448414300119}
+      {pago:'2027-01-08',corte:'2027-01-08',dias:90,amort:100.0,cupon:0.06}
     ]
   },
   YM42O: {
@@ -3305,7 +3283,7 @@ const ON_DEFS = {
       {pago:'2027-06-02',corte:'2027-06-02',dias:180,amort:0.0,cupon:0.07},
       {pago:'2027-12-02',corte:'2027-12-02',dias:180,amort:0.0,cupon:0.07},
       {pago:'2028-06-02',corte:'2028-06-02',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2028-12-02',corte:'2028-12-02',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2028-12-04',corte:'2028-12-02',dias:180,amort:0.0,cupon:0.07},
       {pago:'2029-03-02',corte:'2029-03-02',dias:90,amort:100.0,cupon:0.07}
     ]
   },
@@ -3320,10 +3298,10 @@ const ON_DEFS = {
       {pago:'2027-07-14',corte:'2027-07-14',dias:180,amort:0.0,cupon:0.055},
       {pago:'2028-01-14',corte:'2028-01-14',dias:180,amort:0.0,cupon:0.055},
       {pago:'2028-07-14',corte:'2028-07-14',dias:180,amort:0.0,cupon:0.055},
-      {pago:'2029-01-14',corte:'2029-01-14',dias:180,amort:0.0,cupon:0.055},
-      {pago:'2029-07-14',corte:'2029-07-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2029-01-15',corte:'2029-01-14',dias:180,amort:0.0,cupon:0.055},
+      {pago:'2029-07-16',corte:'2029-07-14',dias:180,amort:0.0,cupon:0.055},
       {pago:'2030-01-14',corte:'2030-01-14',dias:180,amort:0.0,cupon:0.055},
-      {pago:'2030-04-14',corte:'2030-04-14',dias:90,amort:100.0,cupon:0.055}
+      {pago:'2030-04-15',corte:'2030-04-14',dias:90,amort:100.0,cupon:0.055}
     ]
   },
   YMCYO: {
@@ -3337,14 +3315,14 @@ const ON_DEFS = {
       {pago:'2025-04-10',corte:'2025-04-10',dias:90,amort:0.0,cupon:0.065},
       {pago:'2025-07-10',corte:'2025-07-10',dias:90,amort:0.0,cupon:0.065},
       {pago:'2025-10-10',corte:'2025-10-10',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2026-01-10',corte:'2026-01-10',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2026-01-12',corte:'2026-01-10',dias:90,amort:0.0,cupon:0.065},
       {pago:'2026-04-10',corte:'2026-04-10',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2026-07-10',corte:'2026-07-10',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2026-10-10',corte:'2026-10-10',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2027-01-10',corte:'2027-01-10',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2027-04-10',corte:'2027-04-10',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2027-07-10',corte:'2027-07-10',dias:90,amort:0.0,cupon:0.065},
-      {pago:'2027-10-10',corte:'2027-10-10',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2026-07-13',corte:'2026-07-10',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2026-10-13',corte:'2026-10-10',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2027-01-11',corte:'2027-01-10',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2027-04-12',corte:'2027-04-10',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2027-07-12',corte:'2027-07-10',dias:90,amort:0.0,cupon:0.065},
+      {pago:'2027-10-11',corte:'2027-10-10',dias:90,amort:0.0,cupon:0.065},
       {pago:'2028-01-10',corte:'2028-01-10',dias:90,amort:0.0,cupon:0.065},
       {pago:'2028-04-10',corte:'2028-04-10',dias:90,amort:0.0,cupon:0.065},
       {pago:'2028-07-10',corte:'2028-07-10',dias:90,amort:0.0,cupon:0.065},
@@ -3361,9 +3339,9 @@ const ON_DEFS = {
       {pago:'2025-04-10',corte:'2025-04-10',dias:180,amort:0.0,cupon:0.07},
       {pago:'2025-10-10',corte:'2025-10-10',dias:180,amort:0.0,cupon:0.07},
       {pago:'2026-04-10',corte:'2026-04-10',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2026-10-10',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2027-04-10',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.07},
-      {pago:'2027-10-10',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2026-10-13',corte:'2026-10-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-04-12',corte:'2027-04-10',dias:180,amort:0.0,cupon:0.07},
+      {pago:'2027-10-11',corte:'2027-10-10',dias:180,amort:0.0,cupon:0.07},
       {pago:'2028-04-10',corte:'2028-04-10',dias:180,amort:0.0,cupon:0.07},
       {pago:'2028-10-10',corte:'2028-10-10',dias:180,amort:100.0,cupon:0.07}
     ]
