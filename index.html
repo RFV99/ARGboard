@@ -462,7 +462,7 @@
   <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
     <button id="kpi-toggle" class="period-btn" onclick="toggleKpis()" style="font-size:10px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;">
       <span id="kpi-toggle-icon">▲</span>
-      <span id="kpi-toggle-label">Ocultar header</span>
+      <span id="kpi-toggle-label">Ocultar resumen</span>
     </button>
   </div>
 
@@ -4535,7 +4535,7 @@ function toggleKpis() {
   const label = document.getElementById('kpi-toggle-label');
   if (wrap)  wrap.style.display = kpisCollapsed ? 'none' : '';
   if (icon)  icon.textContent   = kpisCollapsed ? '▼' : '▲';
-  if (label) label.textContent  = kpisCollapsed ? 'Mostrar header' : 'Ocultar header';
+  if (label) label.textContent  = kpisCollapsed ? 'Mostrar resumen' : 'Ocultar resumen';
   setTimeout(() => {
     if (typeof maybeRebuildCharts === 'function') maybeRebuildCharts();
   }, 100);
