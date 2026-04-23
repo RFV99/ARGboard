@@ -506,6 +506,7 @@
     <button class="tab" onclick="switchTab('duales',this)">Duales $</button>
     <button class="tab" onclick="switchTab('pesos',this)">Tasa fija $</button>
     <button class="tab" onclick="switchTab('ons',this)">ONs</button>
+    <button class="tab" onclick="switchTab('pnl',this)">PnL</button>
   </div>
 
   <div class="panel" id="panel-calculadora">
@@ -768,6 +769,144 @@
     </tbody></table></div>
   </div>
   <!-- ════════════ END ONs PANEL ════════════ -->
+
+
+  <!-- ════════════ PnL PANEL ════════════ -->
+  <div class="panel" id="panel-pnl">
+    <div style="display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:16px;align-items:start;">
+
+      <!-- LEFT: Selector + inputs -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+
+        <!-- Instrument selector -->
+        <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+          <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:8px;">INSTRUMENTO</div>
+          <div style="display:flex;flex-direction:column;gap:8px;position:relative;">
+            <input id="pnl-search" type="text" placeholder="Buscar ticker…" autocomplete="off"
+              oninput="pnlSearchInput()" onkeydown="if(event.key==='Escape')document.getElementById('pnl-dropdown').style.display='none'"
+              style="font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);">
+            <select id="pnl-select-native" class="calc-input" onchange="pnlSelectFromNative(this.value)" style="width:100%;padding:6px;font-size:12px;">
+              <option value="">— Lista completa —</option>
+            </select>
+            <div id="pnl-selected-pill" class="calc-pill" style="display:none;"></div>
+            <div id="pnl-dropdown" class="calc-dropdown" style="display:none;top:78px;left:0;right:0;width:100%;"></div>
+          </div>
+        </div>
+
+        <!-- Position -->
+        <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+          <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:8px;">POSICIÓN</div>
+          <div style="display:flex;gap:4px;margin-bottom:10px;">
+            <button class="period-btn active" id="pnl-input-vn" onclick="setPnlInputMode('vn',this)">VN</button>
+            <button class="period-btn" id="pnl-input-usd" onclick="setPnlInputMode('usd',this)">USD</button>
+          </div>
+          <div id="pnl-vn-row" style="display:flex;flex-direction:column;gap:6px;">
+            <label style="font-size:11px;color:var(--muted);">Valor Nominal (VN)</label>
+            <input id="pnl-vn" type="number" min="0" step="100" placeholder="10000" oninput="pnlRecalc()"
+              style="font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);">
+          </div>
+          <div id="pnl-usd-row" style="display:none;flex-direction:column;gap:6px;">
+            <label style="font-size:11px;color:var(--muted);">Monto invertido (USD)</label>
+            <input id="pnl-usd" type="number" min="0" step="100" placeholder="10000" oninput="pnlRecalc()"
+              style="font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);">
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:var(--muted);line-height:1.5;">
+            Los precios representan el valor de <b>100 VN</b>.
+          </div>
+        </div>
+
+        <!-- Compra block -->
+        <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+          <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:10px;">COMPRA (HOY)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">Precio</div>
+              <div id="pnl-compra-precio" style="font-size:16px;font-weight:700;color:var(--accent);">—</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">TIR</div>
+              <div id="pnl-compra-tir" style="font-size:16px;font-weight:700;color:var(--accent);">—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: TIR slider + resumen -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+
+        <!-- TIR objetivo slider -->
+        <div style="padding:18px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">TIR OBJETIVO</div>
+            <div id="pnl-target-tir" style="font-size:22px;font-weight:800;color:var(--accent);">—</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="period-btn" onclick="stepPnlSlider(-1)">◀</button>
+            <input id="pnl-slider" type="range" min="-500" max="500" step="5" value="0"
+              oninput="pnlSliderMoved(this.value)"
+              style="flex:1;accent-color:var(--accent);cursor:pointer;">
+            <button class="period-btn" onclick="stepPnlSlider(1)">▶</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;">
+            <span>−5.00%</span><span>0 (actual)</span><span>+5.00%</span>
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;">
+            <span id="pnl-delta-tir" style="font-weight:700;">Δ 0.00pp</span> vs TIR actual
+          </div>
+        </div>
+
+        <!-- Resumen cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+          <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:4px;">PRECIO OBJETIVO</div>
+            <div id="pnl-target-precio" style="font-size:20px;font-weight:800;">—</div>
+          </div>
+          <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:4px;">UPSIDE / DOWNSIDE</div>
+            <div id="pnl-upside" style="font-size:20px;font-weight:800;">—</div>
+          </div>
+          <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:4px;">PnL (USD)</div>
+            <div id="pnl-usd-result" style="font-size:20px;font-weight:800;">—</div>
+          </div>
+          <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:4px;">Mac. Duration</div>
+            <div id="pnl-macdur" style="font-size:20px;font-weight:800;">—</div>
+          </div>
+          <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:4px;">Mod. Duration</div>
+            <div id="pnl-moddur" style="font-size:20px;font-weight:800;">—</div>
+          </div>
+        </div>
+
+        <!-- Posición detallada -->
+        <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+          <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:10px;">POSICIÓN</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:10px;color:var(--muted);">VN total</div>
+              <div id="pnl-pos-vn" style="font-size:15px;font-weight:700;">—</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);">Inversión (USD)</div>
+              <div id="pnl-pos-usd" style="font-size:15px;font-weight:700;">—</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);">Valor objetivo (USD)</div>
+              <div id="pnl-pos-target-usd" style="font-size:15px;font-weight:700;">—</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);">Δ Precio</div>
+              <div id="pnl-pos-deltapx" style="font-size:15px;font-weight:700;">—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <!-- ════════════ END PnL PANEL ════════════ -->
 
   <div class="panel active" id="panel-curvas">
     <div class="chart-grid">
@@ -3949,6 +4088,41 @@ function getONsData() {
   return data;
 }
 
+// Rating color scale: AAA+ → deep green, gradient down to red for below investment grade
+function ratingToColor(rating) {
+  if (!rating || rating === '—' || rating === '-') return 'var(--muted)';
+  const r = String(rating).trim().toUpperCase();
+  // Normalize: remove (Arg), spaces
+  const norm = r.replace(/\([^)]*\)/g, '').trim();
+  const scale = {
+    'AAA+':0, 'AAA':1, 'AA+':2, 'AA':3, 'AA-':4,
+    'A+':5,   'A':6,   'A-':7,
+    'BBB+':8, 'BBB':9, 'BBB-':10,
+    'BB+':11, 'BB':12, 'BB-':13, 'B+':14, 'B':15, 'B-':16,
+    'B1':15, 'B2':16, 'B3':17,
+    'CCC+':18, 'CCC':19, 'CCC-':20,
+    'CC':21, 'C':22, 'D':23
+  };
+  const idx = scale[norm];
+  if (idx == null) return 'var(--text)';
+  // 0 (best) → green, 23 (worst) → red
+  const t = Math.min(1, idx / 20);
+  // Lerp from green (0) to yellow (0.5) to red (1)
+  let R, G, B;
+  if (t < 0.5) {
+    const u = t * 2;
+    R = Math.round(52  + (251-52) * u);
+    G = Math.round(211 + (191-211) * u);
+    B = Math.round(153 + (36-153) * u);
+  } else {
+    const u = (t - 0.5) * 2;
+    R = Math.round(251 + (248-251) * u);
+    G = Math.round(191 + (113-191) * u);
+    B = Math.round(36  + (113-36) * u);
+  }
+  return `rgb(${R},${G},${B})`;
+}
+
 function renderONsTable() {
   const tbody = document.getElementById('tbody-ons');
   if (!tbody) return;
@@ -3966,20 +4140,25 @@ function renderONsTable() {
     const vtoFmt = o.vto ? o.vto.slice(0,7).replace('-','/') : '—';
     const cuponStr = o.cupon ? (o.cupon*100).toFixed(3)+'%' : '—';
     const parClass = o.paridad < 1 ? 'neg' : 'pos';
+    const pagaBadge = o.mep_cable === 'CABLE'
+      ? '<span style="background:rgba(45,212,191,.15);color:#2dd4bf;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.04em;">CABLE</span>'
+      : '<span style="background:rgba(79,142,247,.15);color:var(--accent);font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.04em;">MEP</span>';
+    const ratingColor = ratingToColor(o.rating);
+    const ratingSpan = `<span style="color:${ratingColor};font-weight:700;font-size:12px;">${o.rating || '—'}</span>`;
     return `<tr style="cursor:pointer" onclick="openBondModal('${o.ticker}')">
       <td><span class="ticker">${o.ticker} ${liveDot(o.live)}</span>${leyTag}</td>
-      <td style="font-size:11px">${o.empresa||'—'}</td>
-      <td style="font-size:11px">${vtoFmt}</td>
+      <td style="font-size:12.5px">${o.empresa||'—'}</td>
+      <td style="font-size:12.5px">${vtoFmt}</td>
       <td>${cuponStr}</td>
       <td>${o.precio ? f2(o.precio) : '—'}</td>
       <td ${hc}>${pct(o.tir)}</td>
       <td>${f4(o.macaulay)}</td>
       <td>${f4(o.modified)}</td>
       <td class="${parClass}">${f4(o.paridad)}</td>
-      <td style="font-size:10px;color:var(--muted)">${o.mep_cable||'—'}</td>
-      <td style="font-size:10px">${o.rating||'—'}</td>
-      <td style="font-size:10px">${o.call==='Sí'?'✓':'—'}</td>
-      <td style="font-size:10px;color:var(--muted)">${o.sector||'—'}</td>
+      <td>${pagaBadge}</td>
+      <td>${ratingSpan}</td>
+      <td style="font-size:12.5px">${o.call==='Sí'?'✓':'—'}</td>
+      <td style="font-size:12.5px;color:var(--muted)">${o.sector||'—'}</td>
     </tr>`;
   }).join('');
 }
@@ -4420,6 +4599,241 @@ function hideError() {
 // Auto-refresh cada 5 minutos
 setInterval(() => { if (STATE.lastFetch) fetchAll(); }, 5 * 60 * 1000);
 
+
+// ═══════════════════════════════════════════════════════════════
+// PnL TAB — Bond price sensitivity vs TIR target
+// ═══════════════════════════════════════════════════════════════
+const pnlState = {
+  ticker: null,
+  precioCompra: null,
+  tirCompra: null,
+  def: null,              // BOND_DEFS or ON_DEFS entry
+  inputMode: 'vn',        // 'vn' | 'usd'
+  vn: 10000,
+  usd: null,
+};
+
+// All tradable instruments (bonds + ONs, skip lecaps — they work differently)
+function pnlInstruments() {
+  const list = [];
+  if (typeof BOND_DEFS !== 'undefined') {
+    for (const [ticker, def] of Object.entries(BOND_DEFS))
+      list.push({ticker, nombre:def.nombre, grupo:def.grupo});
+  }
+  if (typeof ON_DEFS !== 'undefined') {
+    for (const [ticker, def] of Object.entries(ON_DEFS))
+      list.push({ticker, nombre:def.nombre, grupo:def.grupo});
+  }
+  return list;
+}
+
+function initPnlSelect() {
+  const sel = document.getElementById('pnl-select-native');
+  if (!sel || sel.options.length > 1) return;
+  const instr = pnlInstruments();
+  const groups = {};
+  instr.forEach(i => { if(!groups[i.grupo]) groups[i.grupo]=[]; groups[i.grupo].push(i); });
+  Object.entries(groups).forEach(([grp, items]) => {
+    const og = document.createElement('optgroup');
+    og.label = grp;
+    items.forEach(i => { const opt=document.createElement('option'); opt.value=i.ticker; opt.textContent=`${i.ticker} — ${i.nombre}`; og.appendChild(opt); });
+    sel.appendChild(og);
+  });
+}
+
+function pnlSelectFromNative(ticker) { if (ticker) pnlSelect(ticker); }
+
+function pnlSearchInput() {
+  const q = (document.getElementById('pnl-search').value || '').trim().toLowerCase();
+  const dd = document.getElementById('pnl-dropdown');
+  if (!q) { dd.style.display='none'; return; }
+  const matches = pnlInstruments()
+    .filter(i => i.ticker.toLowerCase().includes(q) || i.nombre.toLowerCase().includes(q))
+    .slice(0, 12);
+  if (!matches.length) { dd.style.display='none'; return; }
+  dd.innerHTML = matches.map(m => `<div class="calc-dropdown-item" onclick="pnlSelect('${m.ticker}')"><span class="dd-ticker">${m.ticker}</span><span class="dd-name">${m.nombre}</span></div>`).join('');
+  dd.style.display = 'block';
+}
+
+function pnlSelect(ticker) {
+  pnlState.ticker = ticker;
+  const def = (typeof BOND_DEFS !== 'undefined' && BOND_DEFS[ticker])
+           || (typeof ON_DEFS !== 'undefined' && ON_DEFS[ticker])
+           || null;
+  pnlState.def = def;
+
+  // Get live price + current TIR
+  const allBonds = [...(STATE.bonares||[]), ...(STATE.globales||[]), ...(STATE.bopreales||[]), ...(STATE.pesos||[]), ...(STATE.ons||[])];
+  const liveB = allBonds.find(b => b.ticker === ticker);
+
+  if (liveB && liveB.precio && liveB.tir) {
+    pnlState.precioCompra = liveB.precio;
+    pnlState.tirCompra    = liveB.tir;
+  } else if (def) {
+    pnlState.precioCompra = def.vr;
+    pnlState.tirCompra    = 0.08;
+  } else {
+    pnlState.precioCompra = 100;
+    pnlState.tirCompra    = 0.08;
+  }
+
+  // UI
+  document.getElementById('pnl-search').value = '';
+  document.getElementById('pnl-dropdown').style.display = 'none';
+  const sel = document.getElementById('pnl-select-native');
+  if (sel) sel.value = ticker;
+  const pill = document.getElementById('pnl-selected-pill');
+  const instr = pnlInstruments().find(i => i.ticker === ticker);
+  if (pill) {
+    pill.innerHTML = `${displayTicker ? displayTicker(ticker) : ticker} — ${instr?.nombre || ''} <span class="calc-pill-x" onclick="pnlClear()">×</span>`;
+    pill.style.display = 'flex';
+  }
+
+  // Reset slider to 0 (= current TIR)
+  document.getElementById('pnl-slider').value = 0;
+  pnlRecalc();
+}
+
+function pnlClear() {
+  pnlState.ticker = null; pnlState.def = null; pnlState.precioCompra = null; pnlState.tirCompra = null;
+  const pill = document.getElementById('pnl-selected-pill');
+  if (pill) pill.style.display = 'none';
+  const sel = document.getElementById('pnl-select-native');
+  if (sel) sel.value = '';
+  document.getElementById('pnl-slider').value = 0;
+  pnlRecalc();
+}
+
+function setPnlInputMode(mode, btn) {
+  pnlState.inputMode = mode;
+  document.querySelectorAll('#pnl-input-vn, #pnl-input-usd').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('pnl-vn-row').style.display = (mode === 'vn') ? 'flex' : 'none';
+  document.getElementById('pnl-usd-row').style.display = (mode === 'usd') ? 'flex' : 'none';
+  pnlRecalc();
+}
+
+function stepPnlSlider(dir) {
+  const slider = document.getElementById('pnl-slider');
+  const step = parseFloat(slider.step || 5);
+  const v = parseFloat(slider.value) + dir * step;
+  const min = parseFloat(slider.min), max = parseFloat(slider.max);
+  slider.value = Math.max(min, Math.min(max, v));
+  pnlSliderMoved(slider.value);
+}
+
+function pnlSliderMoved(val) {
+  pnlRecalc();
+}
+
+// Given a target TIR, compute the price via discounted cashflows
+function priceFromTIR(def, tir, liqDate) {
+  if (!def || typeof futureCFs !== 'function') return null;
+  const flows = futureCFs(def, liqDate || LIQ);
+  if (!flows.length) return null;
+  let pv = 0;
+  for (const {t, cf} of flows) {
+    if (t <= 0) continue;
+    pv += cf / Math.pow(1 + tir, t);
+  }
+  return pv;
+}
+
+function pnlRecalc() {
+  const tickerSet = !!pnlState.ticker && !!pnlState.def;
+
+  const outPrecio      = document.getElementById('pnl-compra-precio');
+  const outTirCompra   = document.getElementById('pnl-compra-tir');
+  const outTargetTir   = document.getElementById('pnl-target-tir');
+  const outTargetPrecio= document.getElementById('pnl-target-precio');
+  const outUpside      = document.getElementById('pnl-upside');
+  const outPnlUsd      = document.getElementById('pnl-usd-result');
+  const outMac         = document.getElementById('pnl-macdur');
+  const outMod         = document.getElementById('pnl-moddur');
+  const outPosVn       = document.getElementById('pnl-pos-vn');
+  const outPosUsd      = document.getElementById('pnl-pos-usd');
+  const outPosTgtUsd   = document.getElementById('pnl-pos-target-usd');
+  const outPosDeltaPx  = document.getElementById('pnl-pos-deltapx');
+  const outDeltaTir    = document.getElementById('pnl-delta-tir');
+
+  if (!tickerSet) {
+    [outPrecio,outTirCompra,outTargetTir,outTargetPrecio,outUpside,outPnlUsd,outMac,outMod,outPosVn,outPosUsd,outPosTgtUsd,outPosDeltaPx].forEach(el => { if (el) el.textContent = '—'; });
+    if (outDeltaTir) outDeltaTir.textContent = 'Δ 0.00pp';
+    return;
+  }
+
+  const precioCompra = pnlState.precioCompra;
+  const tirCompra    = pnlState.tirCompra;
+
+  // Slider value in basis points (×10 because step=5 and max=500 means ±500bps = ±5%)
+  const sliderVal = parseFloat(document.getElementById('pnl-slider').value) || 0;
+  const deltaBps  = sliderVal; // 1 unit = 1bp × 10 → actually: slider step=5, max=500 → 500 = +500*0.01% = 5%? Let's just use: slider value /100 = pp change
+  const deltaPP   = sliderVal / 100; // e.g. sliderVal=100 → 1.00pp; sliderVal=500 → 5.00pp
+  const targetTir = tirCompra + (deltaPP / 100);
+
+  // Target price from target TIR
+  const targetPrecio = priceFromTIR(pnlState.def, targetTir);
+
+  // Duration at target TIR
+  const flowsForDur = futureCFs(pnlState.def, LIQ);
+  let mac = 0, mod = 0;
+  if (flowsForDur.length) {
+    const dur = calcDurationFromFlows(flowsForDur, targetTir);
+    mac = dur.macaulay; mod = dur.modified;
+  }
+
+  // Compute position
+  let vn, usdInvested;
+  if (pnlState.inputMode === 'vn') {
+    vn = parseFloat(document.getElementById('pnl-vn').value) || 0;
+    usdInvested = vn * precioCompra / 100;
+  } else {
+    usdInvested = parseFloat(document.getElementById('pnl-usd').value) || 0;
+    vn = precioCompra > 0 ? usdInvested / precioCompra * 100 : 0;
+  }
+  const usdTarget = vn * (targetPrecio || 0) / 100;
+  const pnlUsd    = usdTarget - usdInvested;
+  const upside    = precioCompra > 0 && targetPrecio != null ? (targetPrecio/precioCompra - 1) : null;
+  const deltaPx   = targetPrecio != null ? (targetPrecio - precioCompra) : null;
+
+  // Render
+  if (outPrecio)      outPrecio.textContent    = precioCompra ? precioCompra.toFixed(2) : '—';
+  if (outTirCompra)   outTirCompra.textContent = tirCompra != null ? (tirCompra*100).toFixed(2)+'%' : '—';
+  if (outTargetTir)   outTargetTir.textContent = (targetTir*100).toFixed(2)+'%';
+  if (outTargetPrecio) outTargetPrecio.textContent = targetPrecio != null ? targetPrecio.toFixed(2) : '—';
+  if (outMac)         outMac.textContent       = mac ? mac.toFixed(3) : '—';
+  if (outMod)         outMod.textContent       = mod ? mod.toFixed(3) : '—';
+
+  if (outUpside) {
+    if (upside != null) {
+      const clr = upside >= 0 ? 'var(--green)' : 'var(--red)';
+      const sign = upside >= 0 ? '+' : '';
+      outUpside.innerHTML = `<span style="color:${clr};">${sign}${(upside*100).toFixed(2)}%</span>`;
+    } else outUpside.textContent = '—';
+  }
+  if (outPnlUsd) {
+    if (isFinite(pnlUsd) && vn > 0) {
+      const clr = pnlUsd >= 0 ? 'var(--green)' : 'var(--red)';
+      const sign = pnlUsd >= 0 ? '+' : '';
+      outPnlUsd.innerHTML = `<span style="color:${clr};">${sign}$${Math.abs(pnlUsd).toLocaleString('en-US',{maximumFractionDigits:2})}</span>`;
+    } else outPnlUsd.textContent = '—';
+  }
+  if (outPosVn) outPosVn.textContent = vn ? vn.toLocaleString('en-US',{maximumFractionDigits:2}) : '—';
+  if (outPosUsd) outPosUsd.textContent = usdInvested ? '$'+usdInvested.toLocaleString('en-US',{maximumFractionDigits:2}) : '—';
+  if (outPosTgtUsd) outPosTgtUsd.textContent = usdTarget ? '$'+usdTarget.toLocaleString('en-US',{maximumFractionDigits:2}) : '—';
+  if (outPosDeltaPx) {
+    if (deltaPx != null) {
+      const sign = deltaPx >= 0 ? '+' : '';
+      const clr = deltaPx >= 0 ? 'var(--green)' : 'var(--red)';
+      outPosDeltaPx.innerHTML = `<span style="color:${clr};">${sign}${deltaPx.toFixed(2)}</span>`;
+    } else outPosDeltaPx.textContent = '—';
+  }
+  if (outDeltaTir) {
+    const sign = deltaPP >= 0 ? '+' : '';
+    outDeltaTir.textContent = `Δ ${sign}${deltaPP.toFixed(2)}pp`;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // GRAFICADOR — Interactive chart for prices & historical TIR
 // ═══════════════════════════════════════════════════════════════
@@ -4439,20 +4853,17 @@ const grafState = {
 
 let grafChart = null;
 
-// Build instrument list for graficador: all bonds + lecaps + ONs
+// Build instrument list for graficador: ONLY sovereigns (Bonares, Globales, Bopreales)
+// Rest don't have historical data in data912 API
 function grafInstruments() {
   const list = [];
   if (typeof BOND_DEFS !== 'undefined') {
-    for (const [ticker, def] of Object.entries(BOND_DEFS))
-      list.push({ticker, nombre:def.nombre, grupo:def.grupo});
-  }
-  if (typeof LECAP_DEFS !== 'undefined') {
-    for (const l of LECAP_DEFS)
-      list.push({ticker:l.ticker, nombre:`${l.isBoncap?'BONCAP':'LECAP'} ${l.vto.slice(0,7)}`, grupo:'Capitalizables'});
-  }
-  if (typeof ON_DEFS !== 'undefined') {
-    for (const [ticker, def] of Object.entries(ON_DEFS))
-      list.push({ticker, nombre:def.nombre, grupo:def.grupo});
+    for (const [ticker, def] of Object.entries(BOND_DEFS)) {
+      // Only sovereigns with historical availability
+      if (def.grupo === 'Bonares' || def.grupo === 'Globales' || def.grupo === 'Bopreales') {
+        list.push({ticker, nombre:def.nombre, grupo:def.grupo});
+      }
+    }
   }
   return list;
 }
@@ -4568,13 +4979,18 @@ function applyGrafCustomRange() {
 
 // Compute historical TIR for a given ticker at a given date and price
 // Uses the same logic as the calculator: futureCFs(def, liqDate) + calcTIRFromFlows
+// IMPORTANT: data912 prices are T+24h (next business day settlement).
+// So the effective LIQ date is date+1, which correctly excludes coupons paid on day d.
+// This prevents TIR spikes at coupon payment dates.
 function computeHistoricalTIR(ticker, date, price) {
   const def = (typeof BOND_DEFS !== 'undefined' && BOND_DEFS[ticker])
            || (typeof ON_DEFS !== 'undefined' && ON_DEFS[ticker])
            || null;
+  // Shift date by +1 day to reflect T+24h settlement
+  const settleDate = new Date(date.getTime() + 86400000);
   if (def && typeof futureCFs === 'function' && typeof calcTIRFromFlows === 'function') {
     try {
-      const flows = futureCFs(def, date);
+      const flows = futureCFs(def, settleDate);
       if (!flows.length) return null;
       const tir = calcTIRFromFlows(flows, price);
       if (!isFinite(tir) || tir <= -0.99) return null;
@@ -4585,7 +5001,7 @@ function computeHistoricalTIR(ticker, date, price) {
   if (typeof LECAP_DEFS !== 'undefined') {
     const lec = LECAP_DEFS.find(l => l.ticker === ticker);
     if (lec) {
-      const dias = Math.round((new Date(lec.vto) - date) / 86400000);
+      const dias = Math.round((new Date(lec.vto) - settleDate) / 86400000);
       if (dias <= 0) return null;
       return Math.pow(lec.vpv / price, 365 / dias) - 1;
     }
@@ -4778,6 +5194,7 @@ document.addEventListener('click', e => {
     if (!ap) return;
     if (ap.id === 'panel-graficador')    { initGrafSelect(); }
     else if (ap.id === 'panel-ons')      { renderONsTable(); }
+    else if (ap.id === 'panel-pnl')      { initPnlSelect(); pnlRecalc(); }
   }, 80);
 });
 
@@ -5412,7 +5829,7 @@ function runCalc() {
 }
 
 // Initialise select on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', ()=>{ initCalcSelect(); initGrafSelect(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initCalcSelect(); initGrafSelect(); initPnlSelect(); });
 // Also init after data loads (tickers available)
 const _origFetchAll = fetchAll;
 // Hook into switchTab: init select when calc tab opens
