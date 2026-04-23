@@ -500,6 +500,7 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('curvas',this)">Curvas</button>
     <button class="tab" onclick="switchTab('calculadora',this)">Calculadora</button>
+    <button class="tab" onclick="switchTab('graficador',this)">Graficador</button>
     <button class="tab" onclick="switchTab('harddollar',this)">Hard Dollar</button>
     <button class="tab" onclick="switchTab('capitalizables',this)">Capitalizables</button>
     <button class="tab" onclick="switchTab('duales',this)">Duales $</button>
@@ -573,6 +574,76 @@
     </div>
   </div>
 
+
+  <!-- ════════════ GRAFICADOR PANEL ════════════ -->
+  <div class="panel" id="panel-graficador">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+      <!-- Ticker search -->
+      <div style="display:flex;flex-direction:column;gap:4px;position:relative;">
+        <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">INSTRUMENTO</span>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="graf-search" type="text" placeholder="Buscar ticker…" autocomplete="off"
+            oninput="grafSearchInput()" onkeydown="if(event.key==='Escape')document.getElementById('graf-dropdown').style.display='none'"
+            style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);width:200px;">
+          <select id="graf-select-native" class="calc-input" onchange="grafSelectFromNative(this.value)" style="width:200px;padding:5px;font-size:12px;">
+            <option value="">— Lista completa —</option>
+          </select>
+          <span id="graf-selected-pill" class="calc-pill" style="display:none;"></span>
+        </div>
+        <div id="graf-dropdown" class="calc-dropdown" style="display:none;top:44px;left:0;width:400px;"></div>
+      </div>
+
+      <!-- Chart type toggle -->
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">TIPO</span>
+        <div style="display:flex;gap:4px;">
+          <button class="period-btn active" id="graf-type-line"    onclick="setGrafType('line',this)">Línea</button>
+          <button class="period-btn"        id="graf-type-candle"  onclick="setGrafType('candle',this)">Velas</button>
+        </div>
+      </div>
+
+      <!-- Metric toggle -->
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">MÉTRICA</span>
+        <div style="display:flex;gap:4px;">
+          <button class="period-btn active" id="graf-metric-price" onclick="setGrafMetric('price',this)">Precio</button>
+          <button class="period-btn"        id="graf-metric-tir"   onclick="setGrafMetric('tir',this)">TIR</button>
+        </div>
+      </div>
+
+      <!-- Period buttons -->
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">PERÍODO</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="period-btn" onclick="setGrafPeriod('1w',this)">1S</button>
+          <button class="period-btn" onclick="setGrafPeriod('1m',this)">1M</button>
+          <button class="period-btn active" onclick="setGrafPeriod('3m',this)">3M</button>
+          <button class="period-btn" onclick="setGrafPeriod('ytd',this)">YTD</button>
+          <button class="period-btn" onclick="setGrafPeriod('1y',this)">1A</button>
+          <button class="period-btn" onclick="setGrafPeriod('2y',this)">2A</button>
+          <button class="period-btn" onclick="setGrafPeriod('all',this)">Todo</button>
+        </div>
+      </div>
+
+      <!-- Custom date range -->
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <span style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">RANGO</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="date" id="graf-date-from" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--text);cursor:pointer;" onchange="applyGrafCustomRange()">
+          <span style="font-size:10px;color:var(--muted)">—</span>
+          <input type="date" id="graf-date-to"   style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--text);cursor:pointer;" onchange="applyGrafCustomRange()">
+        </div>
+      </div>
+
+      <span id="graf-status" style="font-size:10px;color:var(--muted);margin-left:auto;"></span>
+    </div>
+
+    <div class="chart-wrap" style="height:calc(100vh - 280px);min-height:420px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+      <canvas id="c-graficador" role="img" aria-label="Gráfico de precios / TIR histórica"></canvas>
+    </div>
+  </div>
+  <!-- ════════════ END GRAFICADOR PANEL ════════════ -->
+
   <div class="panel" id="panel-harddollar">
     <div class="tbl-wrap"><table id="tbl-harddollar"><thead><tr>
       <th onclick="sortTable('harddollar',0)">Ticker ↕</th>
@@ -586,20 +657,6 @@
       <th onclick="sortTable('harddollar',8)">V. Res. ↕</th>
       <th onclick="sortTable('harddollar',9)">Paridad ↕</th>
     </tr></thead><tbody id="tbody-harddollar"></tbody></table></div>
-  <div class="hist-card">
-    <div class="hist-controls">
-      <select class="hist-select" id="hist-sel-hd" onchange="loadHistChart('hd')"></select>
-      <div style="display:flex;gap:4px;">
-        <button class="period-btn" onclick="setPeriod('hd','30d',this)">30d</button>
-        <button class="period-btn active" onclick="setPeriod('hd','90d',this)">90d</button>
-        <button class="period-btn" onclick="setPeriod('hd','1y',this)">1 año</button>
-        <button class="period-btn" onclick="setPeriod('hd','5y',this)">5 años</button>
-        <button class="period-btn" onclick="setPeriod('hd','all',this)">Todo</button>
-      </div>
-      <span style="font-size:10px;color:var(--muted)" id="hist-src-hd"></span>
-    </div>
-    <div class="chart-wrap" style="height:220px"><canvas id="c-hist-hd" role="img" aria-label="Serie histórica Hard Dollar"></canvas></div>
-  </div>
   </div>
 
   <div class="panel" id="panel-capitalizables">
@@ -623,20 +680,6 @@
       <th>TEM</th><th>TNA</th><th>Mac. Dur.</th><th>Mod. Dur.</th><th>Convex.</th>
       <th>Val. Téc.</th><th>Paridad</th>
     </tr></thead><tbody id="tbody-pesos"></tbody></table></div>
-  <div class="hist-card">
-    <div class="hist-controls">
-      <select class="hist-select" id="hist-sel-pes" onchange="loadHistChart('pes')"></select>
-      <div style="display:flex;gap:4px;">
-        <button class="period-btn" onclick="setPeriod('pes','30d',this)">30d</button>
-        <button class="period-btn active" onclick="setPeriod('pes','90d',this)">90d</button>
-        <button class="period-btn" onclick="setPeriod('pes','1y',this)">1 año</button>
-        <button class="period-btn" onclick="setPeriod('pes','5y',this)">5 años</button>
-        <button class="period-btn" onclick="setPeriod('pes','all',this)">Todo</button>
-      </div>
-      <span style="font-size:10px;color:var(--muted)" id="hist-src-pes"></span>
-    </div>
-    <div class="chart-wrap" style="height:220px"><canvas id="c-hist-pes" role="img" aria-label="Serie histórica Tasa fija"></canvas></div>
-  </div>
   </div>
 
   <!-- ════════════ DUALES PANEL ════════════ -->
@@ -3525,7 +3568,6 @@ async function fetchAll() {
     updateKPIs();
     renderAllTables();
     maybeRebuildCharts();
-    initHistCharts();
     loadKpiHistData();
 
   } catch(e) {
@@ -4379,180 +4421,350 @@ function hideError() {
 setInterval(() => { if (STATE.lastFetch) fetchAll(); }, 5 * 60 * 1000);
 
 // ═══════════════════════════════════════════════════════════════
-// HISTORICAL CHARTS
+// GRAFICADOR — Interactive chart for prices & historical TIR
 // ═══════════════════════════════════════════════════════════════
-const HIST_PERIODS = { '30d':30, '90d':90, '1y':365, '5y':1825, 'all':99999 };
-const histState = {
-  hd:  { period:'90d', ticker: null },
-  cap: { period:'90d', ticker: null },
-  pes: { period:'90d', ticker: null },
-};
-const histCharts = {};
-
-// Tickers available in data912 historical endpoint
 const DATA912_HIST = new Set(['AE38', 'AE38D', 'AL29', 'AL29D', 'AL30', 'AL30C', 'AL30D', 'AL35', 'AL35D', 'AL41', 'AL41D', 'BA37D', 'BB37D', 'BC37D', 'BDC28', 'BPY26', 'CO26', 'CO26D', 'CUAP', 'DICP', 'DIP0', 'GD29', 'GD29D', 'GD30', 'GD30C', 'GD30D', 'GD35', 'GD35D', 'GD38', 'GD38D', 'GD41', 'GD41D', 'GD46', 'GD46D', 'NDT25', 'PAP0', 'PARP', 'PBA25', 'T2X5', 'TDE25', 'TO26', 'TVPA', 'TVPE', 'TVPP', 'TVPY', 'TX25', 'TX26', 'TX28']);
 
-// Tickers per tab filtered to data912 availability
-const HD_HIST_TICKERS  = ['AE38D', 'AL29D', 'AL30D', 'AL35D', 'AL41D', 'GD29D', 'GD30D', 'GD35D', 'GD38D', 'GD41D', 'GD46D', 'AE38', 'AL29', 'AL30', 'AL35', 'AL41', 'GD29', 'GD30', 'GD35', 'GD38', 'GD41', 'GD46'];
-const PES_HIST_TICKERS = ['TO26'];
+const GRAF_PERIODS = { '1w':7, '1m':30, '3m':90, 'ytd':0, '1y':365, '2y':730, 'all':99999, 'custom':-1 };
 
-function histTickers(key) {
-  if (key === 'hd') {
-    const stateTickers = [...STATE.bonares,...STATE.globales,...STATE.bopreales].map(b=>b.ticker);
-    const filtered = stateTickers.filter(t => DATA912_HIST.has(t) || DATA912_HIST.has(t.replace(/[DC]$/,'')));
-    return filtered.length ? filtered : HD_HIST_TICKERS;
+const grafState = {
+  ticker:  null,
+  type:    'line',     // 'line' | 'candle'
+  metric:  'price',    // 'price' | 'tir'
+  period:  '3m',
+  customFrom: null,
+  customTo:   null,
+  rawData: null,       // cached historical data
+};
+
+let grafChart = null;
+
+// Build instrument list for graficador: all bonds + lecaps + ONs
+function grafInstruments() {
+  const list = [];
+  if (typeof BOND_DEFS !== 'undefined') {
+    for (const [ticker, def] of Object.entries(BOND_DEFS))
+      list.push({ticker, nombre:def.nombre, grupo:def.grupo});
   }
-  if (key === 'pes') {
-    const stateTickers = STATE.pesos.map(p => p.ticker);
-    return stateTickers.filter(t => DATA912_HIST.has(t)).length
-      ? stateTickers.filter(t => DATA912_HIST.has(t))
-      : PES_HIST_TICKERS;
+  if (typeof LECAP_DEFS !== 'undefined') {
+    for (const l of LECAP_DEFS)
+      list.push({ticker:l.ticker, nombre:`${l.isBoncap?'BONCAP':'LECAP'} ${l.vto.slice(0,7)}`, grupo:'Capitalizables'});
   }
-  return [];
+  if (typeof ON_DEFS !== 'undefined') {
+    for (const [ticker, def] of Object.entries(ON_DEFS))
+      list.push({ticker, nombre:def.nombre, grupo:def.grupo});
+  }
+  return list;
 }
 
-function populateHistSelects() {
-  ['hd','pes'].forEach(key => {
-    const sel = document.getElementById('hist-sel-'+key);
-    if (!sel) return;
-    const tickers = histTickers(key);
-    if (!tickers.length) return;
-    const prev = histState[key].ticker;
-    sel.innerHTML = tickers.map(t => `<option value="${t}"${t===prev?' selected':''}>${displayTicker(t)}</option>`).join('');
-    if (!histState[key].ticker) histState[key].ticker = tickers[0];
+function initGrafSelect() {
+  const sel = document.getElementById('graf-select-native');
+  if (!sel || sel.options.length > 1) return;
+  const instr = grafInstruments();
+  const groups = {};
+  instr.forEach(i => { if(!groups[i.grupo]) groups[i.grupo]=[]; groups[i.grupo].push(i); });
+  Object.entries(groups).forEach(([grp, items]) => {
+    const og = document.createElement('optgroup');
+    og.label = grp;
+    items.forEach(i => { const opt=document.createElement('option'); opt.value=i.ticker; opt.textContent=`${i.ticker} — ${i.nombre}`; og.appendChild(opt); });
+    sel.appendChild(og);
   });
 }
 
-function setPeriod(key, period, btn) {
-  histState[key].period = period;
-  // Update button styles within the same controls div
-  btn.closest('.hist-controls').querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  loadHistChart(key);
+function grafSelectFromNative(ticker) {
+  if (!ticker) return;
+  grafSelect(ticker);
 }
 
-async function loadHistChart(key) {
-  const ticker = document.getElementById('hist-sel-'+key)?.value || histState[key].ticker;
-  if (!ticker) return;
-  histState[key].ticker = ticker;
-  const period = histState[key].period;
-  const days = HIST_PERIODS[period];
-  const srcEl = document.getElementById('hist-src-'+key);
-  const canvasId = 'c-hist-'+key;
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
+function grafSearchInput() {
+  const q = (document.getElementById('graf-search').value || '').trim().toLowerCase();
+  const dd = document.getElementById('graf-dropdown');
+  if (!q) { dd.style.display='none'; return; }
+  const matches = grafInstruments()
+    .filter(i => i.ticker.toLowerCase().includes(q) || i.nombre.toLowerCase().includes(q))
+    .slice(0, 15);
+  if (!matches.length) { dd.style.display='none'; return; }
+  dd.innerHTML = matches.map(m =>
+    `<div class="calc-dropdown-item" onclick="grafSelect('${m.ticker}')">
+       <span class="dd-ticker">${m.ticker}</span>
+       <span class="dd-name">${m.nombre}</span>
+     </div>`).join('');
+  dd.style.display = 'block';
+}
 
-  // Show loading
-  if (srcEl) srcEl.textContent = 'Cargando...';
+function grafSelect(ticker) {
+  grafState.ticker = ticker;
+  grafState.rawData = null; // invalidate cache
+  const instr = grafInstruments().find(i => i.ticker === ticker);
+  document.getElementById('graf-search').value = '';
+  document.getElementById('graf-dropdown').style.display = 'none';
+  const sel = document.getElementById('graf-select-native');
+  if (sel) sel.value = ticker;
+  const pill = document.getElementById('graf-selected-pill');
+  if (pill) {
+    pill.innerHTML = `${displayTicker ? displayTicker(ticker) : ticker} — ${instr?.nombre || ''} <span class="calc-pill-x" onclick="grafClear()">×</span>`;
+    pill.style.display = 'flex';
+  }
+  loadGrafChart();
+}
 
-  try {
-    // data912 endpoint: /historical/bonds/{ticker}
-    // Returns array of [{date, close}] sorted oldest→newest
-    const res = await fetch(PROXY_URL + '/api/hist?ticker=' + encodeURIComponent(ticker));
-    let rawData = null;
-    if (res.ok) rawData = await res.json();
+function grafClear() {
+  grafState.ticker = null;
+  grafState.rawData = null;
+  const pill = document.getElementById('graf-selected-pill');
+  if (pill) pill.style.display = 'none';
+  const sel = document.getElementById('graf-select-native');
+  if (sel) sel.value = '';
+  if (grafChart) { grafChart.destroy(); grafChart = null; }
+  document.getElementById('graf-status').textContent = '';
+}
 
-    if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
-      if (srcEl) srcEl.textContent = 'Sin datos históricos';
-      if (histCharts[key]) { histCharts[key].destroy(); delete histCharts[key]; }
+function setGrafType(type, btn) {
+  grafState.type = type;
+  document.querySelectorAll('#graf-type-line, #graf-type-candle').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadGrafChart(true);
+}
+
+function setGrafMetric(metric, btn) {
+  grafState.metric = metric;
+  document.querySelectorAll('#graf-metric-price, #graf-metric-tir').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadGrafChart(true);
+}
+
+function setGrafPeriod(period, btn) {
+  grafState.period = period;
+  grafState.customFrom = null;
+  grafState.customTo = null;
+  // Clear custom date inputs
+  const fEl = document.getElementById('graf-date-from');
+  const tEl = document.getElementById('graf-date-to');
+  if (fEl) fEl.value = '';
+  if (tEl) tEl.value = '';
+  document.querySelectorAll('#panel-graficador .period-btn').forEach(b => {
+    const ob = b.getAttribute('onclick') || '';
+    if (ob.startsWith('setGrafPeriod')) b.classList.remove('active');
+  });
+  if (btn) btn.classList.add('active');
+  loadGrafChart(true);
+}
+
+function applyGrafCustomRange() {
+  const fromEl = document.getElementById('graf-date-from');
+  const toEl   = document.getElementById('graf-date-to');
+  const f = fromEl.value, t = toEl.value;
+  if (!f || !t) return;
+  grafState.period = 'custom';
+  grafState.customFrom = new Date(f + 'T00:00:00');
+  grafState.customTo   = new Date(t + 'T23:59:59');
+  // Deactivate period buttons
+  document.querySelectorAll('#panel-graficador .period-btn').forEach(b => {
+    const ob = b.getAttribute('onclick') || '';
+    if (ob.startsWith('setGrafPeriod')) b.classList.remove('active');
+  });
+  loadGrafChart(true);
+}
+
+// Compute historical TIR for a given ticker at a given date and price
+// Uses the same logic as the calculator: futureCFs(def, liqDate) + calcTIRFromFlows
+function computeHistoricalTIR(ticker, date, price) {
+  const def = (typeof BOND_DEFS !== 'undefined' && BOND_DEFS[ticker])
+           || (typeof ON_DEFS !== 'undefined' && ON_DEFS[ticker])
+           || null;
+  if (def && typeof futureCFs === 'function' && typeof calcTIRFromFlows === 'function') {
+    try {
+      const flows = futureCFs(def, date);
+      if (!flows.length) return null;
+      const tir = calcTIRFromFlows(flows, price);
+      if (!isFinite(tir) || tir <= -0.99) return null;
+      return tir;
+    } catch(e) { return null; }
+  }
+  // Lecap TIR: (vpv/price)^(365/dias) - 1
+  if (typeof LECAP_DEFS !== 'undefined') {
+    const lec = LECAP_DEFS.find(l => l.ticker === ticker);
+    if (lec) {
+      const dias = Math.round((new Date(lec.vto) - date) / 86400000);
+      if (dias <= 0) return null;
+      return Math.pow(lec.vpv / price, 365 / dias) - 1;
+    }
+  }
+  return null;
+}
+
+async function loadGrafChart(forceRecompute) {
+  const ticker = grafState.ticker;
+  const statusEl = document.getElementById('graf-status');
+  if (!ticker) {
+    if (statusEl) statusEl.textContent = 'Seleccioná un instrumento';
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = 'Cargando…';
+
+  // Fetch if not cached or recompute forced (same ticker, different metric/period doesn't need refetch)
+  if (!grafState.rawData || forceRecompute === false) {
+    try {
+      const res = await fetch(PROXY_URL + '/api/hist?ticker=' + encodeURIComponent(ticker));
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        if (statusEl) statusEl.textContent = 'Sin datos históricos para ' + ticker;
+        if (grafChart) { grafChart.destroy(); grafChart = null; }
+        return;
+      }
+      grafState.rawData = data;
+    } catch(e) {
+      if (statusEl) statusEl.textContent = 'Error: ' + e.message;
       return;
     }
+  }
 
-    // Filter to requested period
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    const filtered = days >= 9999
-      ? rawData
-      : rawData.filter(d => new Date(d.date || d.t || d.fecha || '') >= cutoff);
+  const rawData = grafState.rawData;
 
-    const labels = filtered.map(d => {
-      const raw = d.date || d.t || d.fecha || '';
-      const dt = new Date(raw);
-      // Format MM/YY for >180d, DD/MM for shorter
-      if (days > 180) return dt.toLocaleDateString('es-AR', {month:'2-digit', year:'2-digit'});
-      return dt.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
-    });
-    const prices = filtered.map(d => {
-      const p = d.close ?? d.c ?? d.precio ?? d.price ?? d.value ?? 0;
-      return parseFloat(p) || null;
-    }).filter(p => p !== null);
+  // Period filter
+  let fromDate, toDate;
+  if (grafState.period === 'custom' && grafState.customFrom && grafState.customTo) {
+    fromDate = grafState.customFrom;
+    toDate   = grafState.customTo;
+  } else {
+    toDate = new Date();
+    if (grafState.period === 'ytd') {
+      fromDate = new Date(toDate.getFullYear(), 0, 1);
+    } else {
+      const days = GRAF_PERIODS[grafState.period] || 90;
+      fromDate = new Date();
+      if (days < 99999) fromDate.setDate(fromDate.getDate() - days);
+      else fromDate = new Date(1970,0,1);
+    }
+  }
 
-    if (histCharts[key]) { histCharts[key].destroy(); delete histCharts[key]; }
-    const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-    const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
-    const tickColor = isDark ? '#7a8099' : '#888';
+  const filtered = rawData.filter(d => {
+    const dt = new Date(d.date || d.t || d.fecha || '');
+    return dt >= fromDate && dt <= toDate;
+  });
 
-    // Build candlestick data: {x: timestamp, o, h, l, c}
-    const candleData = filtered.map(d => {
-      const ts = new Date(d.date || d.t || d.fecha || '').getTime();
-      const o = parseFloat(d.open  ?? d.o ?? d.close ?? d.c ?? 0);
-      const h = parseFloat(d.high  ?? d.h ?? d.close ?? d.c ?? 0);
-      const l = parseFloat(d.low   ?? d.l ?? d.close ?? d.c ?? 0);
-      const c = parseFloat(d.close ?? d.c ?? 0);
-      return {x: ts, o, h, l, c};
-    }).filter(d => d.c > 0);
+  if (!filtered.length) {
+    if (statusEl) statusEl.textContent = 'Sin datos en ese rango';
+    if (grafChart) { grafChart.destroy(); grafChart = null; }
+    return;
+  }
 
-    histCharts[key] = new Chart(canvas, {
+  // Build data points
+  const isCandle = grafState.type === 'candle';
+  const metric = grafState.metric;
+  const points = [];
+  for (const d of filtered) {
+    const dt = new Date(d.date || d.t || d.fecha || '');
+    const close = parseFloat(d.close ?? d.c ?? d.precio ?? d.price ?? d.value ?? 0);
+    if (!close || close <= 0) continue;
+    if (metric === 'tir') {
+      const tir = computeHistoricalTIR(ticker, dt, close);
+      if (tir == null || !isFinite(tir)) continue;
+      points.push({x: dt.getTime(), y: tir*100, _close: close});
+    } else {
+      const o = parseFloat(d.open  ?? d.o ?? close);
+      const h = parseFloat(d.high  ?? d.h ?? close);
+      const lo = parseFloat(d.low  ?? d.l ?? close);
+      points.push({x: dt.getTime(), y: close, o, h, l: lo, c: close});
+    }
+  }
+
+  if (!points.length) {
+    if (statusEl) statusEl.textContent = metric === 'tir' ? 'No se pudo computar TIR en ese rango' : 'Sin datos';
+    if (grafChart) { grafChart.destroy(); grafChart = null; }
+    return;
+  }
+
+  if (grafChart) { grafChart.destroy(); grafChart = null; }
+  const canvas = document.getElementById('c-graficador');
+  if (!canvas) return;
+
+  const gc = getComputedStyle(document.documentElement);
+  const gridC = gc.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,.05)';
+  const tickC = gc.getPropertyValue('--chart-tick').trim() || '#7a8099';
+  const accent = gc.getPropertyValue('--accent').trim() || '#4f8ef7';
+
+  const yLabel = metric === 'tir' ? 'TIR e.a. (%)' : 'Precio';
+  const yFmt  = metric === 'tir' ? (v => v.toFixed(2)+'%') : (v => v.toFixed(2));
+
+  // Time axis unit
+  const rangeDays = (toDate - fromDate) / 86400000;
+  const tUnit = rangeDays <= 60 ? 'day' : rangeDays <= 365 ? 'week' : 'month';
+  const tFmt  = rangeDays <= 60 ? {day:'dd/MM'} : rangeDays <= 365 ? {week:'dd/MM'} : {month:'MM/yy'};
+
+  if (isCandle && metric === 'price') {
+    // Candlestick chart
+    grafChart = new Chart(canvas, {
       type: 'candlestick',
       data: {
         datasets: [{
           label: ticker,
-          data: candleData,
-          color: {
-            up:   '#34d399',
-            down: '#f87171',
-            unchanged: '#7a8099',
-          },
-          borderColor: {
-            up:   '#34d399',
-            down: '#f87171',
-            unchanged: '#7a8099',
-          },
+          data: points.map(p => ({x:p.x, o:p.o, h:p.h, l:p.l, c:p.c})),
+          color: { up:'#34d399', down:'#f87171', unchanged:'#7a8099' },
+          borderColor: { up:'#34d399', down:'#f87171', unchanged:'#7a8099' },
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                const d = ctx.raw;
-                return [`O: ${d.o?.toFixed(2)}  H: ${d.h?.toFixed(2)}  L: ${d.l?.toFixed(2)}  C: ${d.c?.toFixed(2)}`];
-              }
-            }
-          }
+          tooltip: { callbacks: { label: ctx => {
+            const d = ctx.raw;
+            return [`O: ${d.o?.toFixed(2)}  H: ${d.h?.toFixed(2)}  L: ${d.l?.toFixed(2)}  C: ${d.c?.toFixed(2)}`];
+          }}}
         },
         scales: {
-          x: {
-            type: 'timeseries',
-            time: { unit: days <= 90 ? 'day' : days <= 365 ? 'week' : 'month',
-                    displayFormats: { day:'dd/MM', week:'dd/MM', month:'MM/yy' } },
-            grid: { color: gridColor },
-            ticks: { color: tickColor, font:{size:9}, maxTicksLimit: 8, maxRotation: 0 }
-          },
-          y: {
-            grid: { color: gridColor },
-            ticks: { color: tickColor, font:{size:10} },
-            position: 'right'
-          }
+          x: { type:'timeseries', time:{unit:tUnit, displayFormats:tFmt}, grid:{color:gridC}, ticks:{color:tickC, font:{size:10}, maxTicksLimit:12, maxRotation:0} },
+          y: { grid:{color:gridC}, ticks:{color:tickC, font:{size:11}, callback:yFmt}, position:'right', title:{display:true, text:yLabel, color:tickC, font:{size:11}} }
         }
       }
     });
-    if (srcEl) srcEl.textContent = `${candleData.length} ruedas · data912`;
-  } catch(e) {
-    if (srcEl) srcEl.textContent = 'Error: ' + e.message;
+  } else {
+    // Line chart (price or TIR)
+    grafChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: ticker + (metric === 'tir' ? ' — TIR e.a.' : ' — Precio'),
+          data: points.map(p => ({x:p.x, y:p.y})),
+          borderColor: accent,
+          backgroundColor: accent + '22',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.15,
+          fill: metric === 'price' ? false : false,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode:'index', intersect:false },
+        plugins: {
+          legend: { display:true, labels:{color:tickC, font:{size:11}} },
+          tooltip: { callbacks: { label: ctx => {
+            const v = ctx.raw.y;
+            return `${displayTicker ? displayTicker(ticker) : ticker}: ${yFmt(v)}`;
+          }}}
+        },
+        scales: {
+          x: { type:'time', time:{unit:tUnit, displayFormats:tFmt}, grid:{color:gridC}, ticks:{color:tickC, font:{size:10}, maxTicksLimit:12, maxRotation:0} },
+          y: { grid:{color:gridC}, ticks:{color:tickC, font:{size:11}, callback:yFmt}, position:'right', title:{display:true, text:yLabel, color:tickC, font:{size:11}} }
+        }
+      }
+    });
   }
+
+  if (statusEl) statusEl.textContent = `${points.length} ruedas · data912`;
 }
 
-function initHistCharts() {
-  populateHistSelects();
-  // Load chart for active tab on data arrival
-  const activePanel = document.querySelector('.panel.active');
-  if (!activePanel) return;
-  if (activePanel.id === 'panel-harddollar') loadHistChart('hd');
-  else if (activePanel.id === 'panel-pesos') loadHistChart('pes');
-}
+// Stub: keep name for backwards compat with anything that may reference it
+function initHistCharts() { /* no-op: replaced by Graficador */ }
+function populateHistSelects() { /* no-op */ }
+function loadHistChart() { /* no-op */ }
+function setPeriod() { /* no-op */ }
+
 
 // Hook into switchTab to load chart when tab becomes visible
 const _origSwitchTab = switchTab;
@@ -4564,8 +4776,7 @@ document.addEventListener('click', e => {
   setTimeout(() => {
     const ap = document.querySelector('.panel.active');
     if (!ap) return;
-    if (ap.id === 'panel-harddollar')    { populateHistSelects(); loadHistChart('hd'); }
-    else if (ap.id === 'panel-pesos')    { populateHistSelects(); loadHistChart('pes'); }
+    if (ap.id === 'panel-graficador')    { initGrafSelect(); }
     else if (ap.id === 'panel-ons')      { renderONsTable(); }
   }, 80);
 });
@@ -5201,7 +5412,7 @@ function runCalc() {
 }
 
 // Initialise select on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', ()=>{ initCalcSelect(); });
+document.addEventListener('DOMContentLoaded', ()=>{ initCalcSelect(); initGrafSelect(); });
 // Also init after data loads (tickers available)
 const _origFetchAll = fetchAll;
 // Hook into switchTab: init select when calc tab opens
