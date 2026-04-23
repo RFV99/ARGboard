@@ -180,15 +180,50 @@
   .tc-val { font-family: var(--mono); color: var(--text); font-weight: 600; }
 
   /* ── Tabs ───────────────────────────────── */
-  .tabs { display: flex; gap: 2px; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .tabs { display: flex; gap: 4px; margin-bottom: 1rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; align-items: flex-end; }
   .tab {
-    padding: .55rem 1rem; font-size: 12px; font-weight: 600;
+    padding: .5rem .95rem; font-size: 12px; font-weight: 600;
     color: var(--muted); cursor: pointer; border: none; background: none;
     border-bottom: 2px solid transparent; transition: all .15s;
-    white-space: nowrap;
+    white-space: nowrap; border-radius: 6px 6px 0 0;
   }
   .tab:hover { color: var(--text); }
-  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab.active { color: var(--text); }
+
+  /* CURVAS — púrpura, chart-focused */
+  .tab.tab-curvas {
+    color: #a78bfa; background: rgba(167,139,250,.06);
+    border: 1px solid rgba(167,139,250,.18); border-bottom: 2px solid transparent;
+    font-size: 12.5px; letter-spacing: .02em;
+  }
+  .tab.tab-curvas:hover { background: rgba(167,139,250,.12); color: #c4b5fd; }
+  .tab.tab-curvas.active {
+    color: #c4b5fd; background: rgba(167,139,250,.14);
+    border-color: rgba(167,139,250,.35); border-bottom-color: #a78bfa;
+    box-shadow: 0 -1px 0 rgba(167,139,250,.25) inset;
+  }
+
+  /* HERRAMIENTAS — Calculadora, PnL, Graficador — teal */
+  .tab.tab-tool {
+    color: #5eead4; background: rgba(45,212,191,.05);
+    border: 1px solid rgba(45,212,191,.14); border-bottom: 2px solid transparent;
+  }
+  .tab.tab-tool:hover { background: rgba(45,212,191,.10); color: #2dd4bf; }
+  .tab.tab-tool.active {
+    color: #2dd4bf; background: rgba(45,212,191,.12);
+    border-color: rgba(45,212,191,.30); border-bottom-color: #2dd4bf;
+  }
+
+  /* DATA — tablas de bonos — grisáceo */
+  .tab.tab-data {
+    color: var(--muted); background: transparent;
+    border: 1px solid transparent; border-bottom: 2px solid transparent;
+  }
+  .tab.tab-data:hover { color: var(--text); background: var(--bg2); }
+  .tab.tab-data.active {
+    color: var(--text); background: var(--bg2);
+    border-color: var(--border); border-bottom-color: var(--accent);
+  }
   .panel { display: none; }
   .panel.active { display: block; }
 
@@ -423,6 +458,16 @@
 
   <div class="error-banner" id="err-banner"></div>
 
+  <!-- Collapse/expand KPIs toggle -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+    <button id="kpi-toggle" class="period-btn" onclick="toggleKpis()" style="font-size:10px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;">
+      <span id="kpi-toggle-icon">▲</span>
+      <span id="kpi-toggle-label">Ocultar header</span>
+    </button>
+  </div>
+
+  <div id="kpi-header-wrap">
+
   <!-- Fila 1: Riesgo País | MEP | Cable | Canje -->
   <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr));margin-bottom:.75rem;">
     <div class="kpi kpi-rp kpi-interactive" id="kpi-rp" onclick="openModal('rp')">
@@ -496,17 +541,19 @@
     <div class="kpi purple"><div class="kpi-label">TEM media Lecaps</div><div class="kpi-value kpi-tir-val" id="k-tem">—</div><div class="kpi-sub">mensual efectiva</div></div>
   </div>
 
+  </div><!-- /kpi-header-wrap -->
+
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('curvas',this)">Curvas</button>
-    <button class="tab" onclick="switchTab('calculadora',this)">Calculadora</button>
-    <button class="tab" onclick="switchTab('graficador',this)">Graficador</button>
-    <button class="tab" onclick="switchTab('harddollar',this)">Hard Dollar</button>
-    <button class="tab" onclick="switchTab('capitalizables',this)">Capitalizables</button>
-    <button class="tab" onclick="switchTab('duales',this)">Duales $</button>
-    <button class="tab" onclick="switchTab('pesos',this)">Tasa fija $</button>
-    <button class="tab" onclick="switchTab('ons',this)">ONs</button>
-    <button class="tab" onclick="switchTab('pnl',this)">PnL</button>
+    <button class="tab tab-curvas active" onclick="switchTab('curvas',this)">Curvas</button>
+    <button class="tab tab-tool" onclick="switchTab('calculadora',this)">Calculadora</button>
+    <button class="tab tab-tool" onclick="switchTab('pnl',this)">PnL</button>
+    <button class="tab tab-tool" onclick="switchTab('graficador',this)">Graficador</button>
+    <button class="tab tab-data" onclick="switchTab('harddollar',this)">Hard Dollar</button>
+    <button class="tab tab-data" onclick="switchTab('capitalizables',this)">Capitalizables</button>
+    <button class="tab tab-data" onclick="switchTab('duales',this)">Duales $</button>
+    <button class="tab tab-data" onclick="switchTab('pesos',this)">Tasa fija $</button>
+    <button class="tab tab-data" onclick="switchTab('ons',this)">ONs</button>
   </div>
 
   <div class="panel" id="panel-calculadora">
@@ -815,19 +862,24 @@
           </div>
         </div>
 
-        <!-- Compra block -->
+        <!-- Compra block (editable) -->
         <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
-          <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:10px;">COMPRA (HOY)</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">COMPRA</div>
+            <button class="period-btn" id="pnl-reset-market" onclick="pnlResetMarketPrice()" style="font-size:10px;padding:3px 8px;">Precio mercado</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div>
-              <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">Precio</div>
-              <div id="pnl-compra-precio" style="font-size:16px;font-weight:700;color:var(--accent);">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Precio</div>
+              <input id="pnl-compra-precio" type="number" step="0.01" min="0" oninput="pnlPriceEdited()"
+                style="width:100%;font-size:16px;font-weight:700;color:var(--accent);background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:4px 8px;">
             </div>
             <div>
-              <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">TIR</div>
-              <div id="pnl-compra-tir" style="font-size:16px;font-weight:700;color:var(--accent);">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">TIR</div>
+              <div id="pnl-compra-tir" style="font-size:16px;font-weight:700;color:var(--accent);padding:5px 0;">—</div>
             </div>
           </div>
+          <div id="pnl-compra-hint" style="font-size:9px;color:var(--muted);margin-top:6px;font-style:italic;display:none;">Precio editado manualmente</div>
         </div>
 
       </div>
@@ -843,13 +895,15 @@
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <button class="period-btn" onclick="stepPnlSlider(-1)">◀</button>
-            <input id="pnl-slider" type="range" min="-500" max="500" step="5" value="0"
+            <input id="pnl-slider" type="range" min="-1000" max="1000" step="5" value="0"
               oninput="pnlSliderMoved(this.value)"
               style="flex:1;accent-color:var(--accent);cursor:pointer;">
             <button class="period-btn" onclick="stepPnlSlider(1)">▶</button>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;">
-            <span>−5.00%</span><span>0 (actual)</span><span>+5.00%</span>
+            <span>−10.00pp</span>
+            <span id="pnl-center-label" onclick="pnlResetSlider()" style="cursor:pointer;color:var(--accent);font-weight:700;border-bottom:1px dashed var(--accent);padding-bottom:1px;" title="Click para resetear al precio de compra">0 (compra)</span>
+            <span>+10.00pp</span>
           </div>
           <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;">
             <span id="pnl-delta-tir" style="font-weight:700;">Δ 0.00pp</span> vs TIR actual
@@ -4141,7 +4195,7 @@ function renderONsTable() {
     const cuponStr = o.cupon ? (o.cupon*100).toFixed(3)+'%' : '—';
     const parClass = o.paridad < 1 ? 'neg' : 'pos';
     const pagaBadge = o.mep_cable === 'CABLE'
-      ? '<span style="background:rgba(45,212,191,.15);color:#2dd4bf;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.04em;">CABLE</span>'
+      ? '<span style="background:rgba(248,113,113,.15);color:#f87171;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.04em;">CABLE</span>'
       : '<span style="background:rgba(79,142,247,.15);color:var(--accent);font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.04em;">MEP</span>';
     const ratingColor = ratingToColor(o.rating);
     const ratingSpan = `<span style="color:${ratingColor};font-weight:700;font-size:12px;">${o.rating || '—'}</span>`;
@@ -4472,6 +4526,21 @@ function buildCharts() {
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════
 
+// Collapse/expand header KPIs (Riesgo País, TCs, Tasas promedio)
+let kpisCollapsed = false;
+function toggleKpis() {
+  kpisCollapsed = !kpisCollapsed;
+  const wrap = document.getElementById('kpi-header-wrap');
+  const icon = document.getElementById('kpi-toggle-icon');
+  const label = document.getElementById('kpi-toggle-label');
+  if (wrap)  wrap.style.display = kpisCollapsed ? 'none' : '';
+  if (icon)  icon.textContent   = kpisCollapsed ? '▼' : '▲';
+  if (label) label.textContent  = kpisCollapsed ? 'Mostrar header' : 'Ocultar header';
+  setTimeout(() => {
+    if (typeof maybeRebuildCharts === 'function') maybeRebuildCharts();
+  }, 100);
+}
+
 function switchTab(id, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -4605,10 +4674,13 @@ setInterval(() => { if (STATE.lastFetch) fetchAll(); }, 5 * 60 * 1000);
 // ═══════════════════════════════════════════════════════════════
 const pnlState = {
   ticker: null,
-  precioCompra: null,
-  tirCompra: null,
-  def: null,              // BOND_DEFS or ON_DEFS entry
-  inputMode: 'vn',        // 'vn' | 'usd'
+  precioCompra: null,     // user-editable purchase price
+  tirCompra: null,        // derived TIR at precioCompra
+  precioMarket: null,     // live market reference
+  tirMarket: null,
+  priceEdited: false,
+  def: null,
+  inputMode: 'vn',
   vn: 10000,
   usd: null,
 };
@@ -4662,20 +4734,29 @@ function pnlSelect(ticker) {
            || null;
   pnlState.def = def;
 
-  // Get live price + current TIR
+  // Get live market reference
   const allBonds = [...(STATE.bonares||[]), ...(STATE.globales||[]), ...(STATE.bopreales||[]), ...(STATE.pesos||[]), ...(STATE.ons||[])];
   const liveB = allBonds.find(b => b.ticker === ticker);
 
   if (liveB && liveB.precio && liveB.tir) {
-    pnlState.precioCompra = liveB.precio;
-    pnlState.tirCompra    = liveB.tir;
+    pnlState.precioMarket = liveB.precio;
+    pnlState.tirMarket    = liveB.tir;
   } else if (def) {
-    pnlState.precioCompra = def.vr;
-    pnlState.tirCompra    = 0.08;
+    pnlState.precioMarket = def.vr;
+    pnlState.tirMarket    = 0.08;
   } else {
-    pnlState.precioCompra = 100;
-    pnlState.tirCompra    = 0.08;
+    pnlState.precioMarket = 100;
+    pnlState.tirMarket    = 0.08;
   }
+  pnlState.precioCompra = pnlState.precioMarket;
+  pnlState.tirCompra    = pnlState.tirMarket;
+  pnlState.priceEdited  = false;
+
+  // Sync price input
+  const priceInput = document.getElementById('pnl-compra-precio');
+  if (priceInput) priceInput.value = pnlState.precioCompra.toFixed(4);
+  const hint = document.getElementById('pnl-compra-hint');
+  if (hint) hint.style.display = 'none';
 
   // UI
   document.getElementById('pnl-search').value = '';
@@ -4689,17 +4770,66 @@ function pnlSelect(ticker) {
     pill.style.display = 'flex';
   }
 
-  // Reset slider to 0 (= current TIR)
   document.getElementById('pnl-slider').value = 0;
   pnlRecalc();
 }
 
 function pnlClear() {
-  pnlState.ticker = null; pnlState.def = null; pnlState.precioCompra = null; pnlState.tirCompra = null;
+  pnlState.ticker = null; pnlState.def = null;
+  pnlState.precioCompra = null; pnlState.tirCompra = null;
+  pnlState.precioMarket = null; pnlState.tirMarket = null;
+  pnlState.priceEdited = false;
   const pill = document.getElementById('pnl-selected-pill');
   if (pill) pill.style.display = 'none';
   const sel = document.getElementById('pnl-select-native');
   if (sel) sel.value = '';
+  document.getElementById('pnl-slider').value = 0;
+  const priceInput = document.getElementById('pnl-compra-precio');
+  if (priceInput) priceInput.value = '';
+  const hint = document.getElementById('pnl-compra-hint');
+  if (hint) hint.style.display = 'none';
+  pnlRecalc();
+}
+
+// User edits purchase price → recompute TIR
+function pnlPriceEdited() {
+  if (!pnlState.def) return;
+  const priceInput = document.getElementById('pnl-compra-precio');
+  const newPrice = parseFloat(priceInput.value);
+  if (!isFinite(newPrice) || newPrice <= 0) return;
+  pnlState.precioCompra = newPrice;
+  pnlState.priceEdited = (pnlState.precioMarket != null && Math.abs(newPrice - pnlState.precioMarket) > 0.001);
+
+  if (typeof futureCFs === 'function' && typeof calcTIRFromFlows === 'function') {
+    const flows = futureCFs(pnlState.def, (typeof LIQ !== 'undefined' && LIQ) ? LIQ : new Date());
+    if (flows.length) {
+      const tir = calcTIRFromFlows(flows, newPrice);
+      if (isFinite(tir) && tir > -0.99) pnlState.tirCompra = tir;
+    }
+  }
+
+  const hint = document.getElementById('pnl-compra-hint');
+  if (hint) hint.style.display = pnlState.priceEdited ? 'block' : 'none';
+
+  pnlRecalc();
+}
+
+// Reset to market price
+function pnlResetMarketPrice() {
+  if (!pnlState.ticker || pnlState.precioMarket == null) return;
+  pnlState.precioCompra = pnlState.precioMarket;
+  pnlState.tirCompra    = pnlState.tirMarket;
+  pnlState.priceEdited  = false;
+  const priceInput = document.getElementById('pnl-compra-precio');
+  if (priceInput) priceInput.value = pnlState.precioCompra.toFixed(4);
+  const hint = document.getElementById('pnl-compra-hint');
+  if (hint) hint.style.display = 'none';
+  document.getElementById('pnl-slider').value = 0;
+  pnlRecalc();
+}
+
+// Reset slider to 0 (= compra point)
+function pnlResetSlider() {
   document.getElementById('pnl-slider').value = 0;
   pnlRecalc();
 }
@@ -4797,7 +4927,12 @@ function pnlRecalc() {
   const deltaPx   = targetPrecio != null ? (targetPrecio - precioCompra) : null;
 
   // Render
-  if (outPrecio)      outPrecio.textContent    = precioCompra ? precioCompra.toFixed(2) : '—';
+  // Update price input (skip if user currently editing — priceEdited flag)
+  if (outPrecio) {
+    if (document.activeElement !== outPrecio) {
+      outPrecio.value = precioCompra ? precioCompra.toFixed(4) : '';
+    }
+  }
   if (outTirCompra)   outTirCompra.textContent = tirCompra != null ? (tirCompra*100).toFixed(2)+'%' : '—';
   if (outTargetTir)   outTargetTir.textContent = (targetTir*100).toFixed(2)+'%';
   if (outTargetPrecio) outTargetPrecio.textContent = targetPrecio != null ? targetPrecio.toFixed(2) : '—';
