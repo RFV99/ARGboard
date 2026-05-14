@@ -791,7 +791,7 @@
         <button class="period-btn"        id="dual-proj-rem"  onclick="setDualProj('REM',this)">REM</button>
         <button class="period-btn active" id="dual-proj-suav" onclick="setDualProj('SUAV',this)">Suavizado</button>
       </div>
-      <span id="dual-rem-label" style="font-size:9px;color:var(--muted);font-style:italic;display:none;">REM mar-26</span>
+      <span id="dual-rem-label" style="font-size:9px;color:var(--muted);font-style:italic;display:none;">REM cargando…</span>
       <div id="dual-suav-controls" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:11px;color:var(--muted);">TNA Dic-26:</span>
         <button class="period-btn" onclick="stepSuav(-1)">◀</button>
@@ -6131,20 +6131,9 @@ const DUAL_DEFS = [
   { ticker:'TTD26', nombre:'Dual Dic-26', emision:new Date(2025,0,29), vto:new Date(2026,11,15), temEmision:0.0214 },
 ];
 
-// REM hardcodeado como fallback — se actualiza con fetch dinámico en initDuales
-const DUAL_REM_FALLBACK = [
-  { ym:'2026-04', tna:0.2680 },
-  { ym:'2026-05', tna:0.2600 },
-  { ym:'2026-06', tna:0.2575 },
-  { ym:'2026-07', tna:0.2590 },
-  { ym:'2026-08', tna:0.2506 },
-  { ym:'2026-09', tna:0.2494 },
-  { ym:'2026-10', tna:0.2340 },
-  { ym:'2026-11', tna:0.2340 },
-  { ym:'2026-12', tna:0.2340 },
-];
-// DUAL_REM empieza con el fallback y se reemplaza al cargar
-let DUAL_REM = DUAL_REM_FALLBACK.slice();
+// REM dinámico — se carga desde API en initDuales. Si no hay datos, queda vacío.
+let DUAL_REM = [];
+let DUAL_REM_INFORME = null; // ej: "2026-04" — para mostrar en el label
 
 const BCRA_TAMAR_ID = 44; // "Tasa de interes TAMAR de bancos privados" TNA %na
 
@@ -6204,6 +6193,8 @@ function tnaToTem(tna) {
 function getProjTEM(d) {
   const hist = DUAL_STATE.tamarSeries;
   if (DUAL_STATE.projMode === 'REM') {
+    // Si DUAL_REM está vacío (no se cargó el REM dinámico), no se puede proyectar por REM
+    if (!DUAL_REM.length) return null;
     const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const row = DUAL_REM.find(r => r.ym === mo);
     const tna = row ? row.tna : DUAL_REM[DUAL_REM.length-1].tna;
@@ -6504,83 +6495,90 @@ window.openBondModal = function(ticker) {
 };
 
 // Fetch REM dinámico desde argentinadatos.com
-// /v1/rems/ultimo devuelve el último informe publicado (actualmente 2026-04).
-// Busca el indicador de tasa de política monetaria mensual para proyectar TAMAR.
+// /v1/rems/ultimo devuelve el último informe publicado.
+// Devuelve { informe: "YYYY-MM", serie: [{ym, tna}] }
 async function fetchREMDinamico() {
   const BASE = 'https://api.argentinadatos.com';
 
-  // /v1/rems/ultimo devuelve directamente el último informe con todos sus indicadores.
-  // Si por alguna razón no tuviera el más reciente, usamos el índice como backup.
-  let data;
+  // 1) Obtener índice de informes y elegir el más nuevo
+  //    Esto garantiza que traemos el más reciente disponible (ej: 2026-04 ya publicado).
+  //    /v1/rems/ultimo a veces queda cacheado en versiones anteriores; el índice es más confiable.
+  let latestPath, data;
   try {
-    const r = await fetch(BASE + '/v1/rems/ultimo', {signal: AbortSignal.timeout(10000)});
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    data = await r.json();
-    if (!Array.isArray(data) || !data.length) throw new Error('vacío');
-  } catch(e1) {
-    // Backup: índice → último path → fetch específico
-    const idxRes = await fetch(BASE + '/v1/rems', {signal: AbortSignal.timeout(10000)});
-    if (!idxRes.ok) throw new Error('REM índice HTTP ' + idxRes.status);
+    const idxRes = await fetch(BASE + '/v1/rems', {signal: AbortSignal.timeout(10000), cache:'no-store'});
+    if (!idxRes.ok) throw new Error('índice HTTP ' + idxRes.status);
     const idxArr = await idxRes.json();
+    if (!Array.isArray(idxArr) || !idxArr.length) throw new Error('índice vacío');
+    // Ordenar por YYYY/MM — el último elemento es el informe más reciente
     const sorted = [...idxArr].sort();
-    const latestPath = sorted[sorted.length - 1];
-    console.log('[REM] Usando índice, último path:', latestPath);
-    const detRes = await fetch(BASE + '/v1' + latestPath, {signal: AbortSignal.timeout(10000)});
-    if (!detRes.ok) throw new Error('REM detalle HTTP ' + detRes.status);
+    latestPath = sorted[sorted.length - 1]; // ej: "/rems/2026/04"
+    console.log('[REM] Índice completo, último:', latestPath);
+    const detRes = await fetch(BASE + '/v1' + latestPath, {signal: AbortSignal.timeout(10000), cache:'no-store'});
+    if (!detRes.ok) throw new Error('detalle HTTP ' + detRes.status);
     data = await detRes.json();
-    if (!Array.isArray(data) || !data.length) throw new Error('REM detalle vacío');
+    if (!Array.isArray(data) || !data.length) throw new Error('detalle vacío');
+  } catch(eIdx) {
+    // Fallback: /ultimo directo
+    console.warn('[REM] Índice falló (' + eIdx.message + '), usando /ultimo');
+    const r = await fetch(BASE + '/v1/rems/ultimo', {signal: AbortSignal.timeout(10000), cache:'no-store'});
+    if (!r.ok) throw new Error('/ultimo HTTP ' + r.status);
+    data = await r.json();
+    if (!Array.isArray(data) || !data.length) throw new Error('/ultimo vacío');
   }
 
-  // Loguear el informe y los indicadores disponibles para debugging
-  const informe = data[0]?.informe || '?';
-  console.log('[REM] Informe:', informe, '| filas:', data.length);
-  const indicadores = [...new Set(data.map(r=>r.indicador))];
-  console.log('[REM] Indicadores:', indicadores);
+  // Extraer el informe ("YYYY-MM") del primer registro
+  const informe = data[0]?.informe || (latestPath ? latestPath.replace('/rems/','').replace('/','-') : '?');
+  console.log('[REM] Informe cargado:', informe, '| filas:', data.length);
 
-  // Filtrar solo filas mensuales (periodoTipo === 'mensual') con periodo en formato YYYY-MM
-  // El indicador de tasa de política monetaria tiene periodoTipo='mensual' y periodo='YYYY-MM'
-  const mensualRows = data.filter(r => r.periodoTipo === 'mensual' || (r.periodo && /^\d{4}-\d{2}$/.test(r.periodo)));
+  // Diagnóstico: mostrar todos los indicadores únicos disponibles
+  const allIndicadores = [...new Set(data.map(r => r.indicador))];
+  console.log('[REM] Indicadores disponibles:', allIndicadores);
 
-  // Buscar indicador de tasa relevante para TAMAR/política monetaria
-  const TPM_KEYWORDS = ['tasa de política', 'política monetaria', 'tpm', 'tasa de interés de política',
-                        'tasa de referencia', 'tasa badlar', 'badlar', 'tamar'];
-  
-  // Primero buscar en filas mensuales
-  let candidatos = mensualRows.filter(row => {
-    const ind = (row.indicador || '').toLowerCase();
-    return TPM_KEYWORDS.some(kw => ind.includes(kw));
+  // Filtrar por tipo de periodo mensual (los anuales no nos sirven para proyectar tasa)
+  const mensualRows = data.filter(r => {
+    const pt = (r.periodoTipo || '').toLowerCase();
+    const pd = r.periodo || '';
+    return pt === 'mensual' || /^\d{4}-\d{2}$/.test(pd);
   });
+  console.log('[REM] Filas mensuales:', mensualRows.length, '| Indicadores mensuales:', 
+    [...new Set(mensualRows.map(r => r.indicador))]);
 
-  // Si no hay en mensuales, buscar en toda la data
-  if (!candidatos.length) {
-    candidatos = data.filter(row => {
+  // Buscar indicador de tasa: TAMAR > Política monetaria > BADLAR > "tasa" genérica
+  const KW_LISTS = [
+    ['tamar'],
+    ['tasa de política', 'política monetaria', 'tpm', 'tasa de referencia', 'tasa de interés de política'],
+    ['badlar'],
+    ['tasa']  // último recurso
+  ];
+  let candidatos = [];
+  for (const kws of KW_LISTS) {
+    candidatos = mensualRows.filter(row => {
       const ind = (row.indicador || '').toLowerCase();
-      return TPM_KEYWORDS.some(kw => ind.includes(kw));
+      return kws.some(kw => ind.includes(kw));
     });
+    if (candidatos.length) {
+      console.log('[REM] Candidatos encontrados con keywords:', kws, '→', 
+        [...new Set(candidatos.map(r => r.indicador))]);
+      break;
+    }
   }
 
   if (!candidatos.length) {
-    // Loguear y fallar con info útil
-    console.warn('[REM] No se encontró indicador de tasa. Mensuales disponibles:', 
-      [...new Set(mensualRows.map(r=>r.indicador))]);
-    throw new Error('Indicador de tasa no encontrado en REM ' + informe);
+    throw new Error('No se encontró indicador de tasa en REM ' + informe + 
+      '. Mensuales: ' + [...new Set(mensualRows.map(r => r.indicador))].join(', '));
   }
 
-  // Preferir el de política monetaria sobre BADLAR/TAMAR genérico
-  const preferred = candidatos.find(r => {
-    const ind = (r.indicador||'').toLowerCase();
-    return ind.includes('política') || ind.includes('tpm') || ind.includes('referencia');
-  }) || candidatos[0];
+  // De entre los candidatos, preferir el más específico (tamar > política > badlar)
+  const preferred = candidatos[0];
+  const indicadorUsado = preferred.indicador;
+  console.log('[REM] Indicador usado:', indicadorUsado);
 
-  console.log('[REM] Indicador usado:', preferred.indicador, '| periodoTipo:', preferred.periodoTipo);
-
-  // Construir serie mensual: todas las filas del mismo indicador con periodo YYYY-MM
-  const sameIndicador = data.filter(r => r.indicador === preferred.indicador);
+  // Construir serie mensual: todas las filas del mismo indicador
+  const sameIndicador = data.filter(r => r.indicador === indicadorUsado);
   const remSerie = [];
 
   for (const row of sameIndicador) {
-    // El campo periodo puede ser "2026-05" o "2026-05-01"
-    const periodo = row.periodo || row.periodoDesde || '';
+    const periodo = row.periodo || '';
     const ymMatch = periodo.match(/^(\d{4})-(\d{2})/);
     if (!ymMatch) continue;
     const ym = ymMatch[1] + '-' + ymMatch[2];
@@ -6588,40 +6586,28 @@ async function fetchREMDinamico() {
     const mediana = row.mediana;
     if (mediana == null || !isFinite(mediana)) continue;
 
-    // Convertir a TNA decimal: el REM expresa la tasa en % (ej: 28.5 → 0.285)
-    const unidad = (row.unidad || '').toLowerCase();
-    const tna = (unidad.includes('%') || mediana > 1) ? mediana / 100 : mediana;
-    if (tna <= 0 || tna > 2) continue; // sanity: 0–200% TNA
+    // REM expresa la tasa en % anual (ej: 28.5 → 0.285 TNA)
+    const tna = mediana > 1 ? mediana / 100 : mediana;
+    if (tna <= 0 || tna > 2) continue;
 
     remSerie.push({ ym, tna });
   }
 
   if (!remSerie.length) {
-    console.warn('[REM] Sin períodos mensuales para:', preferred.indicador, 
-      '| Filas totales del indicador:', sameIndicador.length,
-      '| periodos:', sameIndicador.map(r=>r.periodo));
-    throw new Error('Sin períodos válidos en REM ' + informe + ' para ' + preferred.indicador);
+    throw new Error('Sin períodos mensuales en REM ' + informe + ' para ' + indicadorUsado);
   }
 
   remSerie.sort((a, b) => a.ym.localeCompare(b.ym));
-  console.log('[REM] Serie:', remSerie.length, 'períodos:', remSerie[0]?.ym, '→', remSerie[remSerie.length-1]?.ym,
-    '| TNA rango:', (remSerie[0]?.tna*100).toFixed(1)+'%', '–', (remSerie[remSerie.length-1]?.tna*100).toFixed(1)+'%');
-  return remSerie;
+  console.log('[REM]', remSerie.length, 'períodos:', remSerie[0]?.ym, '→', remSerie[remSerie.length-1]?.ym,
+    '| TNA:', (remSerie[0]?.tna*100).toFixed(1)+'%', '–', (remSerie[remSerie.length-1]?.tna*100).toFixed(1)+'%');
+
+  return { informe, serie: remSerie, indicador: indicadorUsado };
 }
 
-// Merges datos REM dinámicos con el fallback: el REM dinámico tiene precedencia para períodos que cubre
-function mergeREMData(dinamico) {
-  // Empezar con el fallback y sobreescribir con dinámico donde haya dato
-  const map = {};
-  for (const row of DUAL_REM_FALLBACK) map[row.ym] = row.tna;
-  for (const row of dinamico) {
-    if (row.tna > 0 && row.tna < 2) { // sanity check
-      map[row.ym] = row.tna;
-    }
-  }
-  // Reconstruir array ordenado con todos los meses necesarios
-  return Object.entries(map)
-    .map(([ym, tna]) => ({ ym, tna }))
+// Sanitiza los datos REM dinámicos (sin merge con fallback ya que no hay)
+function sanitizeREMData(dinamico) {
+  return dinamico
+    .filter(row => row.tna > 0 && row.tna < 2)
     .sort((a, b) => a.ym.localeCompare(b.ym));
 }
 async function fetchTAMAR() {
@@ -6784,25 +6770,43 @@ async function initDuales() {
   await fetchDualPrices();
   renderDualesTable();
 
-  // ── (2) Fetch REM dinámico ──
+  // ── (2) Fetch REM dinámico (sin fallback hardcodeado) ──
+  const remLabel = document.getElementById('dual-rem-label');
+  const remBtn = document.getElementById('dual-proj-rem');
   try {
-    const remDinamico = await fetchREMDinamico();
-    DUAL_REM = mergeREMData(remDinamico);
-    // Actualizar el label del botón REM con el informe más reciente
-    const remLabel = document.getElementById('dual-rem-label');
+    const { informe, serie } = await fetchREMDinamico();
+    DUAL_REM = sanitizeREMData(serie);
+    DUAL_REM_INFORME = informe;
     if (remLabel) {
-      // El informe suele ser "AAAA-MM" — mostrarlo como "REM mmm-AA"
-      const lastPeriodo = DUAL_REM[DUAL_REM.length - 1];
-      if (lastPeriodo) {
-        const [y, m] = lastPeriodo.ym.split('-');
-        const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-        remLabel.textContent = `REM ${monthNames[parseInt(m,10)-1]}-${y.slice(2)} (din.)`;
-      }
+      // Mostrar informe como "REM mmm-AA"
+      const [y, m] = informe.split('-');
+      const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      remLabel.textContent = `REM ${monthNames[parseInt(m,10)-1]}-${y.slice(2)}`;
+      remLabel.style.color = 'var(--green)';
+      remLabel.style.fontStyle = 'normal';
     }
-    console.log('[REM] Datos actualizados dinámicamente:', DUAL_REM.length, 'períodos');
+    if (remBtn) remBtn.disabled = false;
+    console.log('[REM] ✓ Informe ' + informe + ':', DUAL_REM.length, 'meses cargados');
   } catch(e) {
-    console.warn('[REM] Usando fallback hardcodeado:', e.message);
-    DUAL_REM = DUAL_REM_FALLBACK.slice();
+    console.error('[REM] ✗ No se pudo cargar REM dinámico:', e.message);
+    DUAL_REM = [];
+    DUAL_REM_INFORME = null;
+    if (remLabel) {
+      remLabel.textContent = '⚠ REM no disponible';
+      remLabel.style.color = 'var(--red)';
+      remLabel.style.fontStyle = 'italic';
+      remLabel.style.display = 'inline';
+    }
+    // Si no hay REM, forzar modo Suavizado
+    if (DUAL_STATE.projMode === 'REM') {
+      DUAL_STATE.projMode = 'SUAV';
+      document.querySelector('#dual-proj-rem')?.classList.remove('active');
+      document.querySelector('#dual-proj-suav')?.classList.add('active');
+      document.querySelector('#tamar-proj-rem')?.classList.remove('active');
+      document.querySelector('#tamar-proj-suav')?.classList.add('active');
+      const sc = document.getElementById('dual-suav-controls');
+      if (sc) sc.style.display = 'flex';
+    }
   }
 
   setStatus('Cargando TAMAR desde BCRA…');
@@ -7174,43 +7178,81 @@ let CER_STATE = {
 let _cerInited = false;
 
 // ─── Fetch CER histórico ─────────────────────────────────────
-// La API BCRA v4 devuelve 400 para variable 30 (CER).
-// Usamos estadisticasbcra.com/cer que es pública y devuelve [{d:"YYYY-MM-DD",v:number}]
+// Variable 30 en BCRA v4.0 Monetarias: "Coeficiente de estabilización de referencia (base 2.2.02=1)"
+// La API tiene un límite de 3000 registros por request; para traer 7+ años de datos diarios,
+// hacemos múltiples requests en chunks por año.
 async function fetchCERSeries() {
-  // Fuente primaria: estadisticasbcra.com (CORS permitido, sin auth)
-  try {
-    const r = await fetch('https://estadisticasbcra.com/api/v1/cer', {signal: AbortSignal.timeout(12000)});
-    if (!r.ok) throw new Error('estadisticasbcra HTTP ' + r.status);
-    const raw = await r.json();
-    if (!Array.isArray(raw) || !raw.length) throw new Error('estadisticasbcra vacío');
-    const series = raw
-      .filter(d => d.d && d.v > 0)
-      .map(d => ({ fecha: new Date(d.d + 'T00:00:00'), valor: d.v }))
-      .sort((a, b) => a.fecha - b.fecha);
-    console.log('[CER] estadisticasbcra: ' + series.length + ' obs. Último: ' + series[series.length-1]?.fecha.toLocaleDateString('es-AR') + ' = ' + series[series.length-1]?.valor.toFixed(4));
-    return series;
-  } catch(e1) {
-    console.warn('[CER] estadisticasbcra falló:', e1.message, '— intentando BCRA v3...');
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+
+  // Chunks anuales (la API a veces rechaza rangos largos para variables de alta frecuencia)
+  const chunks = [
+    ['2019-01-01', '2020-12-31'],
+    ['2021-01-01', '2022-12-31'],
+    ['2023-01-01', '2024-12-31'],
+    ['2025-01-01', todayStr],
+  ];
+
+  const allSeries = [];
+  let httpErrors = [];
+
+  for (const [desde, hasta] of chunks) {
+    // Probar primero la variante con minúscula (igual que TAMAR), luego con mayúscula
+    const urls = [
+      `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/30?desde=${desde}&hasta=${hasta}&limit=3000`,
+      `https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias/30?desde=${desde}&hasta=${hasta}&limit=3000`,
+    ];
+    let chunkData = null;
+    for (const url of urls) {
+      try {
+        const r = await fetch(url, {signal: AbortSignal.timeout(15000)});
+        if (!r.ok) {
+          httpErrors.push(`${desde}: HTTP ${r.status}`);
+          continue;
+        }
+        const j = await r.json();
+        if (j.status !== 200 && j.status != null) {
+          httpErrors.push(`${desde}: status ${j.status}`);
+          continue;
+        }
+        const det = j.results?.[0]?.detalle || j.results || [];
+        if (Array.isArray(det) && det.length) {
+          chunkData = det;
+          break;
+        }
+      } catch(e) {
+        httpErrors.push(`${desde}: ${e.message}`);
+      }
+    }
+    if (chunkData) {
+      for (const d of chunkData) {
+        if (d.fecha && d.valor > 0) {
+          allSeries.push({ fecha: new Date(d.fecha + 'T00:00:00'), valor: d.valor });
+        }
+      }
+    }
   }
-  // Fallback: BCRA v3.0 monetarias
-  try {
-    const today = new Date().toISOString().slice(0,10);
-    const url = `https://api.bcra.gob.ar/estadisticas/v3.0/monetarias/30?desde=2019-01-01&hasta=${today}&limit=5000`;
-    const r2 = await fetch(url, {signal: AbortSignal.timeout(12000)});
-    if (!r2.ok) throw new Error('BCRA v3 HTTP ' + r2.status);
-    const j2 = await r2.json();
-    const det = j2.results?.[0]?.detalle || j2.results || [];
-    if (!det.length) throw new Error('BCRA v3 sin detalle');
-    const series2 = det
-      .filter(d => d.fecha && d.valor > 0)
-      .map(d => ({ fecha: new Date(d.fecha + 'T00:00:00'), valor: d.valor }))
-      .sort((a, b) => a.fecha - b.fecha);
-    console.log('[CER] BCRA v3:', series2.length, 'obs.');
-    return series2;
-  } catch(e2) {
-    console.warn('[CER] BCRA v3 falló:', e2.message);
-    throw new Error('No se pudo obtener CER: ' + e2.message);
+
+  if (!allSeries.length) {
+    throw new Error('BCRA CER (var 30) sin datos. Errores: ' + httpErrors.slice(0,3).join('; '));
   }
+
+  // Ordenar cronológicamente y deduplicar por fecha
+  allSeries.sort((a, b) => a.fecha - b.fecha);
+  const dedup = [];
+  let lastDate = null;
+  for (const pt of allSeries) {
+    const ds = pt.fecha.toISOString().slice(0,10);
+    if (ds !== lastDate) {
+      dedup.push(pt);
+      lastDate = ds;
+    }
+  }
+
+  console.log('[CER] BCRA v4 cargado:', dedup.length, 'obs. Último:',
+    dedup[dedup.length-1]?.fecha.toLocaleDateString('es-AR'), '=', dedup[dedup.length-1]?.valor.toFixed(4));
+  if (httpErrors.length) console.warn('[CER] Errores parciales:', httpErrors);
+  return dedup;
 }
 
 // Obtener el CER en una fecha dada (interpolación: último dato ≤ fecha)
@@ -7325,21 +7367,40 @@ function calcCERMetrics(def, precioDirtyARS, liqDate, cerLiqVal, cerProjFn) {
 
 // ─── Fetch precios CER desde data912 ────────────────────────────
 async function fetchCERPrices() {
-  try {
-    // Los CER cotizan como ARS en data912 bajo el endpoint de bonds (pesos)
-    const r = await fetch(PROXY_URL + '/api/bonds');
-    if (!r.ok) return;
-    const arr = await r.json();
-    const data = Array.isArray(arr) ? arr : (arr.data || []);
-    const map = priceMap(data);
-    for (const ticker of Object.keys(CER_DEFS)) {
-      const item = map[ticker.toUpperCase()];
-      if (item) {
-        const p = parseFloat(item.c || item.px_bid || item.px_ask || 0);
-        if (p > 0) CER_STATE.prices[ticker] = p;
+  // Probar varios endpoints: /api/bonds (donde están BONCERs, BONTEs y otros pesos),
+  // /api/lecaps (LECAPs/BONCAPs/LECERs) y /api/notes (notas) por si acaso
+  const endpoints = ['/api/bonds', '/api/lecaps', '/api/notes'];
+  const combinedMap = {};
+  for (const ep of endpoints) {
+    try {
+      const r = await fetch(PROXY_URL + ep);
+      if (!r.ok) {
+        console.warn('[CER] fetch ' + ep + ' HTTP ' + r.status);
+        continue;
       }
+      const arr = await r.json();
+      const data = Array.isArray(arr) ? arr : (arr.data || []);
+      const map = priceMap(data);
+      Object.assign(combinedMap, map);
+    } catch(e) {
+      console.warn('[CER] fetch ' + ep + ' error:', e.message);
     }
-  } catch(e) { console.warn('[CER] fetchCERPrices:', e); }
+  }
+
+  let found = 0;
+  const missing = [];
+  for (const ticker of Object.keys(CER_DEFS)) {
+    const item = combinedMap[ticker.toUpperCase()];
+    if (item) {
+      const p = parseFloat(item.c || item.px_bid || item.px_ask || 0);
+      if (p > 0) { CER_STATE.prices[ticker] = p; found++; }
+      else missing.push(ticker);
+    } else {
+      missing.push(ticker);
+    }
+  }
+  console.log('[CER] Precios cargados:', found, '/', Object.keys(CER_DEFS).length,
+    found === 0 ? '· Faltantes: ' + missing.join(', ') : '');
 }
 
 // ─── Render tabla CER ─────────────────────────────────────────
@@ -7374,35 +7435,47 @@ function renderCERTable() {
     return proyectarCER(liq, fecha, inflMensual);
   };
 
+  // Reunir: por cada bono, si hay precio mostrar fila (con métricas si hay CER, sin si no)
   const results = [];
+  const partialRows = []; // bonos con precio pero sin CER calculable
   for (const [ticker, def] of Object.entries(CER_DEFS)) {
-    if (new Date(def.vto) <= liq) continue; // vencido
+    if (new Date(def.vto) <= liq) continue;
     const precio = CER_STATE.prices[ticker];
     if (!precio) continue;
-    const r = calcCERMetrics(def, precio, liq, cerLiqVal, cerProjFn);
-    if (!r) continue;
-    results.push({ ticker, def, ...r });
+    if (cerLiqVal) {
+      const r = calcCERMetrics(def, precio, liq, cerLiqVal, cerProjFn);
+      if (r) { results.push({ ticker, def, ...r }); continue; }
+    }
+    // Sin CER (o cálculo falló): fila parcial con sólo precio + vto
+    partialRows.push({
+      ticker, def, precio,
+      vto: def.vto,
+      diasReales: Math.round((new Date(def.vto) - liq) / 86400000),
+      tirReal: null, macaulay: null, modified: null, vt: null, paridad: null, cerLiq: null
+    });
   }
   CER_STATE.computed = results;
 
   // Sort
   const sortKeys = [
     r => r.ticker, r => new Date(r.vto), r => r.diasReales,
-    r => r.precio, r => r.tirReal, r => r.macaulay,
-    r => r.modified, r => r.vt, r => r.paridad, r => r.cerLiq
+    r => r.precio, r => r.tirReal ?? -999, r => r.macaulay ?? -999,
+    r => r.modified ?? -999, r => r.vt ?? -999, r => r.paridad ?? -999, r => r.cerLiq ?? -999
   ];
   const sk = sortKeys[Math.min(_cerSortCol, sortKeys.length-1)];
-  results.sort((a, b) => _cerSortDir * ((sk(a) > sk(b) ? 1 : -1)));
+  const allRows = [...results, ...partialRows];
+  allRows.sort((a, b) => _cerSortDir * ((sk(a) > sk(b) ? 1 : -1)));
 
   const allTirs = results.map(r => r.tirReal).filter(v => isFinite(v));
   const fmt2 = v => (v != null && isFinite(v)) ? v.toFixed(2) : '—';
   const fmtP = (v, d=2) => (v != null && isFinite(v)) ? (v*100).toFixed(d)+'%' : '—';
   const liveDotCER = p => p ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:4px;vertical-align:middle;"></span>' : '';
 
-  const html = results.map(r => {
-    const tirHc = tirColor(r.tirReal, allTirs);
-    const parColor = r.paridad > 1 ? 'color:var(--red)' : r.paridad < 0.98 ? 'color:var(--green)' : '';
-    return `<tr style="cursor:pointer" onclick="openCERModal('${r.ticker}')">
+  const html = allRows.map(r => {
+    const tirHc = (r.tirReal != null) ? tirColor(r.tirReal, allTirs) : '';
+    const parColor = r.paridad == null ? '' : (r.paridad > 1 ? 'color:var(--red)' : r.paridad < 0.98 ? 'color:var(--green)' : '');
+    const clickHandler = r.tirReal != null ? `onclick="openCERModal('${r.ticker}')"` : '';
+    return `<tr style="cursor:${r.tirReal!=null?'pointer':'default'}" ${clickHandler}>
       <td><span class="ticker">${r.ticker}${liveDotCER(CER_STATE.prices[r.ticker])}</span>
           <span class="bond-name">${r.def.nombre}</span>
           <span class="tag ${r.def.tipo==='Discount'?'tag-lec':'tag-bon'}">${r.def.tipo==='Discount'?'LECER':'CER'}</span></td>
@@ -7418,7 +7491,12 @@ function renderCERTable() {
     </tr>`;
   }).join('');
 
-  tbody.innerHTML = html || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">Sin precios — actualizá datos</td></tr>';
+  const totalDefs = Object.values(CER_DEFS).filter(d => new Date(d.vto) > liq).length;
+  const totalConPrecio = Object.entries(CER_DEFS).filter(([t,d]) => new Date(d.vto) > liq && CER_STATE.prices[t]).length;
+  const emptyMsg = totalConPrecio === 0
+    ? `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">Sin precios para ningún CER (${totalDefs} instrumentos vigentes) — actualizá datos</td></tr>`
+    : '';
+  tbody.innerHTML = html || emptyMsg;
 }
 
 // ─── CER Chart histórico ──────────────────────────────────────
