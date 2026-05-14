@@ -906,7 +906,7 @@
               style="font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);">
           </div>
           <div id="pnl-usd-row" style="display:none;flex-direction:column;gap:6px;">
-            <label style="font-size:11px;color:var(--muted);">Monto invertido (USD)</label>
+            <label id="pnl-usd-label" style="font-size:11px;color:var(--muted);">Monto invertido (USD)</label>
             <input id="pnl-usd" type="number" min="0" step="100" placeholder="10000" oninput="pnlRecalc()"
               style="font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);">
           </div>
@@ -1008,7 +1008,7 @@
             <div id="pnl-upside" style="font-size:20px;font-weight:800;">—</div>
           </div>
           <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
-            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:4px;">PnL (USD)</div>
+            <div id="pnl-result-label" style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;margin-bottom:4px;">PnL (USD)</div>
             <div id="pnl-usd-result" style="font-size:20px;font-weight:800;">—</div>
           </div>
           <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
@@ -1030,11 +1030,11 @@
               <div id="pnl-pos-vn" style="font-size:15px;font-weight:700;">—</div>
             </div>
             <div>
-              <div style="font-size:10px;color:var(--muted);">Inversión (USD)</div>
+              <div id="pnl-pos-usd-label" style="font-size:10px;color:var(--muted);">Inversión (USD)</div>
               <div id="pnl-pos-usd" style="font-size:15px;font-weight:700;">—</div>
             </div>
             <div>
-              <div style="font-size:10px;color:var(--muted);">Valor objetivo (USD)</div>
+              <div id="pnl-pos-target-label" style="font-size:10px;color:var(--muted);">Valor objetivo (USD)</div>
               <div id="pnl-pos-target-usd" style="font-size:15px;font-weight:700;">—</div>
             </div>
             <div>
@@ -6561,26 +6561,32 @@ async function fetchREMDinamico() {
 
   // Construir serie mensual: todas las filas del mismo indicador
   const sameIndicador = data.filter(r => r.indicador === indicadorUsado);
+  console.log('[REM] Filas del mismo indicador:', sameIndicador.length);
   const remSerie = [];
+  const rejected = [];
 
   for (const row of sameIndicador) {
     const periodo = row.periodo || '';
     const ymMatch = periodo.match(/^(\d{4})-(\d{2})/);
-    if (!ymMatch) continue;
+    if (!ymMatch) { rejected.push({periodo, motivo:'sin YYYY-MM'}); continue; }
     const ym = ymMatch[1] + '-' + ymMatch[2];
 
-    const mediana = row.mediana;
-    if (mediana == null || !isFinite(mediana)) continue;
+    let mediana = row.mediana;
+    // Si viene como string, intentar parsear
+    if (typeof mediana === 'string') mediana = parseFloat(mediana.replace(',','.'));
+    if (mediana == null || !isFinite(mediana)) { rejected.push({periodo, motivo:'mediana NaN', val:row.mediana}); continue; }
 
     // REM expresa la tasa en % anual (ej: 28.5 → 0.285 TNA)
+    // Si mediana > 1, asumimos que está en %; si está entre 0 y 1, ya es decimal
     const tna = mediana > 1 ? mediana / 100 : mediana;
-    if (tna <= 0 || tna > 2) continue;
+    if (tna <= 0 || tna > 5) { rejected.push({periodo, motivo:'tna fuera de rango', tna}); continue; } // hasta 500% TNA
 
     remSerie.push({ ym, tna });
   }
+  if (rejected.length) console.warn('[REM] Filas rechazadas:', rejected.length, rejected.slice(0,5));
 
   if (!remSerie.length) {
-    throw new Error('Sin períodos mensuales en REM ' + informe + ' para ' + indicadorUsado);
+    throw new Error('Sin períodos mensuales en REM ' + informe + ' para ' + indicadorUsado + ' (' + sameIndicador.length + ' filas, todas rechazadas)');
   }
 
   remSerie.sort((a, b) => a.ym.localeCompare(b.ym));
@@ -6593,7 +6599,7 @@ async function fetchREMDinamico() {
 // Sanitiza los datos REM dinámicos (sin merge con fallback ya que no hay)
 function sanitizeREMData(dinamico) {
   return dinamico
-    .filter(row => row.tna > 0 && row.tna < 2)
+    .filter(row => row && typeof row.tna === 'number' && row.tna > 0 && row.tna < 5)
     .sort((a, b) => a.ym.localeCompare(b.ym));
 }
 async function fetchTAMAR() {
@@ -6759,22 +6765,50 @@ async function initDuales() {
   // ── (2) Fetch REM dinámico (sin fallback hardcodeado) ──
   const remLabel = document.getElementById('dual-rem-label');
   const remBtn = document.getElementById('dual-proj-rem');
+  console.log('[REM] === Iniciando carga ===');
+  let remOk = false;
   try {
-    const { informe, serie } = await fetchREMDinamico();
-    DUAL_REM = sanitizeREMData(serie);
+    const resp = await fetchREMDinamico();
+    console.log('[REM] fetchREMDinamico devolvió:', resp);
+    if (!resp || typeof resp !== 'object') {
+      throw new Error('respuesta inválida: ' + JSON.stringify(resp));
+    }
+    const { informe, serie } = resp;
+    if (!Array.isArray(serie) || !serie.length) {
+      throw new Error('serie inválida o vacía');
+    }
+    const sanitized = sanitizeREMData(serie);
+    if (!sanitized.length) {
+      throw new Error('todos los puntos REM rechazados por sanitización');
+    }
+    DUAL_REM = sanitized;
     DUAL_REM_INFORME = informe;
-    if (remLabel) {
-      // Mostrar informe como "REM mmm-AA"
-      const [y, m] = informe.split('-');
-      const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-      remLabel.textContent = `REM ${monthNames[parseInt(m,10)-1]}-${y.slice(2)}`;
-      remLabel.style.color = 'var(--green)';
-      remLabel.style.fontStyle = 'normal';
+    console.log('[REM] ✓ DUAL_REM seteado:', DUAL_REM.length, 'puntos. Informe:', informe);
+
+    // Actualizar UI label (success path)
+    if (remLabel && informe) {
+      try {
+        const parts = informe.split('-');
+        const y = parts[0], m = parts[1];
+        const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+        const mIdx = parseInt(m, 10) - 1;
+        const monthLabel = (mIdx >= 0 && mIdx < 12) ? monthNames[mIdx] : m;
+        remLabel.textContent = `REM ${monthLabel}-${y.slice(2)}`;
+        remLabel.style.color = 'var(--green)';
+        remLabel.style.fontStyle = 'normal';
+        // El label sólo se muestra cuando el modo REM está activo (setDualProj lo controla)
+        // Pero forzamos su visibilidad si REM ya está activo
+        if (DUAL_STATE.projMode === 'REM') remLabel.style.display = 'inline';
+        console.log('[REM] Label actualizado a:', remLabel.textContent);
+      } catch(eLabel) {
+        console.warn('[REM] Error actualizando label (no fatal):', eLabel.message);
+      }
     }
     if (remBtn) remBtn.disabled = false;
-    console.log('[REM] ✓ Informe ' + informe + ':', DUAL_REM.length, 'meses cargados');
+    remOk = true;
+    console.log('[REM] ✓✓✓ Carga completa exitosa');
   } catch(e) {
-    console.error('[REM] ✗ No se pudo cargar REM dinámico:', e.message);
+    console.error('[REM] ✗✗✗ Carga falló:', e.message, e.stack);
     DUAL_REM = [];
     DUAL_REM_INFORME = null;
     if (remLabel) {
@@ -7845,20 +7879,26 @@ function pnlCerSliderMoved(val) {
   pnlCerRecalc();
 }
 
-// Recalcula todo para un bono CER (incluye los cards de PnL)
+// Recalcula todo para un bono CER (incluye los cards de PnL en ARS)
 function pnlCerRecalc() {
   if (!pnlState.ticker || !CER_DEFS[pnlState.ticker]) return;
   const ticker = pnlState.ticker;
   const def = CER_DEFS[ticker];
   const liq = getT1();
   const { valor: cerLiqVal } = getCERLiq(liq);
-  if (!cerLiqVal) return;
+  if (!cerLiqVal) {
+    console.warn('[PnL-CER] No hay CER cargado para', ticker);
+    return;
+  }
 
   const precioActual = pnlState.precioMarket;
   const precioCompra = pnlState.precioCompra;
-  if (!precioActual || !precioCompra) return;
+  if (!precioActual || !precioCompra) {
+    console.warn('[PnL-CER] Sin precio para', ticker, '| market:', precioActual, 'compra:', precioCompra);
+    return;
+  }
 
-  // 1) Calcular TIR Real actual (la que cotiza el mercado para este precio)
+  // 1) TIR Real actual del mercado
   const rActual = calcCERMetrics(ticker, def, precioActual, liq, cerLiqVal);
   const tirRealActual = rActual?.tirReal;
 
@@ -7868,33 +7908,29 @@ function pnlCerRecalc() {
   const factorInfl = Math.pow(1 + _pnlCerInflMensual, mesesAlVto);
   const cerVtoProyectado = cerLiqVal * factorInfl;
 
-  // 3) Calcular flujos NOMINALES con el CER proyectado, descontarlos a TIR Real actual constante
+  // 3) Flujos NOMINALES con CER proyectado, descontados a TIR Real actual constante
   let precioObjetivo = null;
   let macObj = null, modObj = null;
   if (tirRealActual != null) {
     if (def.tipo === 'LECER' || def.tipo === 'BONCER') {
-      // Cero cupón: CF nominal al vto = 100 × (CER_vto_proy / CER_emision)
       const cfVto = 100 * (cerVtoProyectado / def.cerEmision);
       const t = (vtoDate - liq) / (365 * 86400000);
       precioObjetivo = cfVto / Math.pow(1 + tirRealActual, t);
       macObj = t;
       modObj = t / (1 + tirRealActual);
     } else if (def.tipo === 'BONCER_CUP') {
-      // Para cupón: proyectar el CER en cada fecha de pago según inflación lineal,
-      // recalcular flujos nominales y descontar
       const flowsNominal = [];
-      let vrResid = 100; // en VR_emision
+      let vrResid = 100;
       let cortePrev = null;
       for (const cup of def.cupones) {
         const corte = new Date(cup.corte + 'T00:00:00');
         const pagoPrev = new Date(corte); pagoPrev.setDate(pagoPrev.getDate()-1);
         const pago = workday(pagoPrev, 1);
         const dias = cortePrev ? days360CER(cortePrev, corte) : 0;
-        const interes_emi = vrResid * def.cupon * dias / 360; // sobre VR_emision
+        const interes_emi = vrResid * def.cupon * dias / 360;
         const amort_emi = 100 * (cup.amortFrac || 0);
-        const cf_emi = interes_emi + amort_emi; // en VR_emision
+        const cf_emi = interes_emi + amort_emi;
         if (pago > liq) {
-          // Proyectar CER en la fecha de pago según inflación lineal
           const mesesAPago = (pago - liq) / (30.4375 * 86400000);
           const factorPago = Math.pow(1 + _pnlCerInflMensual, mesesAPago);
           const cerPago = cerLiqVal * factorPago;
@@ -7905,46 +7941,44 @@ function pnlCerRecalc() {
         vrResid = Math.max(0, vrResid - amort_emi);
         cortePrev = corte;
       }
-      // PV = Σ CF / (1+TIR Real)^t
       let pv = 0;
       for (const f of flowsNominal) {
         pv += f.cf / Math.pow(1 + tirRealActual, f.t);
       }
       precioObjetivo = pv;
-      // Duration recalculada con flujos nominales y TIR Real
       const dur = calcDurationFromFlows(flowsNominal, tirRealActual);
       macObj = dur.macaulay;
       modObj = dur.modified;
     }
   }
 
-  // 4) Posición (VN / USD)
-  let vn, usdInvested;
+  // 4) Posición — todo en ARS (no MEP)
+  let vn, arsInvested;
   if (pnlState.inputMode === 'vn') {
     vn = parseFloat(document.getElementById('pnl-vn').value) || 0;
-    usdInvested = vn * precioCompra / 100;
+    arsInvested = vn * precioCompra / 100;
   } else {
-    usdInvested = parseFloat(document.getElementById('pnl-usd').value) || 0;
-    vn = precioCompra > 0 ? usdInvested / precioCompra * 100 : 0;
+    // Modo USD pero para CER lo tratamos como ARS
+    arsInvested = parseFloat(document.getElementById('pnl-usd').value) || 0;
+    vn = precioCompra > 0 ? arsInvested / precioCompra * 100 : 0;
   }
 
-  // 5) Convertir a USD usando MEP (AL30) — el precio CER cotiza en ARS, hay que dividir por TC para PnL en USD
-  // Si no hay MEP, asumimos 1 (mostrará en ARS efectivo)
-  const usdMep = STATE.tcMep?.AL30 || STATE.dolar?.mep || 1;
-
-  // El precio_objetivo y precio_compra están en ARS. Para PnL en USD:
-  // usd_objetivo = (vn × precio_objetivo / 100) / usdMep
-  // usd_compra = (vn × precio_compra / 100) / usdMep
   const arsObjetivo = vn * (precioObjetivo || 0) / 100;
-  const arsCompra = vn * precioCompra / 100;
-  const usdObjetivoLocal = arsObjetivo / usdMep;
-  const usdCompraLocal = arsCompra / usdMep;
-  const pnlUsd = usdObjetivoLocal - usdCompraLocal;
-
+  const pnlArs = arsObjetivo - arsInvested;
   const upside = precioCompra > 0 && precioObjetivo != null ? (precioObjetivo / precioCompra - 1) : null;
   const deltaPx = precioObjetivo != null ? (precioObjetivo - precioCompra) : null;
 
   // ── Renderizar ──
+  // Adaptar labels a ARS
+  const usdLabel    = document.getElementById('pnl-usd-label');
+  const resultLabel = document.getElementById('pnl-result-label');
+  const posUsdLabel = document.getElementById('pnl-pos-usd-label');
+  const posTgtLabel = document.getElementById('pnl-pos-target-label');
+  if (usdLabel)    usdLabel.textContent    = 'Monto invertido (ARS)';
+  if (resultLabel) resultLabel.textContent = 'PnL (ARS)';
+  if (posUsdLabel) posUsdLabel.textContent = 'Inversión (ARS)';
+  if (posTgtLabel) posTgtLabel.textContent = 'Valor objetivo (ARS)';
+
   // Cards CER (slider + objetivo CER + TIR Real)
   const nowEl = document.getElementById('pnl-cer-now');
   const tgtEl = document.getElementById('pnl-cer-target');
@@ -7953,12 +7987,12 @@ function pnlCerRecalc() {
   if (tgtEl) tgtEl.textContent = cerVtoProyectado.toFixed(4);
   if (tirEl) tirEl.textContent = tirRealActual != null ? (tirRealActual*100).toFixed(2)+'%' : '—';
 
-  // Cards principales del PnL (los mismos que para TIR objetivo)
+  // Cards principales (precio objetivo, upside, PnL, duration)
   const outPrecio       = document.getElementById('pnl-compra-precio');
   const outTirCompra    = document.getElementById('pnl-compra-tir');
   const outTargetPrecio = document.getElementById('pnl-target-precio');
   const outUpside       = document.getElementById('pnl-upside');
-  const outPnlUsd       = document.getElementById('pnl-usd-result');
+  const outPnlRes       = document.getElementById('pnl-usd-result');
   const outMac          = document.getElementById('pnl-macdur');
   const outMod          = document.getElementById('pnl-moddur');
   const outPosVn        = document.getElementById('pnl-pos-vn');
@@ -7967,7 +8001,7 @@ function pnlCerRecalc() {
   const outPosDeltaPx   = document.getElementById('pnl-pos-deltapx');
 
   if (outPrecio && document.activeElement !== outPrecio) outPrecio.value = precioCompra ? precioCompra.toFixed(2) : '';
-  if (outTirCompra)    outTirCompra.textContent    = tirRealActual != null ? (tirRealActual*100).toFixed(2)+'%' + ' (real)' : '—';
+  if (outTirCompra)    outTirCompra.textContent    = tirRealActual != null ? (tirRealActual*100).toFixed(2)+'% (real)' : '—';
   if (outTargetPrecio) outTargetPrecio.textContent = precioObjetivo != null ? precioObjetivo.toFixed(2) : '—';
   if (outMac) outMac.textContent = macObj ? macObj.toFixed(3) : '—';
   if (outMod) outMod.textContent = modObj ? modObj.toFixed(3) : '—';
@@ -7979,16 +8013,17 @@ function pnlCerRecalc() {
       outUpside.innerHTML = `<span style="color:${clr};">${sign}${(upside*100).toFixed(2)}%</span>`;
     } else outUpside.textContent = '—';
   }
-  if (outPnlUsd) {
-    if (isFinite(pnlUsd) && vn > 0) {
-      const clr = pnlUsd >= 0 ? 'var(--green)' : 'var(--red)';
-      const sign = pnlUsd >= 0 ? '+' : '';
-      outPnlUsd.innerHTML = `<span style="color:${clr};">${sign}$${Math.abs(pnlUsd).toLocaleString('en-US',{maximumFractionDigits:2})}</span>`;
-    } else outPnlUsd.textContent = '—';
+  const fmtArs = v => '$' + Math.abs(v).toLocaleString('es-AR',{maximumFractionDigits:0});
+  if (outPnlRes) {
+    if (isFinite(pnlArs) && vn > 0) {
+      const clr = pnlArs >= 0 ? 'var(--green)' : 'var(--red)';
+      const sign = pnlArs >= 0 ? '+' : '';
+      outPnlRes.innerHTML = `<span style="color:${clr};">${sign}${fmtArs(pnlArs)}</span>`;
+    } else outPnlRes.textContent = '—';
   }
-  if (outPosVn)      outPosVn.textContent     = vn ? vn.toLocaleString('en-US',{maximumFractionDigits:2}) : '—';
-  if (outPosUsd)     outPosUsd.textContent    = usdCompraLocal ? '$'+usdCompraLocal.toLocaleString('en-US',{maximumFractionDigits:2}) : '—';
-  if (outPosTgtUsd)  outPosTgtUsd.textContent = usdObjetivoLocal ? '$'+usdObjetivoLocal.toLocaleString('en-US',{maximumFractionDigits:2}) : '—';
+  if (outPosVn)      outPosVn.textContent     = vn ? vn.toLocaleString('es-AR',{maximumFractionDigits:2}) : '—';
+  if (outPosUsd)     outPosUsd.textContent    = arsInvested ? fmtArs(arsInvested) : '—';
+  if (outPosTgtUsd)  outPosTgtUsd.textContent = arsObjetivo ? fmtArs(arsObjetivo) : '—';
   if (outPosDeltaPx) {
     if (deltaPx != null) {
       const sign = deltaPx >= 0 ? '+' : '';
@@ -7996,6 +8031,18 @@ function pnlCerRecalc() {
       outPosDeltaPx.innerHTML = `<span style="color:${clr};">${sign}${deltaPx.toFixed(2)}</span>`;
     } else outPosDeltaPx.textContent = '—';
   }
+}
+
+// Restaurar labels a USD cuando se sale de un bono CER
+function pnlRestoreUSDLabels() {
+  const usdLabel    = document.getElementById('pnl-usd-label');
+  const resultLabel = document.getElementById('pnl-result-label');
+  const posUsdLabel = document.getElementById('pnl-pos-usd-label');
+  const posTgtLabel = document.getElementById('pnl-pos-target-label');
+  if (usdLabel)    usdLabel.textContent    = 'Monto invertido (USD)';
+  if (resultLabel) resultLabel.textContent = 'PnL (USD)';
+  if (posUsdLabel) posUsdLabel.textContent = 'Inversión (USD)';
+  if (posTgtLabel) posTgtLabel.textContent = 'Valor objetivo (USD)';
 }
 
 // Hookear pnlSelect para mostrar/ocultar sección CER y TIR
@@ -8008,21 +8055,41 @@ pnlSelect = function(ticker) {
   if (tirSection) tirSection.style.display = isCER ? 'none' : '';
   if (cerSection) cerSection.style.display = isCER ? '' : 'none';
 
-  if (isCER) {
-    // Para bonos CER, _origPnlSelect setea precioMarket=def.vr (=undefined) → corregir
-    pnlState.def = CER_DEFS[ticker];
+  if (!isCER) {
+    // No es CER → restaurar labels USD
+    pnlRestoreUSDLabels();
+    return;
+  }
+
+  // Es CER: setear def y precio correctamente
+  pnlState.def = CER_DEFS[ticker];
+
+  const applyCerPrice = () => {
     const cerPrecio = CER_STATE.prices[ticker];
-    if (cerPrecio) {
+    console.log('[PnL-CER] applyCerPrice para', ticker, '→', cerPrecio);
+    if (cerPrecio && cerPrecio > 0) {
       pnlState.precioMarket = cerPrecio;
       pnlState.precioCompra = cerPrecio;
       pnlState.priceEdited = false;
-      // Sync the price input
       const priceInput = document.getElementById('pnl-compra-precio');
       if (priceInput) priceInput.value = cerPrecio.toFixed(2);
+    } else {
+      console.warn('[PnL-CER] Sin precio para', ticker, '— inputs quedarán vacíos');
+      pnlState.precioMarket = null;
+      pnlState.precioCompra = null;
+      const priceInput = document.getElementById('pnl-compra-precio');
+      if (priceInput) priceInput.value = '';
     }
-    // Pre-cargar CER si no está
-    if (!_cerInited) { _cerInited = true; initCER().then(() => pnlCerRecalc()); }
-    else { pnlCerRecalc(); }
+    pnlCerRecalc();
+  };
+
+  // Si CER ya está inicializado, aplicar precio inmediatamente
+  if (_cerInited && Object.keys(CER_STATE.prices).length > 0) {
+    applyCerPrice();
+  } else {
+    // Si no, inicializar CER y aplicar precio al terminar
+    if (!_cerInited) { _cerInited = true; initCER().then(applyCerPrice); }
+    else { initCER().then(applyCerPrice); } // reintentar fetch de precios si está inited pero sin precios
   }
 };
 
