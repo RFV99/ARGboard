@@ -3940,17 +3940,17 @@ function computeTC(map) {
 function processLecaps(rawArr) {
   const lecMap = priceMap(rawArr);
   const bondsMap = priceMap(STATE.bonds || []);
-  STATE.lecapCalc = LECAP_DEFS.map(def => {
-    const item = lecMap[def.ticker.toUpperCase()] || bondsMap[def.ticker.toUpperCase()];
-    const precio = item ? parseFloat(item.c || item.px_bid || 0) : null;
-    if (!precio) return {...def, precio: null, tir:null, tem:null, tna:null, tePlazo:null, live:false};
-    // Compute dias dynamically from vto and current LIQ (not hardcoded)
-    const diasDyn = Math.round((new Date(def.vto) - LIQ) / 86400000);
-    // VPV formula: 100 * (1+tLic)^(diasTotal/30) where diasTotal = days from emission to vto
-    // We keep vpv hardcoded from Excel (exact) but recompute tir from current price/dias
-    const {tir, tem, tna, tePlazo} = calcLecapMetrics(precio, def.vpv, diasDyn > 0 ? diasDyn : def.dias);
-    return {...def, precio, tir, tem, tna, tePlazo, dias: diasDyn > 0 ? diasDyn : def.dias, live: true};
-  });
+  STATE.lecapCalc = LECAP_DEFS
+    .filter(def => new Date(def.vto) > LIQ) // ── (1) excluir vencidos ──
+    .map(def => {
+      const item = lecMap[def.ticker.toUpperCase()] || bondsMap[def.ticker.toUpperCase()];
+      const precio = item ? parseFloat(item.c || item.px_bid || 0) : null;
+      if (!precio) return {...def, precio: null, tir:null, tem:null, tna:null, tePlazo:null, live:false};
+      // Compute dias dynamically from vto and current LIQ (not hardcoded)
+      const diasDyn = Math.round((new Date(def.vto) - LIQ) / 86400000);
+      const {tir, tem, tna, tePlazo} = calcLecapMetrics(precio, def.vpv, diasDyn > 0 ? diasDyn : def.dias);
+      return {...def, precio, tir, tem, tna, tePlazo, dias: diasDyn > 0 ? diasDyn : def.dias, live: true};
+    });
 }
 
 function processDolar(data) {
@@ -6037,8 +6037,8 @@ const DUAL_DEFS = [
   { ticker:'TTD26', nombre:'Dual Dic-26', emision:new Date(2025,0,29), vto:new Date(2026,11,15), temEmision:0.0214 },
 ];
 
-// REM mar-26 hardcodeado; oct/nov/dic sin dato → promedio dic-26 = 23.4%
-const DUAL_REM = [
+// REM hardcodeado como fallback — se actualiza con fetch dinámico en initDuales
+const DUAL_REM_FALLBACK = [
   { ym:'2026-04', tna:0.2680 },
   { ym:'2026-05', tna:0.2600 },
   { ym:'2026-06', tna:0.2575 },
@@ -6049,6 +6049,8 @@ const DUAL_REM = [
   { ym:'2026-11', tna:0.2340 },
   { ym:'2026-12', tna:0.2340 },
 ];
+// DUAL_REM empieza con el fallback y se reemplaza al cargar
+let DUAL_REM = DUAL_REM_FALLBACK.slice();
 
 const BCRA_TAMAR_ID = 44; // "Tasa de interes TAMAR de bancos privados" TNA %na
 
@@ -6263,8 +6265,11 @@ function renderDualesTable() {
   const fmt  = (v,d) => (v!=null&&isFinite(v)) ? v.toFixed(d) : '—';
   const fmtP = (v,d=2) => (v!=null&&isFinite(v)) ? (v*100).toFixed(d)+'%' : '—';
 
+  // ── (1) filtrar duales ya vencidos ──
+  const activeDuals = DUAL_DEFS.filter(def => def.vto > liq);
+
   // Color condicional para TIR/TEM (igual que resto de tabs)
-  const allResults = DUAL_DEFS.map(def => {
+  const allResults = activeDuals.map(def => {
     const precio = DUAL_STATE.prices[def.ticker];
     if (!precio) return null;
     return calcDualFlows(def, precio, liq);
@@ -6273,7 +6278,7 @@ function renderDualesTable() {
   const allTems = allResults.map(r => r.temBono).filter(v => v!=null && isFinite(v));
 
   let html = '';
-  for (const def of DUAL_DEFS) {
+  for (const def of activeDuals) {
     const precio = DUAL_STATE.prices[def.ticker];
     if (!precio) {
       html += `<tr><td style="font-weight:700">${def.ticker}</td><td colspan="8" style="color:var(--muted)">Sin precio</td></tr>`;
@@ -6404,7 +6409,85 @@ window.openBondModal = function(ticker) {
   if (_origOpenBondModal) _origOpenBondModal(ticker);
 };
 
-// Fetch TAMAR from BCRA (public API, no CORS)
+// Fetch REM dinámico desde argentinadatos.com
+// Busca el indicador de tasa de política monetaria (TPM) en el último informe REM
+// El indicador relevante para la proyección TAMAR suele ser "Tasa de Política Monetaria" o "TAMAR"
+async function fetchREMDinamico() {
+  const url = 'https://api.argentinadatos.com/v1/rems/ultimo';
+  const r = await fetch(url, {signal: AbortSignal.timeout(10000)});
+  if (!r.ok) throw new Error('REM HTTP ' + r.status);
+  const data = await r.json();
+  if (!Array.isArray(data) || !data.length) throw new Error('REM vacío');
+
+  // Filtrar indicadores de tasa de política monetaria / TPM
+  // El REM incluye varios indicadores; buscamos el de tasa de interés de referencia
+  const TPM_KEYWORDS = ['tasa de política', 'política monetaria', 'tpm', 'tamar', 'tasa badlar', 'tasa de interés de referencia'];
+  const tpmRows = data.filter(row => {
+    const ind = (row.indicador || '').toLowerCase();
+    return TPM_KEYWORDS.some(kw => ind.includes(kw));
+  });
+
+  if (!tpmRows.length) {
+    console.warn('[REM] No se encontró indicador TPM/TAMAR. Indicadores disponibles:', [...new Set(data.map(r=>r.indicador))]);
+    throw new Error('Indicador TPM no encontrado en REM');
+  }
+
+  // Preferir el de política monetaria por sobre BADLAR
+  const preferred = tpmRows.find(r => {
+    const ind = (r.indicador||'').toLowerCase();
+    return ind.includes('política') || ind.includes('tpm') || ind.includes('referencia');
+  }) || tpmRows[0];
+
+  console.log('[REM] Indicador usado:', preferred.indicador, '| Informe:', preferred.informe);
+
+  // Construir serie mensual desde los datos del REM
+  // Cada fila tiene: periodo (YYYY-MM), mediana (en % anual o en TNA según unidad)
+  // Filtramos por el mismo indicador y tomamos todos los períodos futuros
+  const sameIndicator = data.filter(r => r.indicador === preferred.indicador);
+  const remSerie = [];
+
+  for (const row of sameIndicator) {
+    const periodo = row.periodo || row.periodoDesde || '';
+    // Periodo puede ser "YYYY-MM" o "YYYY-MM-DD"
+    const ymMatch = periodo.match(/^(\d{4})-(\d{2})/);
+    if (!ymMatch) continue;
+    const ym = ymMatch[1] + '-' + ymMatch[2];
+
+    // La mediana suele estar en % anual (ej: 28.5 = TNA 28.5%)
+    const mediana = row.mediana;
+    if (mediana == null || !isFinite(mediana)) continue;
+
+    // Convertir: si la unidad indica porcentaje directo, dividir por 100
+    const unidad = (row.unidad || '').toLowerCase();
+    const tna = unidad.includes('%') || mediana > 1 ? mediana / 100 : mediana;
+
+    remSerie.push({ ym, tna });
+  }
+
+  if (!remSerie.length) throw new Error('Sin períodos en REM para el indicador seleccionado');
+
+  // Ordenar por período
+  remSerie.sort((a, b) => a.ym.localeCompare(b.ym));
+
+  console.log('[REM] Serie dinámica cargada:', remSerie.length, 'períodos. Rango:', remSerie[0]?.ym, '→', remSerie[remSerie.length-1]?.ym);
+  return remSerie;
+}
+
+// Merges datos REM dinámicos con el fallback: el REM dinámico tiene precedencia para períodos que cubre
+function mergeREMData(dinamico) {
+  // Empezar con el fallback y sobreescribir con dinámico donde haya dato
+  const map = {};
+  for (const row of DUAL_REM_FALLBACK) map[row.ym] = row.tna;
+  for (const row of dinamico) {
+    if (row.tna > 0 && row.tna < 2) { // sanity check
+      map[row.ym] = row.tna;
+    }
+  }
+  // Reconstruir array ordenado con todos los meses necesarios
+  return Object.entries(map)
+    .map(([ym, tna]) => ({ ym, tna }))
+    .sort((a, b) => a.ym.localeCompare(b.ym));
+}
 async function fetchTAMAR() {
   const today = new Date();
   const url = `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/${BCRA_TAMAR_ID}?desde=2024-10-01&hasta=${today.toISOString().slice(0,10)}&limit=1000`;
@@ -6496,7 +6579,7 @@ function renderTamarChart() {
       { label:`TAMAR ${unit} (BCRA)`, data:histPts,
         borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,.08)',
         borderWidth:1.5,pointRadius:0,tension:0.2,fill:false },
-      { label:`Proyección (${DUAL_STATE.projMode==='REM'?'REM mar-26':'Suavizado'})`, data:projPts,
+      { label:`Proyección (${DUAL_STATE.projMode==='REM'?'REM':'Suavizado'})`, data:projPts,
         borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.1)',
         borderWidth:2,borderDash:[5,3],pointRadius:3,pointBackgroundColor:'#f59e0b',tension:0.3,fill:false },
     ]},
@@ -6550,6 +6633,28 @@ async function initDuales() {
   setStatus('Cargando precios…');
   await fetchDualPrices();
   renderDualesTable();
+
+  // ── (2) Fetch REM dinámico ──
+  try {
+    const remDinamico = await fetchREMDinamico();
+    DUAL_REM = mergeREMData(remDinamico);
+    // Actualizar el label del botón REM con el informe más reciente
+    const remLabel = document.getElementById('dual-rem-label');
+    if (remLabel) {
+      // El informe suele ser "AAAA-MM" — mostrarlo como "REM mmm-AA"
+      const lastPeriodo = DUAL_REM[DUAL_REM.length - 1];
+      if (lastPeriodo) {
+        const [y, m] = lastPeriodo.ym.split('-');
+        const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+        remLabel.textContent = `REM ${monthNames[parseInt(m,10)-1]}-${y.slice(2)} (din.)`;
+      }
+    }
+    console.log('[REM] Datos actualizados dinámicamente:', DUAL_REM.length, 'períodos');
+  } catch(e) {
+    console.warn('[REM] Usando fallback hardcodeado:', e.message);
+    DUAL_REM = DUAL_REM_FALLBACK.slice();
+  }
+
   setStatus('Cargando TAMAR desde BCRA…');
   try {
     DUAL_STATE.tamarSeries = await fetchTAMAR();
@@ -6640,7 +6745,7 @@ function buildPesosCurveChart() {
   const liq = getT1();
   const dualPts = [];
   if (_dualesInited || DUAL_STATE.tamarSeries.length) {
-    for (const def of DUAL_DEFS) {
+    for (const def of DUAL_DEFS.filter(d => d.vto > liq)) {
       const precio = DUAL_STATE.prices[def.ticker];
       if (!precio) continue;
       const r = calcDualFlows(def, precio, liq);
@@ -6692,7 +6797,8 @@ function buildDualesCurveChart() {
   const liq = getT1();
 
   const pts = [];
-  for (const def of DUAL_DEFS) {
+  const liq2 = getT1();
+  for (const def of DUAL_DEFS.filter(d => d.vto > liq2)) {
     const precio = DUAL_STATE.prices[def.ticker];
     if (!precio) continue;
     const r = calcDualFlows(def, precio, liq);
