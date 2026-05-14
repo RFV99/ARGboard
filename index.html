@@ -564,6 +564,7 @@
     <button class="tab tab-sovereign" onclick="switchTab('harddollar',this)">Hard Dollar</button>
     <button class="tab tab-sovereign" onclick="switchTab('ons',this)">ONs</button>
     <button class="tab tab-data" onclick="switchTab('capitalizables',this)">Capitalizables</button>
+    <button class="tab tab-data" onclick="switchTab('cer',this)">CER</button>
     <button class="tab tab-data" onclick="switchTab('duales',this)">Duales $</button>
     <button class="tab tab-data" onclick="switchTab('pesos',this)">Tasa fija $</button>
   </div>
@@ -741,6 +742,46 @@
       <th>Val. Téc.</th><th>Paridad</th>
     </tr></thead><tbody id="tbody-pesos"></tbody></table></div>
   </div>
+
+  <!-- ════════════ CER PANEL ════════════ -->
+  <div class="panel" id="panel-cer">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;">CER</span>
+      <span id="cer-status" style="font-size:10px;color:var(--muted);">Cargando…</span>
+      <span id="cer-liq-info" style="font-size:9px;color:var(--muted);font-style:italic;margin-left:auto;"></span>
+    </div>
+    <div class="tbl-wrap" style="margin-bottom:20px;">
+      <table id="tbl-cer" style="width:100%;">
+        <thead><tr>
+          <th onclick="sortCER(0)">Ticker ↕</th>
+          <th onclick="sortCER(1)">Vto. ↕</th>
+          <th onclick="sortCER(2)">Días ↕</th>
+          <th onclick="sortCER(3)">Precio ↕</th>
+          <th onclick="sortCER(4)">TIR Real e.a. ↕</th>
+          <th onclick="sortCER(5)">Mac. Dur. ↕</th>
+          <th onclick="sortCER(6)">Mod. Dur. ↕</th>
+          <th onclick="sortCER(7)">Val. Téc. ↕</th>
+          <th onclick="sortCER(8)">Paridad ↕</th>
+          <th onclick="sortCER(9)">CER Liq. ↕</th>
+        </tr></thead>
+        <tbody id="tbody-cer">
+          <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">Cargando CER desde BCRA…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hist-card">
+      <div class="hist-controls" style="flex-wrap:wrap;gap:8px;">
+        <span style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;">ÍNDICE CER (BCRA)</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="date" id="cer-date-from" value="2024-01-01" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);cursor:pointer;" onchange="renderCERChart()">
+          <span style="font-size:10px;color:var(--muted)">—</span>
+          <input type="date" id="cer-date-to" value="2027-12-31" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);cursor:pointer;" onchange="renderCERChart()">
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:240px;"><canvas id="c-cer-hist" role="img" aria-label="Índice CER histórico"></canvas></div>
+    </div>
+  </div>
+  <!-- ════════════ END CER PANEL ════════════ -->
 
   <!-- ════════════ DUALES PANEL ════════════ -->
   <div class="panel" id="panel-duales">
@@ -922,6 +963,54 @@
           </div>
         </div>
 
+        <!-- CER objetivo slider — solo visible para instrumentos CER -->
+        <div id="pnl-cer-section" style="display:none;padding:18px;background:var(--bg2);border:1px solid rgba(52,211,153,.25);border-radius:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;">CER OBJETIVO (PROYECCIÓN)</div>
+            <div style="display:flex;gap:4px;">
+              <button class="period-btn active" id="pnl-cer-mode-infl" onclick="setPnlCerMode('inflacion',this)">Inflación</button>
+              <button class="period-btn" id="pnl-cer-mode-cer" onclick="setPnlCerMode('cer',this)">CER directo</button>
+            </div>
+          </div>
+          <!-- Modo inflación: slider de inflación mensual proyectada -->
+          <div id="pnl-cer-infl-controls">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+              <span style="font-size:11px;color:var(--muted);">Inflación mensual:</span>
+              <button class="period-btn" onclick="stepPnlCerSlider(-1)">◀</button>
+              <input id="pnl-cer-slider" type="range" min="0" max="500" step="5" value="25"
+                oninput="pnlCerSliderMoved(this.value)"
+                style="width:120px;accent-color:#34d399;cursor:pointer;">
+              <button class="period-btn" onclick="stepPnlCerSlider(1)">▶</button>
+              <span id="pnl-cer-infl-val" style="font-size:12px;font-weight:700;color:#34d399;min-width:42px;">2.5%</span>
+              <span style="font-size:10px;color:var(--muted)">mensual</span>
+            </div>
+            <div style="font-size:10px;color:var(--muted);font-style:italic;">Proyección lineal desde CER actual → CER al vencimiento</div>
+          </div>
+          <!-- Modo CER directo: input de CER objetivo -->
+          <div id="pnl-cer-direct-controls" style="display:none;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span style="font-size:11px;color:var(--muted);">CER al vto:</span>
+              <input id="pnl-cer-direct-input" type="number" min="0" step="1" placeholder="800"
+                oninput="pnlCerDirectMoved(this.value)"
+                style="width:100px;font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:5px;background:var(--bg3);color:var(--text);">
+            </div>
+          </div>
+          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div style="background:var(--bg3);border-radius:7px;padding:8px;text-align:center;">
+              <div style="font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.05em;margin-bottom:3px;">CER LIQ. HOY</div>
+              <div id="pnl-cer-now" style="font-size:14px;font-weight:700;font-family:var(--mono);">—</div>
+            </div>
+            <div style="background:var(--bg3);border-radius:7px;padding:8px;text-align:center;">
+              <div style="font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.05em;margin-bottom:3px;">CER OBJ. VTO</div>
+              <div id="pnl-cer-target" style="font-size:14px;font-weight:700;font-family:var(--mono);color:#34d399;">—</div>
+            </div>
+            <div style="background:var(--bg3);border-radius:7px;padding:8px;text-align:center;">
+              <div style="font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.05em;margin-bottom:3px;">VT OBJ.</div>
+              <div id="pnl-cer-vt-target" style="font-size:14px;font-weight:700;font-family:var(--mono);">—</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Resumen cards -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
           <div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
@@ -1019,6 +1108,10 @@
       <div class="chart-card">
         <div class="chart-title">ONs — Ley ARG</div>
         <div class="chart-wrap" style="height:230px"><canvas id="c-ons-arg" role="img" aria-label="Curva ONs Ley ARG"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">CER — TIR Real vs Duration</div>
+        <div class="chart-wrap" style="height:230px"><canvas id="c-cer-curve" role="img" aria-label="Curva CER TIR Real"></canvas></div>
       </div>
     </div>
   </div>
@@ -5344,6 +5437,7 @@ document.addEventListener('click', e => {
     if (ap.id === 'panel-graficador')    { initGrafSelect(); }
     else if (ap.id === 'panel-ons')      { renderONsTable(); }
     else if (ap.id === 'panel-pnl')      { initPnlSelect(); pnlRecalc(); }
+    else if (ap.id === 'panel-cer')      { if(!_cerInited){_cerInited=true;initCER();}else{renderCERTable();} }
   }, 80);
 });
 
@@ -6413,63 +6507,79 @@ window.openBondModal = function(ticker) {
 // Busca el indicador de tasa de política monetaria (TPM) en el último informe REM
 // El indicador relevante para la proyección TAMAR suele ser "Tasa de Política Monetaria" o "TAMAR"
 async function fetchREMDinamico() {
-  const url = 'https://api.argentinadatos.com/v1/rems/ultimo';
-  const r = await fetch(url, {signal: AbortSignal.timeout(10000)});
-  if (!r.ok) throw new Error('REM HTTP ' + r.status);
-  const data = await r.json();
-  if (!Array.isArray(data) || !data.length) throw new Error('REM vacío');
+  // Estrategia: primero obtener el índice de informes disponibles,
+  // tomar el último (más reciente), luego fetchear ese informe específico.
+  // Esto garantiza traer siempre el informe más nuevo publicado (ej: abril si ya salió).
+  const BASE = 'https://api.argentinadatos.com';
+
+  // Paso 1: índice de todos los informes disponibles → array de paths como "/rems/2026/03"
+  const idxRes = await fetch(BASE + '/v1/rems', {signal: AbortSignal.timeout(10000)});
+  if (!idxRes.ok) throw new Error('REM índice HTTP ' + idxRes.status);
+  const idxArr = await idxRes.json();
+  if (!Array.isArray(idxArr) || !idxArr.length) throw new Error('REM índice vacío');
+
+  // El índice puede venir en cualquier orden. Ordenar lexicográficamente → el último es el más reciente.
+  const sorted = [...idxArr].sort();
+  const latestPath = sorted[sorted.length - 1]; // ej: "/rems/2026/04"
+  console.log('[REM] Último informe disponible:', latestPath);
+
+  // Paso 2: fetch del informe específico
+  const detRes = await fetch(BASE + '/v1' + latestPath, {signal: AbortSignal.timeout(10000)});
+  if (!detRes.ok) throw new Error('REM detalle HTTP ' + detRes.status + ' para ' + latestPath);
+  const data = await detRes.json();
+  if (!Array.isArray(data) || !data.length) throw new Error('REM detalle vacío');
+
+  console.log('[REM] Informe cargado:', latestPath, '| filas:', data.length);
+  console.log('[REM] Indicadores disponibles:', [...new Set(data.map(r=>r.indicador))]);
 
   // Filtrar indicadores de tasa de política monetaria / TPM
-  // El REM incluye varios indicadores; buscamos el de tasa de interés de referencia
-  const TPM_KEYWORDS = ['tasa de política', 'política monetaria', 'tpm', 'tamar', 'tasa badlar', 'tasa de interés de referencia'];
+  const TPM_KEYWORDS = ['tasa de política', 'política monetaria', 'tpm', 'tasa de interés de política', 'tasa de referencia'];
   const tpmRows = data.filter(row => {
     const ind = (row.indicador || '').toLowerCase();
     return TPM_KEYWORDS.some(kw => ind.includes(kw));
   });
 
-  if (!tpmRows.length) {
-    console.warn('[REM] No se encontró indicador TPM/TAMAR. Indicadores disponibles:', [...new Set(data.map(r=>r.indicador))]);
-    throw new Error('Indicador TPM no encontrado en REM');
+  // Fallback: si no hay TPM específico, buscar TAMAR o BADLAR
+  const candidatos = tpmRows.length ? tpmRows
+    : data.filter(r => ['tamar','badlar'].some(kw => (r.indicador||'').toLowerCase().includes(kw)));
+
+  if (!candidatos.length) {
+    // Último recurso: loguear todos los indicadores y tirar error descriptivo
+    throw new Error('No se encontró indicador TPM en REM ' + latestPath + '. Indicadores: ' + [...new Set(data.map(r=>r.indicador))].join(', '));
   }
 
-  // Preferir el de política monetaria por sobre BADLAR
-  const preferred = tpmRows.find(r => {
+  // Preferir el de política monetaria por sobre BADLAR/TAMAR
+  const preferred = candidatos.find(r => {
     const ind = (r.indicador||'').toLowerCase();
     return ind.includes('política') || ind.includes('tpm') || ind.includes('referencia');
-  }) || tpmRows[0];
+  }) || candidatos[0];
 
-  console.log('[REM] Indicador usado:', preferred.indicador, '| Informe:', preferred.informe);
+  console.log('[REM] Indicador usado:', preferred.indicador, '| Informe:', preferred.informe || latestPath);
 
-  // Construir serie mensual desde los datos del REM
-  // Cada fila tiene: periodo (YYYY-MM), mediana (en % anual o en TNA según unidad)
-  // Filtramos por el mismo indicador y tomamos todos los períodos futuros
-  const sameIndicator = data.filter(r => r.indicador === preferred.indicador);
+  // Construir serie mensual a partir de periodoDesde / periodo
+  const sameIndicador = data.filter(r => r.indicador === preferred.indicador);
   const remSerie = [];
 
-  for (const row of sameIndicator) {
-    const periodo = row.periodo || row.periodoDesde || '';
-    // Periodo puede ser "YYYY-MM" o "YYYY-MM-DD"
+  for (const row of sameIndicador) {
+    const periodo = row.periodo || row.periodoDesde || row.periodoHasta || '';
     const ymMatch = periodo.match(/^(\d{4})-(\d{2})/);
     if (!ymMatch) continue;
     const ym = ymMatch[1] + '-' + ymMatch[2];
 
-    // La mediana suele estar en % anual (ej: 28.5 = TNA 28.5%)
     const mediana = row.mediana;
     if (mediana == null || !isFinite(mediana)) continue;
 
-    // Convertir: si la unidad indica porcentaje directo, dividir por 100
+    // La unidad del REM suele ser "%" con el valor en porcentaje (ej: 28.5 = 28.5% TNA)
     const unidad = (row.unidad || '').toLowerCase();
-    const tna = unidad.includes('%') || mediana > 1 ? mediana / 100 : mediana;
+    const tna = (unidad.includes('%') || mediana > 1) ? mediana / 100 : mediana;
 
     remSerie.push({ ym, tna });
   }
 
-  if (!remSerie.length) throw new Error('Sin períodos en REM para el indicador seleccionado');
+  if (!remSerie.length) throw new Error('Sin períodos válidos en REM ' + latestPath);
 
-  // Ordenar por período
   remSerie.sort((a, b) => a.ym.localeCompare(b.ym));
-
-  console.log('[REM] Serie dinámica cargada:', remSerie.length, 'períodos. Rango:', remSerie[0]?.ym, '→', remSerie[remSerie.length-1]?.ym);
+  console.log('[REM] Serie procesada:', remSerie.length, 'períodos:', remSerie[0]?.ym, '→', remSerie[remSerie.length-1]?.ym);
   return remSerie;
 }
 
@@ -6841,6 +6951,689 @@ buildCharts = function() {
   _origBuildCharts();
   buildPesosCurveChart();
   buildDualesCurveChart();
+  buildCERCurveChart();
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CER — Letras y Bonos ajustables por CER
+// Metodología:
+//   - CER de Emisión: CER del día t-10 hábiles a la fecha de emisión
+//   - CER de Liquidación: CER del día t-10 hábiles a la fecha de liquidación
+//   - VR_liq = VR_emision * (CER_liq / CER_emision)
+//   - Para Discount (cero cupón): CF_vto = VR_vto * (CER_vto / CER_liq) 
+//     expresado como ratio de ajuste sobre VR_liq
+//   - Para cupón CER (TX26,TX28,TX31): flujos ajustados por CER proyectado
+//   - TIR real e.a. = tasa que descuenta flujos en términos de CER constante (base liq)
+//   - Precio dirty = precio en pesos / (CER_liq / CER_emision) normalizado
+// ═══════════════════════════════════════════════════════════════
+
+// BCRA variable ID para CER (mismo endpoint que TAMAR)
+const BCRA_CER_ID = 30; // "Coeficiente de Estabilización de Referencia (CER)" — dato diario
+
+// CER_DEFS: instrumentos extraídos de la planilla CERs.xlsx
+// Para Discount: un solo flujo al vto = 100 * (CER_vto / CER_liq) / (CER_emision/100)
+// Para Cupón: flujos como % del VR, ajustados por CER
+const CER_DEFS = {
+  // ── LECERS (Discount, cero cupón) ──────────────────────────
+  X29Y6: {
+    nombre:'LECER May-26', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2025-11-28', fCerEmision:'2025-11-12', cerEmision:651.89806244294,
+    vto:'2026-05-29', vrEmision:100,
+    cfs:[{pago:'2026-05-29', dias:182, amort:100, cupon:0}]
+  },
+  TZX26: {
+    nombre:'BONCER Jun-26', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2024-02-01', fCerEmision:'2024-01-18', cerEmision:200.38801458911763,
+    vto:'2026-06-30', vrEmision:100,
+    cfs:[{pago:'2026-06-30', dias:880, amort:100, cupon:0}]
+  },
+  X31L6: {
+    nombre:'LECER Jul-26', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2026-01-30', fCerEmision:'2026-01-16', cerEmision:685.55061207521,
+    vto:'2026-07-31', vrEmision:100,
+    cfs:[{pago:'2026-07-31', dias:182, amort:100, cupon:0}]
+  },
+  X30S6: {
+    nombre:'LECER Sep-26', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2026-03-16', fCerEmision:'2026-03-02', cerEmision:714.9848780192,
+    vto:'2026-09-30', vrEmision:100,
+    cfs:[{pago:'2026-09-30', dias:197, amort:100, cupon:0}]
+  },
+  TZXO6: {
+    nombre:'BONCER Oct-26', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2024-10-31', fCerEmision:'2024-10-17', cerEmision:480.1525783196544,
+    vto:'2026-10-30', vrEmision:100,
+    cfs:[{pago:'2026-10-30', dias:730, amort:100, cupon:0}]
+  },
+  X30N6: {
+    nombre:'LECER Nov-26', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2025-12-15', fCerEmision:'2025-11-28', cerEmision:659.67889566652,
+    vto:'2026-11-30', vrEmision:100,
+    cfs:[{pago:'2026-11-30', dias:349, amort:100, cupon:0}]
+  },
+  TZXD6: {
+    nombre:'BONCER Dic-26', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2024-03-15', fCerEmision:'2024-03-01', cerEmision:271.047555509126,
+    vto:'2026-12-15', vrEmision:100,
+    cfs:[{pago:'2026-12-15', dias:1004, amort:100, cupon:0}]
+  },
+  TZXM7: {
+    nombre:'BONCER Mar-27', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2024-05-20', fCerEmision:'2024-05-06', cerEmision:361.3176034572122,
+    vto:'2027-03-31', vrEmision:100,
+    cfs:[{pago:'2027-03-31', dias:1045, amort:100, cupon:0}]
+  },
+  TZXA7: {
+    nombre:'BONCER Abr-27', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2025-11-28', fCerEmision:'2025-11-12', cerEmision:651.89806244294,
+    vto:'2027-04-30', vrEmision:100,
+    cfs:[{pago:'2027-04-30', dias:518, amort:100, cupon:0}]
+  },
+  TZXY7: {
+    nombre:'BONCER May-27', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2025-12-15', fCerEmision:'2025-11-28', cerEmision:659.67889566652,
+    vto:'2027-05-31', vrEmision:100,
+    cfs:[{pago:'2027-05-31', dias:531, amort:100, cupon:0}]
+  },
+  TZX27: {
+    nombre:'BONCER Jun-27', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2024-02-01', fCerEmision:'2024-01-18', cerEmision:200.38801458911763,
+    vto:'2027-06-30', vrEmision:100,
+    cfs:[{pago:'2027-06-30', dias:1245, amort:100, cupon:0}]
+  },
+  TZXS7: {
+    nombre:'BONCER Sep-27', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2026-03-31', fCerEmision:'2026-03-13', cerEmision:723.05998062192,
+    vto:'2027-09-30', vrEmision:100,
+    cfs:[{pago:'2027-09-30', dias:547, amort:100, cupon:0}]
+  },
+  TZXD7: {
+    nombre:'BONCER Dic-27', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2024-03-15', fCerEmision:'2024-03-01', cerEmision:271.047555509126,
+    vto:'2027-12-15', vrEmision:100,
+    cfs:[{pago:'2027-12-15', dias:1370, amort:100, cupon:0}]
+  },
+  TZXM8: {
+    nombre:'BONCER Mar-28', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2026-03-31', fCerEmision:'2026-03-13', cerEmision:723.05998062192,
+    vto:'2028-03-31', vrEmision:100,
+    cfs:[{pago:'2028-03-31', dias:730, amort:100, cupon:0}]
+  },
+  TZX28: {
+    nombre:'BONCER Jun-28', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2024-02-01', fCerEmision:'2024-01-18', cerEmision:200.38801458911763,
+    vto:'2028-06-30', vrEmision:100,
+    cfs:[{pago:'2028-06-30', dias:1611, amort:100, cupon:0}]
+  },
+  TZXS8: {
+    nombre:'BONCER Sep-28', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2026-03-31', fCerEmision:'2026-03-13', cerEmision:723.05998062192,
+    vto:'2028-09-29', vrEmision:100,
+    cfs:[{pago:'2028-09-29', dias:913, amort:100, cupon:0}]
+  },
+  TZXM9: {
+    nombre:'BONCER Mar-29', tipo:'Discount', cupon:0, pagos:'Bullet',
+    emision:'2026-03-31', fCerEmision:'2026-03-13', cerEmision:723.05998062192,
+    vto:'2029-03-28', vrEmision:100,
+    cfs:[{pago:'2029-03-28', dias:1096, amort:100, cupon:0}]
+  },
+  // ── SOBERANOS CER (Cupón semestral CER) ────────────────────
+  TX26: {
+    nombre:'TX26 CER 2% Nov-26', tipo:'Cupon', cupon:0.02, pagos:'Semestral',
+    emision:'2020-09-04', fCerEmision:'2020-08-21', cerEmision:22.543951089590315,
+    vto:'2026-11-09', vrEmision:3362.844209987403,
+    // Flujos futuros desde liquidación (VR ya ajustado por CER liq)
+    cfs:[
+      {pago:'2026-05-11', corte:'2026-05-09', dias:180, amort:672.5688419974806, cupon:0.02},
+      {pago:'2026-11-09', corte:'2026-11-09', dias:180, amort:672.5688419974806, cupon:0.02},
+    ]
+  },
+  TX28: {
+    nombre:'TX28 CER 2.25% Nov-28', tipo:'Cupon', cupon:0.0225, pagos:'Semestral',
+    emision:'2020-09-04', fCerEmision:'2020-08-21', cerEmision:22.543951089590315,
+    vto:'2028-11-09', vrEmision:3362.844209987403,
+    cfs:[
+      {pago:'2026-05-11', corte:'2026-05-09', dias:180, amort:336.2844209987403, cupon:0.0225},
+      {pago:'2026-11-09', corte:'2026-11-09', dias:180, amort:336.2844209987403, cupon:0.0225},
+      {pago:'2027-05-10', corte:'2027-05-09', dias:180, amort:336.2844209987403, cupon:0.0225},
+      {pago:'2027-11-09', corte:'2027-11-09', dias:180, amort:336.2844209987403, cupon:0.0225},
+      {pago:'2028-05-09', corte:'2028-05-09', dias:180, amort:336.2844209987403, cupon:0.0225},
+      {pago:'2028-11-09', corte:'2028-11-09', dias:180, amort:336.2844209987403, cupon:0.0225},
+    ]
+  },
+  TX31: {
+    nombre:'TX31 CER 2.5% Nov-31', tipo:'Cupon', cupon:0.025, pagos:'Semestral',
+    emision:'2022-05-31', fCerEmision:'2022-05-17', cerEmision:47.293721017484295,
+    vto:'2031-11-30', vrEmision:1602.9991669262117,
+    cfs:[
+      {pago:'2026-06-01', corte:'2026-05-30', dias:180, amort:0, cupon:0.025},
+      {pago:'2026-11-30', corte:'2026-11-30', dias:180, amort:0, cupon:0.025},
+      {pago:'2027-05-31', corte:'2027-05-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2027-11-30', corte:'2027-11-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2028-05-30', corte:'2028-05-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2028-11-30', corte:'2028-11-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2029-05-30', corte:'2029-05-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2029-11-30', corte:'2029-11-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2030-05-30', corte:'2030-05-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2030-12-02', corte:'2030-11-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2031-05-30', corte:'2031-05-30', dias:180, amort:160.29991669262117, cupon:0.025},
+      {pago:'2031-12-01', corte:'2031-11-30', dias:180, amort:160.29991669262117, cupon:0.025},
+    ]
+  },
+};
+
+// ─── CER STATE ─────────────────────────────────────────────────
+let CER_STATE = {
+  series: [],          // [{fecha: Date, valor: number}] — histórico BCRA
+  cerLiq: null,        // CER al día de liquidación (t-10 hábiles)
+  fCerLiq: null,       // fecha efectiva del CER de liquidación
+  prices: {},          // {ticker: precio_dirty_ARS}
+  computed: [],        // array de resultados calculados
+  chart: null,
+};
+let _cerInited = false;
+
+// ─── Fetch CER histórico de BCRA ───────────────────────────────
+// Variable 30 = CER diario (base 2 = valor del índice)
+async function fetchCERSeries() {
+  const today = new Date();
+  const from = '2019-01-01'; // suficiente historia para calcular el ratio con cualquier emisión
+  const to = today.toISOString().slice(0,10);
+  const url = `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias/${BCRA_CER_ID}?desde=${from}&hasta=${to}&limit=5000`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('BCRA CER HTTP ' + r.status);
+  const j = await r.json();
+  if (j.status !== 200) throw new Error('BCRA CER status ' + j.status);
+  const det = j.results?.[0]?.detalle;
+  if (!det?.length) throw new Error('BCRA CER sin datos');
+  // Ordenar cronológicamente
+  const series = det.map(d => ({
+    fecha: new Date(d.fecha + 'T00:00:00'),
+    valor: d.valor
+  })).sort((a,b) => a.fecha - b.fecha);
+  return series;
+}
+
+// Obtener el CER en una fecha dada (interpolación: último dato ≤ fecha)
+function getCERAt(fecha) {
+  const s = CER_STATE.series;
+  if (!s.length) return null;
+  let v = s[0].valor;
+  for (const pt of s) {
+    if (pt.fecha <= fecha) v = pt.valor;
+    else break;
+  }
+  return v;
+}
+
+// CER de liquidación = CER en (liq − 10 días hábiles).
+// Los feriados están hardcodeados en FERIADOS (de la planilla). Como simplificación,
+// usamos los feriados de BCRA conocidos (misma lista que el dashboard usa para addBusinessDays).
+function getCERLiq(liqDate) {
+  const fLiq = addBusinessDays(liqDate, -10);
+  const val = getCERAt(fLiq);
+  return { valor: val, fecha: fLiq };
+}
+
+// Proyectar CER futuro dado inflación mensual constante desde hoy
+// inflMensual = ej 0.025 para 2.5% mensual
+function proyectarCER(desde, hasta, inflMensual) {
+  const cerHoy = getCERAt(desde);
+  if (!cerHoy) return null;
+  const meses = (hasta - desde) / (30.44 * 86400000);
+  return cerHoy * Math.pow(1 + inflMensual, meses);
+}
+
+// ─── Calcular métricas CER de un instrumento ────────────────────
+// precio = precio dirty en pesos (cotización mercado)
+// cerLiq = CER al día de liq (ya computado)
+// cerEmision = CER al día de emisión (hardcoded en def)
+// Para Discount: VR_liq = 100 * cerLiq / cerEmision → precio implícito en pesos
+// TIR real = tasa que descuenta los flujos CER futuros al precio dirty
+function calcCERMetrics(def, precioDirtyARS, liqDate, cerLiqVal, cerProjFn) {
+  if (!cerLiqVal || precioDirtyARS <= 0) return null;
+  const liq = liqDate || LIQ;
+
+  // VR al día de liq ajustado por CER
+  const vrLiq = def.vrEmision * (cerLiqVal / def.cerEmision);
+
+  // Precio en términos de VR_liq (normalizado, para cálculos de TIR)
+  // El mercado cotiza en ARS directo; VR_liq ya está en ARS (mismo numerario)
+  const precioNorm = precioDirtyARS;
+
+  if (def.tipo === 'Discount') {
+    // Un solo flujo al vencimiento: VR_liq * (CER_vto / CER_liq)
+    const vtoDate = new Date(def.vto + 'T00:00:00');
+    if (vtoDate <= liq) return null;
+    const cerVto = cerProjFn(vtoDate);
+    if (!cerVto) return null;
+    const cfVto = vrLiq * (cerVto / cerLiqVal); // flujo en ARS al vto
+    const t = (vtoDate - liq) / (365 * 86400000);
+    const diasReales = Math.round((vtoDate - liq) / 86400000);
+    if (t <= 0) return null;
+
+    // TIR real e.a.: (cfVto/precio)^(1/t) - 1
+    const tirReal = Math.pow(cfVto / precioNorm, 1 / t) - 1;
+    const macaulay = t; // bono bullet = duración = plazo
+    const modified = macaulay / (1 + tirReal);
+
+    // Valor Técnico = VR_liq (para Discount = precio teórico si TIR real = 0)
+    const vt = vrLiq;
+    const paridad = precioNorm / vt;
+
+    return { ticker: def.nombre, tirReal, macaulay, modified, vt, paridad, vrLiq,
+             cerLiq: cerLiqVal, cerVto, diasReales, t, cfVto,
+             precio: precioNorm, vto: def.vto, tipo: def.tipo };
+  } else {
+    // Bono cupón CER: flujos = amort + interes, cada uno escalado por CER_pago / CER_liq
+    const flows = [];
+    let vr = vrLiq;
+    let prevCorte = liq;
+    for (const cf of def.cfs) {
+      const pagoDt = new Date(cf.pago + 'T00:00:00');
+      if (pagoDt <= liq) {
+        // flujo ya cobrado — actualizar VR residual
+        vr = Math.max(0, vr - cf.amort * (cerLiqVal / def.cerEmision));
+        prevCorte = pagoDt;
+        continue;
+      }
+      const t2 = (pagoDt - liq) / (365 * 86400000);
+      const cerPago = cerProjFn(pagoDt);
+      if (!cerPago) continue;
+      const escala = cerPago / cerLiqVal;
+      const amortARS = cf.amort * (cerLiqVal / def.cerEmision) * escala;
+      const interesARS = vr * cf.cupon * (cf.dias / 360) * escala;
+      const cfARS = amortARS + interesARS;
+      flows.push({ t: t2, cf: cfARS });
+      vr = Math.max(0, vr - cf.amort * (cerLiqVal / def.cerEmision));
+    }
+    if (!flows.length) return null;
+
+    const tirReal = calcTIRFromFlows(flows, precioNorm);
+    if (!isFinite(tirReal) || tirReal <= -0.99) return null;
+    const { macaulay, modified } = calcDurationFromFlows(flows, tirReal);
+    const diasReales = Math.round((new Date(def.vto) - liq) / 86400000);
+
+    // Valor Técnico = suma PV de flujos al tirReal implícito
+    const vt = vrLiq; // simplificado como VR_liq ajustado
+    const paridad = precioNorm / vt;
+
+    return { ticker: def.nombre, tirReal, macaulay, modified, vt, paridad, vrLiq,
+             cerLiq: cerLiqVal, diasReales, t: macaulay,
+             precio: precioNorm, vto: def.vto, tipo: def.tipo, flows };
+  }
+}
+
+// ─── Fetch precios CER desde data912 ────────────────────────────
+async function fetchCERPrices() {
+  try {
+    // Los CER cotizan como ARS en data912 bajo el endpoint de bonds (pesos)
+    const r = await fetch(PROXY_URL + '/api/bonds');
+    if (!r.ok) return;
+    const arr = await r.json();
+    const data = Array.isArray(arr) ? arr : (arr.data || []);
+    const map = priceMap(data);
+    for (const ticker of Object.keys(CER_DEFS)) {
+      const item = map[ticker.toUpperCase()];
+      if (item) {
+        const p = parseFloat(item.c || item.px_bid || item.px_ask || 0);
+        if (p > 0) CER_STATE.prices[ticker] = p;
+      }
+    }
+  } catch(e) { console.warn('[CER] fetchCERPrices:', e); }
+}
+
+// ─── Render tabla CER ─────────────────────────────────────────
+let _cerSortCol = 0, _cerSortDir = 1;
+function sortCER(col) {
+  _cerSortDir = (_cerSortCol === col) ? -_cerSortDir : 1;
+  _cerSortCol = col;
+  renderCERTable();
+}
+
+function renderCERTable() {
+  const tbody = document.getElementById('tbody-cer');
+  if (!tbody) return;
+  const liq = getT1();
+  const { valor: cerLiqVal, fecha: fCerLiq } = getCERLiq(liq);
+  CER_STATE.cerLiq = cerLiqVal;
+  CER_STATE.fCerLiq = fCerLiq;
+
+  // Actualizar label
+  const statusEl = document.getElementById('cer-status');
+  const liqInfoEl = document.getElementById('cer-liq-info');
+  if (cerLiqVal) {
+    if (statusEl) statusEl.textContent = `CER Liq: ${cerLiqVal.toFixed(4)} (${fCerLiq?.toLocaleDateString('es-AR') || '—'})`;
+    if (liqInfoEl) liqInfoEl.textContent = `Liq: ${liq.toLocaleDateString('es-AR')} · CER t-10h: ${fCerLiq?.toLocaleDateString('es-AR') || '—'}`;
+  }
+
+  // Proyección CER con inflación constante (para cálculos de TIR)
+  const inflMensual = 0.025; // default 2.5% mensual para tabla base
+  const cerProjFn = (fecha) => {
+    const hist = getCERAt(fecha);
+    if (hist) return hist;
+    return proyectarCER(liq, fecha, inflMensual);
+  };
+
+  const results = [];
+  for (const [ticker, def] of Object.entries(CER_DEFS)) {
+    if (new Date(def.vto) <= liq) continue; // vencido
+    const precio = CER_STATE.prices[ticker];
+    if (!precio) continue;
+    const r = calcCERMetrics(def, precio, liq, cerLiqVal, cerProjFn);
+    if (!r) continue;
+    results.push({ ticker, def, ...r });
+  }
+  CER_STATE.computed = results;
+
+  // Sort
+  const sortKeys = [
+    r => r.ticker, r => new Date(r.vto), r => r.diasReales,
+    r => r.precio, r => r.tirReal, r => r.macaulay,
+    r => r.modified, r => r.vt, r => r.paridad, r => r.cerLiq
+  ];
+  const sk = sortKeys[Math.min(_cerSortCol, sortKeys.length-1)];
+  results.sort((a, b) => _cerSortDir * ((sk(a) > sk(b) ? 1 : -1)));
+
+  const allTirs = results.map(r => r.tirReal).filter(v => isFinite(v));
+  const fmt2 = v => (v != null && isFinite(v)) ? v.toFixed(2) : '—';
+  const fmtP = (v, d=2) => (v != null && isFinite(v)) ? (v*100).toFixed(d)+'%' : '—';
+  const liveDotCER = p => p ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:4px;vertical-align:middle;"></span>' : '';
+
+  const html = results.map(r => {
+    const tirHc = tirColor(r.tirReal, allTirs);
+    const parColor = r.paridad > 1 ? 'color:var(--red)' : r.paridad < 0.98 ? 'color:var(--green)' : '';
+    return `<tr style="cursor:pointer" onclick="openCERModal('${r.ticker}')">
+      <td><span class="ticker">${r.ticker}${liveDotCER(CER_STATE.prices[r.ticker])}</span>
+          <span class="bond-name">${r.def.nombre}</span>
+          <span class="tag ${r.def.tipo==='Discount'?'tag-lec':'tag-bon'}">${r.def.tipo==='Discount'?'LECER':'CER'}</span></td>
+      <td>${new Date(r.vto+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
+      <td>${r.diasReales}</td>
+      <td>${fmt2(r.precio)}</td>
+      <td ${tirHc}>${fmtP(r.tirReal)}</td>
+      <td>${fmt2(r.macaulay)}</td>
+      <td>${fmt2(r.modified)}</td>
+      <td>${fmt2(r.vt)}</td>
+      <td style="${parColor}">${fmtP(r.paridad)}</td>
+      <td>${fmt2(r.cerLiq)}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.innerHTML = html || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:18px;">Sin precios — actualizá datos</td></tr>';
+}
+
+// ─── CER Chart histórico ──────────────────────────────────────
+function renderCERChart() {
+  const canvas = document.getElementById('c-cer-hist');
+  if (!canvas || !CER_STATE.series.length) return;
+  const fromEl = document.getElementById('cer-date-from');
+  const toEl = document.getElementById('cer-date-to');
+  const dateFrom = fromEl ? new Date(fromEl.value+'T00:00:00') : new Date(2024,0,1);
+  const dateTo = toEl ? new Date(toEl.value+'T00:00:00') : new Date(2027,11,31);
+  const pts = CER_STATE.series
+    .filter(d => d.fecha >= dateFrom && d.fecha <= dateTo)
+    .map(d => ({x: d.fecha, y: d.valor}));
+  if (CER_STATE.chart) { CER_STATE.chart.destroy(); CER_STATE.chart=null; }
+  const isDark = !document.documentElement.classList.contains('light');
+  const gc = isDark?'rgba(255,255,255,.06)':'rgba(0,0,0,.07)';
+  const tc = isDark?'#9ca3af':'#6b7280';
+  CER_STATE.chart = new Chart(canvas, {
+    type:'line',
+    data:{datasets:[{
+      label:'CER (BCRA)', data:pts,
+      borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.08)',
+      borderWidth:1.5, pointRadius:0, tension:0.2, fill:true
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:tc,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>`CER: ${c.parsed.y.toFixed(4)}`}}},
+      scales:{
+        x:{type:'time',time:{unit:'month',displayFormats:{month:'MM/yy'}},ticks:{color:tc,font:{size:9}},grid:{color:gc}},
+        y:{ticks:{color:tc,font:{size:10},callback:v=>v.toFixed(0)},grid:{color:gc},
+           title:{display:true,text:'Índice CER',color:tc,font:{size:10}}},
+      }
+    }
+  });
+}
+
+// ─── CER Curva (TIR Real vs Duration) ────────────────────────
+function buildCERCurveChart() {
+  destroyChart('c-cer-curve');
+  const ctx = document.getElementById('c-cer-curve'); if(!ctx) return;
+  const pts = CER_STATE.computed.filter(r => r.modified && isFinite(r.tirReal) && r.tirReal > -0.5);
+  if (!pts.length) return;
+  const isLight = document.documentElement.classList.contains('light');
+  const gc = isLight?'rgba(0,0,0,.07)':'rgba(255,255,255,.06)';
+  const tc = isLight?'#6b7280':'#7a8099';
+  const xs = pts.map(p=>p.modified), ys = pts.map(p=>p.tirReal*100);
+  const datasets = [];
+  if (pts.length >= 3) {
+    const coef = polyFit(xs, ys);
+    const curve = polyLine(coef, Math.max(0,Math.min(...xs)-.05), Math.max(...xs)+.05);
+    datasets.push({label:'Curva',data:curve,type:'line',borderColor:'rgba(52,211,153,.5)',borderWidth:1.5,pointRadius:0,fill:false,order:0});
+  }
+  const discPts = pts.filter(p=>p.tipo==='Discount');
+  const cupPts = pts.filter(p=>p.tipo==='Cupon');
+  if (discPts.length) datasets.push({label:'LECER/BONCER',data:discPts.map(p=>({x:p.modified,y:p.tirReal*100,ticker:p.ticker})),backgroundColor:'#34d399',borderColor:'#34d399',pointRadius:6,pointHoverRadius:8});
+  if (cupPts.length) datasets.push({label:'Bono CER',data:cupPts.map(p=>({x:p.modified,y:p.tirReal*100,ticker:p.ticker})),backgroundColor:'#6ee7b7',borderColor:'#6ee7b7',pointRadius:7,pointHoverRadius:9,pointStyle:'triangle'});
+  destroyChart('c-cer-curve');
+  charts['c-cer-curve'] = new Chart(ctx, {
+    type:'scatter', data:{datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:c=>{const d=c.raw;return `${d.ticker||''}: Dur ${d.x?.toFixed(2)||''} / TIR Real ${d.y?.toFixed(2)||''}%`;}}}},
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{size:10}},title:{display:true,text:'Mod. Duration (años)',color:tc,font:{size:10}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v.toFixed(2)+'%'},title:{display:true,text:'TIR Real e.a. (%)',color:tc,font:{size:10}}}
+      }
+    }
+  });
+}
+
+// ─── CER Modal (detalle de flujos) ────────────────────────────
+function openCERModal(ticker) {
+  const def = CER_DEFS[ticker];
+  const liq = getT1();
+  const precio = CER_STATE.prices[ticker];
+  if (!def || !precio) return;
+  const { valor: cerLiqVal } = getCERLiq(liq);
+  const inflMensual = 0.025;
+  const cerProjFn = (fecha) => { const h=getCERAt(fecha); return h||proyectarCER(liq,fecha,inflMensual); };
+  const r = calcCERMetrics(def, precio, liq, cerLiqVal, cerProjFn);
+  if (!r) return;
+  bondPastVisible = false;
+  document.getElementById('bond-modal').classList.add('open');
+  document.body.style.overflow='hidden';
+  const pastBtn=document.getElementById('bond-toggle-past'); if(pastBtn){pastBtn.style.display='none';}
+  document.getElementById('bond-modal-title').textContent=`${ticker} — ${def.nombre}`;
+  document.getElementById('bond-modal-meta').textContent=`CER · Liq: ${liq.toLocaleDateString('es-AR')} · CER Liq: ${cerLiqVal?.toFixed(4)||'—'} · Precio: ${precio.toFixed(2)} · TIR Real: ${r.tirReal!=null?(r.tirReal*100).toFixed(2)+'%':'—'}`;
+  const fmt2=(v,d=2)=>(v!=null&&isFinite(v))?v.toFixed(d):'—';
+  const fmtP=(v,d=2)=>(v!=null&&isFinite(v))?(v*100).toFixed(d)+'%':'—';
+  document.getElementById('bond-modal-summary').innerHTML=`
+    <div class="bms-item"><div class="bms-lbl">Precio</div><div class="bms-val">${fmt2(precio)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">TIR Real e.a.</div><div class="bms-val pos">${fmtP(r.tirReal)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">Mac. Duration</div><div class="bms-val">${fmt2(r.macaulay)} a</div></div>
+    <div class="bms-item"><div class="bms-lbl">Mod. Duration</div><div class="bms-val">${fmt2(r.modified)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">Val. Técnico</div><div class="bms-val">${fmt2(r.vt)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">Paridad</div><div class="bms-val">${fmtP(r.paridad)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">CER Liq.</div><div class="bms-val">${fmt2(cerLiqVal,4)}</div></div>
+    <div class="bms-item"><div class="bms-lbl">Vencimiento</div><div class="bms-val">${new Date(def.vto+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'2-digit'})}</div></div>`;
+  document.getElementById('bond-modal-past').innerHTML='';
+  document.getElementById('bond-modal-past').style.display='none';
+  if (def.tipo==='Discount') {
+    const liqRow=`<tr style="background:rgba(79,142,247,.08)"><td style="text-align:left;font-family:var(--font);font-weight:700;color:var(--accent)">${liq.toLocaleDateString('es-AR')}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>${fmt2(r.vrLiq,4)}</td><td style="font-weight:700;color:var(--red)">${(-precio).toFixed(2)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+    const vtoRow=`<tr><td style="text-align:left;font-family:var(--font)">${new Date(def.vto+'T00:00:00').toLocaleDateString('es-AR')}</td><td style="text-align:left;font-family:var(--font);color:var(--muted)">—</td><td>${r.diasReales}</td><td class="cf-amort">${fmt2(r.vrLiq,4)}</td><td>—</td><td>CER ×${fmt2(r.cerVto/cerLiqVal,4)}</td><td>0.00</td><td style="font-weight:700">${fmt2(r.cfVto,4)}</td><td>${fmt2(r.t,4)}</td><td>${fmt2(r.macaulay,3)}</td><td>—</td></tr>`;
+    document.getElementById('bond-modal-tbody').innerHTML=liqRow+vtoRow;
+  } else {
+    const flows=r.flows||[];
+    const liqRow=`<tr style="background:rgba(79,142,247,.08)"><td style="text-align:left;font-family:var(--font);font-weight:700;color:var(--accent)">${liq.toLocaleDateString('es-AR')}</td><td>*</td><td>—</td><td>—</td><td>—</td><td>—</td><td>${fmt2(r.vrLiq,4)}</td><td style="font-weight:700;color:var(--red)">${(-precio).toFixed(2)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+    const cfRows=flows.map((f,i)=>`<tr><td style="text-align:left;font-family:var(--font)">${def.cfs.find((c,j)=>j===i)?.pago||'—'}</td><td style="text-align:left">—</td><td>—</td><td>—</td><td>${fmtP(def.cupon)}</td><td>CER ajustado</td><td>—</td><td style="font-weight:700">${fmt2(f.cf,4)}</td><td>${fmt2(f.t,4)}</td><td>—</td><td>—</td></tr>`).join('');
+    document.getElementById('bond-modal-tbody').innerHTML=liqRow+cfRows;
+  }
+  document.getElementById('bond-modal-totals').innerHTML=`<span style="font-family:var(--mono);font-size:11px">TIR Real: <strong>${fmtP(r.tirReal)}</strong> · Tipo: <strong>${def.tipo}</strong> · CER Liq: <strong>${fmt2(cerLiqVal,4)}</strong></span>`;
+}
+
+// ─── initCER ────────────────────────────────────────────────────
+async function initCER() {
+  const setStatus = s => { const el=document.getElementById('cer-status'); if(el) el.textContent=s; };
+  setStatus('Cargando precios…');
+  await fetchCERPrices();
+  setStatus('Cargando CER desde BCRA…');
+  try {
+    CER_STATE.series = await fetchCERSeries();
+    const last = CER_STATE.series[CER_STATE.series.length-1];
+    setStatus(`CER al ${last?.fecha.toLocaleDateString('es-AR')}: ${last?.valor.toFixed(4)}`);
+    console.log('[CER] Serie cargada:', CER_STATE.series.length, 'obs. Último:', last?.fecha.toLocaleDateString('es-AR'), '=', last?.valor.toFixed(4));
+  } catch(e) {
+    console.warn('[CER]', e);
+    setStatus('⚠ Sin datos CER de BCRA — ' + e.message);
+  }
+  renderCERTable();
+  renderCERChart();
+  buildCERCurveChart();
+}
+
+// Hookear el tab CER para auto-inicializar
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.tab'); if(!btn) return;
+  setTimeout(() => {
+    const ap = document.querySelector('.panel.active');
+    if (!ap || ap.id !== 'panel-cer') return;
+    if (!_cerInited) { _cerInited = true; initCER(); }
+    else { renderCERTable(); renderCERChart(); }
+  }, 80);
+}, true);
+
+// Integrar CER en renderAllTables (para que se actualicen los precios en cada fetch)
+const _origRenderAllTables = renderAllTables;
+renderAllTables = function() {
+  _origRenderAllTables();
+  if (_cerInited) {
+    fetchCERPrices().then(() => { renderCERTable(); buildCERCurveChart(); });
+  }
+};
+
+// ─── Integrar CER en pnlInstruments ──────────────────────────
+const _origPnlInstruments = pnlInstruments;
+pnlInstruments = function() {
+  const base = _origPnlInstruments();
+  for (const [ticker, def] of Object.entries(CER_DEFS)) {
+    if (new Date(def.vto) > LIQ)
+      base.push({ticker, nombre:def.nombre, grupo:'CER', type:'cer'});
+  }
+  return base;
+};
+
+// ─── PnL: CER slider logic ─────────────────────────────────────
+let _pnlCerMode = 'inflacion'; // 'inflacion' | 'cer'
+let _pnlCerInflMensual = 0.025;
+let _pnlCerDirectVal = null;
+
+function setPnlCerMode(mode, btn) {
+  _pnlCerMode = mode;
+  document.querySelectorAll('#pnl-cer-mode-infl,#pnl-cer-mode-cer').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('pnl-cer-infl-controls').style.display = mode==='inflacion'?'':'none';
+  document.getElementById('pnl-cer-direct-controls').style.display = mode==='cer'?'':'none';
+  pnlCerRecalc();
+}
+function stepPnlCerSlider(d) {
+  const sl=document.getElementById('pnl-cer-slider'); if(!sl) return;
+  const v=Math.min(500,Math.max(0,parseFloat(sl.value)+d*5));
+  sl.value=v; pnlCerSliderMoved(v);
+}
+function pnlCerSliderMoved(val) {
+  _pnlCerInflMensual = parseFloat(val)/1000;
+  const el=document.getElementById('pnl-cer-infl-val');
+  if(el) el.textContent=(parseFloat(val)/10).toFixed(1)+'%';
+  pnlCerRecalc();
+}
+function pnlCerDirectMoved(val) {
+  _pnlCerDirectVal = parseFloat(val)||null;
+  pnlCerRecalc();
+}
+function pnlCerRecalc() {
+  if (!pnlState.ticker || !CER_DEFS[pnlState.ticker]) return;
+  const def = CER_DEFS[pnlState.ticker];
+  const liq = getT1();
+  const { valor: cerLiqVal } = getCERLiq(liq);
+  const nowEl=document.getElementById('pnl-cer-now');
+  const tgtEl=document.getElementById('pnl-cer-target');
+  const vtEl=document.getElementById('pnl-cer-vt-target');
+  if (nowEl) nowEl.textContent = cerLiqVal ? cerLiqVal.toFixed(4) : '—';
+  const vtoDate = new Date(def.vto+'T00:00:00');
+  let cerTarget;
+  if (_pnlCerMode === 'inflacion') {
+    cerTarget = proyectarCER(liq, vtoDate, _pnlCerInflMensual);
+  } else {
+    cerTarget = _pnlCerDirectVal;
+  }
+  if (tgtEl) tgtEl.textContent = cerTarget ? cerTarget.toFixed(4) : '—';
+  // VT objetivo = VR_liq * (cerTarget/cerLiqVal) para Discount
+  if (cerTarget && cerLiqVal && def.tipo === 'Discount') {
+    const vrLiq = def.vrEmision * (cerLiqVal / def.cerEmision);
+    const vtTarget = vrLiq * (cerTarget / cerLiqVal);
+    if (vtEl) vtEl.textContent = vtTarget.toFixed(2);
+  } else {
+    if (vtEl) vtEl.textContent = '—';
+  }
+}
+
+// Hookear pnlSelect para mostrar/ocultar sección CER
+const _origPnlSelect = pnlSelect;
+pnlSelect = function(ticker) {
+  _origPnlSelect(ticker);
+  const isCER = !!CER_DEFS[ticker];
+  const cerSection = document.getElementById('pnl-cer-section');
+  if (cerSection) cerSection.style.display = isCER ? '' : 'none';
+  if (isCER) {
+    // Pre-cargar CER si no está
+    if (!_cerInited) { _cerInited=true; initCER(); }
+    pnlCerRecalc();
+  }
+};
+
+// ─── Integrar CER en Graficador ──────────────────────────────
+const _origInitGrafSelect = initGrafSelect;
+initGrafSelect = function() {
+  _origInitGrafSelect();
+  const sel = document.getElementById('graf-select');
+  if (!sel) return;
+  // Agregar grupo CER si no existe ya
+  let grp = sel.querySelector('optgroup[label="CER"]');
+  if (!grp) {
+    grp = document.createElement('optgroup');
+    grp.label = 'CER';
+    for (const [ticker, def] of Object.entries(CER_DEFS)) {
+      if (new Date(def.vto) <= LIQ) continue;
+      const opt = document.createElement('option');
+      opt.value = ticker;
+      opt.textContent = `${ticker} — ${def.nombre}`;
+      grp.appendChild(opt);
+    }
+    sel.appendChild(grp);
+  }
+};
+// también aplicar al initCalcSelect
+const _origInitCalcSelect2 = initCalcSelect;
+initCalcSelect = function() {
+  _origInitCalcSelect2();
+  const sel = document.getElementById('calc-select-native');
+  if (!sel) return;
+  let grp = sel.querySelector('optgroup[label="CER"]');
+  if (!grp) {
+    grp = document.createElement('optgroup');
+    grp.label = 'CER';
+    for (const [ticker, def] of Object.entries(CER_DEFS)) {
+      if (new Date(def.vto) <= LIQ) continue;
+      const opt = document.createElement('option');
+      opt.value = ticker;
+      opt.textContent = `${ticker} — ${def.nombre}`;
+      grp.appendChild(opt);
+    }
+    sel.appendChild(grp);
+  }
 };
 
 </script>
