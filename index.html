@@ -4126,14 +4126,12 @@ function processLecaps(rawArr) {
       const precio = item ? parseFloat(item.c || item.px_bid || 0) : null;
       if (!precio) return {...def, precio: null, tir:null, tem:null, tna:null, tePlazo:null, live:false};
       // Compute dias dynamically from vto and current LIQ (not hardcoded)
-      // Días calendario (para TIR calc — base 365)
+      // Días calendario (para TIR calc — base 365 — y también para display)
       const vtoD = new Date(def.vto + 'T00:00:00');
       const diasDyn = Math.round((vtoD - LIQ) / 86400000);
-      // Días hábiles (para display, consistente con CER)
-      const diasHab = businessDaysBetween(LIQ, vtoD);
       const {tir, tem, tna, tePlazo} = calcLecapMetrics(precio, def.vpv, diasDyn > 0 ? diasDyn : def.dias);
       return {...def, precio, tir, tem, tna, tePlazo,
-              dias: diasHab > 0 ? diasHab : def.dias,
+              dias: diasDyn > 0 ? diasDyn : def.dias,
               diasCal: diasDyn > 0 ? diasDyn : def.dias,
               live: true};
     });
@@ -7557,9 +7555,9 @@ function calcCERMetrics(ticker, def, precioDirtyARS, liqDate, cerLiqVal) {
   }
 
   const paridad = precioDirtyARS / vt;
-  // Días HÁBILES desde liq a vto (consistente con LECAP/Tasa fija)
-  const diasReales = businessDaysBetween(liq, vto);
-  const diasCal = Math.round((vto - liq) / 86400000);
+  // Días corridos (calendario) desde liq a vto — para display y para TIR base 365
+  const diasReales = Math.round((vto - liq) / 86400000);
+  const diasCal = diasReales;
 
   return {
     ticker, tirReal, macaulay: dur.macaulay, modified: dur.modified, convex,
@@ -7644,7 +7642,7 @@ function renderCERTable() {
       // Mostrar sin métricas si no hay CER
       results.push({
         ticker, def, precio, vto: def.vto,
-        diasReales: businessDaysBetween(liq, new Date(def.vto + 'T00:00:00')),
+        diasReales: Math.round((new Date(def.vto + 'T00:00:00') - liq) / 86400000),
         tirReal: null, macaulay: null, modified: null, vt: null, paridad: null, cerLiq: null
       });
       continue;
@@ -7787,21 +7785,49 @@ function buildCERCurveChart() {
 //    - inflación_mensual_tramo = factor_tramo^(1/meses) - 1
 // 4. Plot: UN punto por mes (1° del mes); curva fit polinomial grado 2.
 //
-// Pares EXACTOS (mismo vto, ambos cero cupón):
+// Pares (Fija/Capitalizable ↔ CER cero cupón):
+// Mismo vto preferido; cuando no hay match exacto, se usa el más cercano (ambos deben ser cero cupón).
 const INFLA_PAIRS = [
-  { fija:'S29Y6', cer:'X29Y6' }, // 2026-05-29
-  { fija:'T30J6', cer:'TZX26' }, // 2026-06-30
-  { fija:'S31L6', cer:'X31L6' }, // 2026-07-31
-  { fija:'S30S6', cer:'X30S6' }, // 2026-09-30
-  { fija:'S30O6', cer:'TZXO6' }, // 2026-10-30
-  { fija:'S30N6', cer:'X30N6' }, // 2026-11-30
-  { fija:'T30A7', cer:'TZXA7' }, // 2027-04-30
-  { fija:'T31Y7', cer:'TZXY7' }, // 2027-05-31
-  { fija:'T30J7', cer:'TZX27' }, // 2027-06-30
+  { fija:'S29Y6', cer:'X29Y6' }, // 2026-05-29 (mismo vto)
+  { fija:'T30J6', cer:'TZX26' }, // 2026-06-30 (mismo vto)
+  { fija:'S31L6', cer:'X31L6' }, // 2026-07-31 (mismo vto)
+  { fija:'S30S6', cer:'X30S6' }, // 2026-09-30 (mismo vto)
+  { fija:'S30O6', cer:'TZXO6' }, // 2026-10-30 (mismo vto)
+  { fija:'S30N6', cer:'X30N6' }, // 2026-11-30 (mismo vto)
+  { fija:'T15E7', cer:'TZXD6' }, // T15E7=15/1/27 vs TZXD6=15/12/26 — más cercano (ambos cero cupón)
+  { fija:'T30A7', cer:'TZXA7' }, // 2027-04-30 (mismo vto)
+  { fija:'T31Y7', cer:'TZXY7' }, // 2027-05-31 (mismo vto)
+  { fija:'T30J7', cer:'TZX27' }, // 2027-06-30 (mismo vto)
 ];
 
 // Estado de la curva infla (unidad TEM/TNA)
-let INFLA_STATE = { unidad: 'TEM', data: null };
+let INFLA_STATE = {
+  unidad: 'TEM',
+  data: null,
+  historica: null, // [{fecha: Date, valor: %mensual}] de argentinadatos
+};
+
+// Fetch de inflación mensual histórica (argentinadatos /v1/finanzas/indices/inflacion)
+async function fetchInflacionHistorica() {
+  try {
+    const r = await fetch('https://api.argentinadatos.com/v1/finanzas/indices/inflacion', {signal: AbortSignal.timeout(10000)});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const arr = await r.json();
+    if (!Array.isArray(arr) || !arr.length) throw new Error('vacío');
+    // Estructura: [{fecha: "YYYY-MM-DD", valor: number}] — valor en %
+    const data = arr
+      .filter(d => d.fecha && d.valor != null && isFinite(d.valor))
+      .map(d => ({ fecha: new Date(d.fecha + 'T00:00:00'), valor: parseFloat(d.valor) }))
+      .sort((a,b) => a.fecha - b.fecha);
+    INFLA_STATE.historica = data;
+    console.log('[Infla histórica] Cargada:', data.length, 'meses. Último:',
+      data[data.length-1]?.fecha.toLocaleDateString('es-AR'), '=', data[data.length-1]?.valor.toFixed(2)+'%');
+    return data;
+  } catch(e) {
+    console.warn('[Infla histórica] Error:', e.message);
+    return null;
+  }
+}
 
 // Calcula los tramos del bootstrap (devuelve datos crudos para debug también)
 function computeInflacionImplicita() {
@@ -7821,13 +7847,10 @@ function computeInflacionImplicita() {
       console.warn(`[Infla] Falta dato ${fija}↔${cer}`, {cerDef:!!cerDef, lecap:!!lecap, tir:lecap?.tir, precio:cerPrecio});
       continue;
     }
-    // Validar: ambos vto deben coincidir exactamente
-    if (cerDef.vto !== lecap.vto) {
-      console.warn(`[Infla] Vtos no coinciden ${fija}=${lecap.vto} vs ${cer}=${cerDef.vto}, saltando`);
-      continue;
-    }
-    // Validar: no BONCER con cupón (LECER/BONCER zero cupón, LECAP/BONCAP)
+    // Excluir BONCER con cupón (no aplicable a este análisis)
     if (cerDef.tipo === 'BONCER_CUP') continue;
+    // Si los vtos no coinciden EXACTAMENTE, igual procesar (pares pre-curados),
+    // pero usar el vto del CER bond (no del LECAP) para el bootstrap.
 
     const vto = new Date(cerDef.vto + 'T00:00:00');
     if (vto <= liq) continue;
@@ -7931,7 +7954,9 @@ function buildInflacionImplicitaChart() {
       // El mes "pertenece" al tramo cuyo 'hasta' está en/después de este mes
       // → si ya hay un punto para este mes, sólo sobreescribir si este tramo termina ANTES (el más cercano)
       const prev = puntosMap.get(key);
-      if (!prev || t.hasta < prev._hasta) {
+      // Si dos tramos pisan el mismo mes, gana el que termina MÁS TARDE
+      // (más cercano a fin de mes / siguiente período)
+      if (!prev || t.hasta > prev._hasta) {
         puntosMap.set(key, { x: new Date(cur), _hasta: t.hasta, tem: t.inflMensualEnc, tna: t.inflMensualEnc * 12 });
       }
       cur.setMonth(cur.getMonth() + 1);
@@ -7968,6 +7993,34 @@ function buildInflacionImplicitaChart() {
   const tc = isLight ? '#6b7280' : '#7a8099';
 
   const datasets = [];
+
+  // Inflación histórica (si se cargó) — últimos 18 meses para no saturar el chart
+  if (INFLA_STATE.historica?.length) {
+    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 18);
+    const histData = INFLA_STATE.historica
+      .filter(d => d.fecha >= cutoff && d.fecha <= LIQ)
+      .map(d => ({
+        x: d.fecha,
+        // Si está en unidad TNA: convertir mensual a TNA = mensual × 12
+        y: (unit === 'TNA' ? d.valor * 12 : d.valor),
+      }));
+    if (histData.length) {
+      datasets.push({
+        label: `Inflación histórica (INDEC) ${unit}`,
+        data: histData,
+        type: 'line',
+        borderColor: '#94a3b8',
+        backgroundColor: 'rgba(148,163,184,.08)',
+        borderWidth: 1.5,
+        pointRadius: 2,
+        pointHoverRadius: 4,
+        tension: 0.2,
+        borderDash: [],
+        fill: false,
+      });
+    }
+  }
+
   if (curveData.length) {
     datasets.push({
       label: `Fit polinomial grado 2`,
@@ -8042,18 +8095,24 @@ window.debugInflaTable = function() {
   const rows = r.tramos.map(t => ({
     Fijo: t.fija,
     CER: t.cer,
-    Duration: t.duration.toFixed(2),
-    'TNA fijo': (t.tnaLecap*100).toFixed(2)+'%',
+    'Días vto': t.diasCal,
+    'Precio CER': t.cerPrecio.toFixed(2),
     'TEA fijo': (t.teaLecap*100).toFixed(2)+'%',
+    'TNA fijo': (t.tnaLecap*100).toFixed(2)+'%',
     'TIR real CER': t.tirRealCer != null ? (t.tirRealCer*100).toFixed(2)+'%' : '—',
-    'Anual (del par)': t.inflAnualPar != null ? (t.inflAnualPar*100).toFixed(2)+'%' : '—',
-    'Anual (encadenada)': (t.inflAnualEnc*100).toFixed(2)+'%',
-    'Mensual': (t.inflMensualEnc*100).toFixed(2)+'%',
-    'CER VTO impl.': t.cerVtoImpl.toFixed(2),
+    'CER LIQ impl.': t.cerVtoImpl.toFixed(2),
     'Meses tramo': t.mesesTramo.toFixed(2),
+    'Mensual (enc)': (t.inflMensualEnc*100).toFixed(2)+'%',
+    'Anual (enc)': (t.inflAnualEnc*100).toFixed(2)+'%',
+    'Mensual (del par)': t.inflMensualPar != null ? (t.inflMensualPar*100).toFixed(2)+'%' : '—',
+    'Anual (del par)': t.inflAnualPar != null ? (t.inflAnualPar*100).toFixed(2)+'%' : '—',
   }));
   console.log('CER actual:', r.cerActual.toFixed(4), 'al', r.fechaCerActual.toLocaleDateString('es-AR'));
   console.table(rows);
+  console.log('\nFórmulas:\n' +
+    '  CER LIQ impl = precio_CER × (1+TIR_LECAP)^(días/365) × CER_emisión / 100\n' +
+    '  Mensual encadenada = (CER_LIQ_impl_curr / CER_anchor_prev)^(1/meses_tramo) - 1\n' +
+    '  Mensual del par    = (CER_LIQ_impl_curr / CER_actual)^(1/meses_total) - 1');
   return rows;
 };
 
@@ -8207,6 +8266,12 @@ async function initCER() {
     console.warn('[CER]', e);
     setStatus('⚠ Sin datos CER de BCRA — ' + e.message);
   }
+
+  // Cargar inflación histórica en paralelo (no bloqueante)
+  fetchInflacionHistorica().then(() => {
+    try { buildInflacionImplicitaChart(); } catch(e) { console.warn('[Infla histórica] rebuild:', e); }
+  });
+
   renderCERTable();
   renderCERChart();
   buildCERCurveChart();
