@@ -7785,17 +7785,19 @@ function buildCERCurveChart() {
 //    - inflación_mensual_tramo = factor_tramo^(1/meses) - 1
 // 4. Plot: UN punto por mes (1° del mes); curva fit polinomial grado 2.
 //
-// Pares (Fija/Capitalizable ↔ CER cero cupón) — sólo mismo vto exacto, ambos cero cupón.
+// Pares (Fija/Capitalizable ↔ CER cero cupón):
+// Mismo vto preferido; cuando no hay match exacto, se usa el más cercano (ambos deben ser cero cupón).
 const INFLA_PAIRS = [
-  { fija:'S29Y6', cer:'X29Y6' }, // 2026-05-29
-  { fija:'T30J6', cer:'TZX26' }, // 2026-06-30
-  { fija:'S31L6', cer:'X31L6' }, // 2026-07-31
-  { fija:'S30S6', cer:'X30S6' }, // 2026-09-30
-  { fija:'S30O6', cer:'TZXO6' }, // 2026-10-30
-  { fija:'S30N6', cer:'X30N6' }, // 2026-11-30
-  { fija:'T30A7', cer:'TZXA7' }, // 2027-04-30
-  { fija:'T31Y7', cer:'TZXY7' }, // 2027-05-31
-  { fija:'T30J7', cer:'TZX27' }, // 2027-06-30
+  { fija:'S29Y6', cer:'X29Y6' }, // 2026-05-29 (mismo vto)
+  { fija:'T30J6', cer:'TZX26' }, // 2026-06-30 (mismo vto)
+  { fija:'S31L6', cer:'X31L6' }, // 2026-07-31 (mismo vto)
+  { fija:'S30S6', cer:'X30S6' }, // 2026-09-30 (mismo vto)
+  { fija:'S30O6', cer:'TZXO6' }, // 2026-10-30 (mismo vto)
+  { fija:'S30N6', cer:'X30N6' }, // 2026-11-30 (mismo vto)
+  { fija:'T15E7', cer:'TZXD6' }, // T15E7=15/1/27 vs TZXD6=15/12/26 — más cercano (ambos cero cupón)
+  { fija:'T30A7', cer:'TZXA7' }, // 2027-04-30 (mismo vto)
+  { fija:'T31Y7', cer:'TZXY7' }, // 2027-05-31 (mismo vto)
+  { fija:'T30J7', cer:'TZX27' }, // 2027-06-30 (mismo vto)
 ];
 
 // Estado de la curva infla (unidad TEM/TNA)
@@ -7827,30 +7829,15 @@ async function fetchInflacionHistorica() {
   }
 }
 
-// Calcula los tramos del bootstrap usando la metodología del Excel "Clase BE inflación":
-// Para cada par (LECAP/BONCAP ↔ CER cero cupón) ordenado por vto:
-//   1. Proyectar CER día por día desde el último CER conocido hasta el vto del bono
-//      Fórmula diaria: CER(d) = CER(d-1) × (1 + π_m)^(1/días_del_mes_de_referencia)
-//      donde π_m es la inflación mensual del mes correspondiente al día d (NO al mes anterior).
-//      La inflación de meses pasados ya conocidos (INFLA_STATE.historica) se respeta.
-//      La inflación del PERÍODO de este bono (entre el vto del bono anterior y este vto)
-//      se ajusta por GoalSeek (bisección) hasta que:
-//      VF_CER_proyectado / Precio_CER = VF_LECAP / Precio_LECAP
-//   2. Una vez encontrada π_m del tramo, se usa esa inflación para el bootstrap del siguiente bono.
-//
-// Notas:
-//   - El "VF_LECAP" se aproxima usando el VPV del LECAP_DEFS (es el flujo final fijo al vto)
-//   - El "VF_CER" en pesos = 100 × CER_final / CER_inicial (cero cupón en VR_emision=100)
-//   - CER_final = CER proyectado al WORKDAY(vto, -10) (convención del Excel)
-//   - CER_inicial = CER al WORKDAY(emision, -10) — ya está en CER_DEFS como cerEmision
+// Calcula los tramos del bootstrap (devuelve datos crudos para debug también)
 function computeInflacionImplicita() {
   if (!CER_STATE.series.length || !STATE.lecapCalc?.length) return null;
 
-  const cerActual = CER_STATE.series[CER_STATE.series.length-1].valor;
+  const cerActual    = CER_STATE.series[CER_STATE.series.length-1].valor;
   const fechaCerActual = CER_STATE.series[CER_STATE.series.length-1].fecha;
   const liq = LIQ;
 
-  // Validar pares + cargar datos básicos
+  // Procesar cada par
   const periodos = [];
   for (const { fija, cer } of INFLA_PAIRS) {
     const cerDef = CER_DEFS[cer];
@@ -7860,197 +7847,80 @@ function computeInflacionImplicita() {
       console.warn(`[Infla] Falta dato ${fija}↔${cer}`, {cerDef:!!cerDef, lecap:!!lecap, tir:lecap?.tir, precio:cerPrecio});
       continue;
     }
+    // Excluir BONCER con cupón (no aplicable a este análisis)
     if (cerDef.tipo === 'BONCER_CUP') continue;
+    // Si los vtos no coinciden EXACTAMENTE, igual procesar (pares pre-curados),
+    // pero usar el vto del CER bond (no del LECAP) para el bootstrap.
+
     const vto = new Date(cerDef.vto + 'T00:00:00');
     if (vto <= liq) continue;
+    const diasCal = Math.round((vto - liq) / 86400000);
 
-    // Fecha CER Final del bono CER: WORKDAY(vto, -10, feriados)
-    const fechaCerFinal = (typeof workdayGlobal === 'function')
-      ? workdayGlobal(vto, -10)
-      : new Date(vto.getTime() - 10*86400000);
+    // TIR del LECAP/BONCAP (TIR efectiva anual, calendar days)
+    const tirLecap = lecap.tir;
+    const teaLecap = tirLecap; // ya es e.a.
+    const tnaLecap = Math.pow(1 + tirLecap, 30/365) * 12 - 12; // aproximación 12 * TEM
+    const tnaLecapDirect = lecap.tna; // ya viene = TEM * 12
+
+    // TIR Real del CER (con CER_liq actual)
+    const { valor: cerLiqVal } = getCERLiq(liq);
+    let tirRealCer = null;
+    if (cerLiqVal) {
+      const r = calcCERMetrics(cer, cerDef, cerPrecio, liq, cerLiqVal);
+      tirRealCer = r?.tirReal ?? null;
+    }
+
+    // CER implícito al vto: CER_VTO_impl = precio_CER × (1+TIR_LECAP)^(dias/365) × CER_emision / 100
+    const cerVtoImpl = cerPrecio * Math.pow(1 + tirLecap, diasCal/365) * cerDef.cerEmision / 100;
 
     periodos.push({
-      fija, cer, vto, cerDef, lecap, cerPrecio,
-      cerEmision: cerDef.cerEmision,
-      fechaCerFinal,
-      vfLecap: lecap.vpv,           // VPV fijo del LECAP/BONCAP
-      precioLecap: lecap.precio,
+      fija, cer, vto, diasCal,
+      tirLecap, tnaLecap: tnaLecapDirect, teaLecap,
+      tirRealCer, cerPrecio, cerEmision: cerDef.cerEmision, cerVtoImpl,
+      duration: diasCal / 365, // Mac duration ≈ t para bullet
     });
   }
   if (!periodos.length) return null;
   periodos.sort((a,b) => a.vto - b.vto);
 
-  // Inflación mensual conocida (INDEC), Map "YYYY-MM" → π_decimal
-  const inflaPasada = new Map();
-  if (INFLA_STATE.historica?.length) {
-    for (const d of INFLA_STATE.historica) {
-      const ym = `${d.fecha.getFullYear()}-${String(d.fecha.getMonth()+1).padStart(2,'0')}`;
-      // INDEC viene en % (ej 2.8 = 2.8%) — convertir a decimal
-      inflaPasada.set(ym, d.valor / 100);
-    }
-  }
-
-  // ── Helper: fecha CER de un día calendario ──
-  // Convención BCRA: el CER de un día t corresponde a la inflación del mes (t-1) si día>15,
-  // sino del mes (t-2). En el Excel: C = DATE(YEAR(D), MONTH(D)-IF(DAY(D)>15,1,2), 1)
-  function mesRefDelDia(d) {
-    const offset = d.getDate() > 15 ? 1 : 2;
-    const mes = new Date(d.getFullYear(), d.getMonth() - offset, 1);
-    return `${mes.getFullYear()}-${String(mes.getMonth()+1).padStart(2,'0')}`;
-  }
-  function diasDelMes(ymStr) {
-    const [y, m] = ymStr.split('-').map(Number);
-    return new Date(y, m, 0).getDate(); // último día del mes m (1-indexed)
-  }
-
-  // ── Estructura del bootstrap: lista de "tramos de inflación" ──
-  // Cada tramo cubre uno o más meses con un valor único de inflación mensual.
-  // El primer tramo es el del primer bono (cover los meses entre hoy y vto del primer bono).
-  // El siguiente, los meses entre el primer y segundo vto, etc.
-  //
-  // El bootstrap arma:
-  //   inflaSeries: Map "YYYY-MM" → π_decimal (fijo después del goal-seek)
-  // que incluye:
-  //   - meses históricos (INFLA_STATE.historica)
-  //   - meses futuros (ajustados por GoalSeek)
-
-  const inflaSeries = new Map(inflaPasada);
-
-  // Función para proyectar el CER día por día desde fechaCerActual hasta una fecha objetivo,
-  // usando inflaSeries (con un override temporal del valor de un mes).
-  function proyectarCERAt(fechaObjetivo, overrideMes = null, overrideValor = null) {
-    if (fechaObjetivo <= fechaCerActual) return cerActual; // no hay que proyectar
-    let cer = cerActual;
-    const cur = new Date(fechaCerActual);
-    cur.setHours(0,0,0,0);
-    const target = new Date(fechaObjetivo);
-    target.setHours(0,0,0,0);
-
-    while (cur < target) {
-      cur.setDate(cur.getDate() + 1);
-      const mesRef = mesRefDelDia(cur);
-      let pi;
-      if (overrideMes && (Array.isArray(overrideMes) ? overrideMes.includes(mesRef) : overrideMes === mesRef)) {
-        pi = overrideValor;
-      } else {
-        pi = inflaSeries.get(mesRef);
-      }
-      if (pi == null) pi = 0; // si no hay dato, asumir 0
-      const dim = diasDelMes(mesRef);
-      cer *= Math.pow(1 + pi, 1 / dim);
-    }
-    return cer;
-  }
-
-  // Para cada bono, hacer GoalSeek de la inflación de su tramo
-  let mesPrev = null; // último mes "fijado" por el bootstrap (a partir del cual hay que descubrir)
+  // Bootstrap encadenado
+  let cerAnchor = cerActual;
+  let fechaAnchor = fechaCerActual;
   const tramos = [];
 
   for (const p of periodos) {
-    // Determinar los meses del tramo:
-    // Desde el mes posterior al anterior bono (o el mes corriente si es el primero)
-    // hasta el mes que afecta al CER en p.fechaCerFinal
-    const ymCorriente = `${LIQ.getFullYear()}-${String(LIQ.getMonth()+1).padStart(2,'0')}`;
-    const ymStart = mesPrev
-      ? avanzarMes(mesPrev)
-      : ymCorriente;
-    // El mes ref del último día = mes ref de fechaCerFinal
-    const ymEnd = mesRefDelDia(p.fechaCerFinal);
-
-    // Lista de meses afectados por este tramo (ymStart → ymEnd inclusive)
-    const mesesTramo = [];
-    let ym = ymStart;
-    while (ym <= ymEnd) {
-      mesesTramo.push(ym);
-      ym = avanzarMes(ym);
-    }
-
-    if (!mesesTramo.length) {
-      console.warn(`[Infla] Tramo ${p.fija}↔${p.cer}: sin meses para resolver, skip`);
-      continue;
-    }
-
-    // GoalSeek por bisección: encontrar π tal que retorno_CER = retorno_LECAP
-    const retornoLecap = p.vfLecap / p.precioLecap - 1;
-
-    const f = (pi) => {
-      const cerFinal = proyectarCERAt(p.fechaCerFinal, mesesTramo, pi);
-      const vfCer = 100 * (cerFinal / p.cerEmision);
-      const retornoCer = vfCer / p.cerPrecio - 1;
-      return retornoCer - retornoLecap;
-    };
-
-    // Bisección entre -50% y +500% mensual
-    let lo = -0.5, hi = 5.0;
-    let fLo = f(lo), fHi = f(hi);
-    let pi_opt = 0;
-    if (fLo * fHi > 0) {
-      // No hay cruce; tomar el extremo que más cerca esté de 0
-      pi_opt = Math.abs(fLo) < Math.abs(fHi) ? lo : hi;
-      console.warn(`[Infla] ${p.fija}↔${p.cer}: bisección no converge — f(lo)=${fLo.toFixed(4)}, f(hi)=${fHi.toFixed(4)}, usando ${pi_opt}`);
-    } else {
-      for (let i = 0; i < 60; i++) {
-        const mid = (lo + hi) / 2;
-        const fm = f(mid);
-        if (Math.abs(fm) < 1e-10) { pi_opt = mid; break; }
-        if (fLo * fm < 0) { hi = mid; fHi = fm; }
-        else              { lo = mid; fLo = fm; }
-        pi_opt = (lo + hi) / 2;
-      }
-    }
-
-    // Fijar los meses del tramo a este π
-    for (const m of mesesTramo) {
-      inflaSeries.set(m, pi_opt);
-    }
-
-    // Datos para output
-    const cerFinalCalc = proyectarCERAt(p.fechaCerFinal);
-    const vfCerCalc = 100 * (cerFinalCalc / p.cerEmision);
-    const retornoCer = vfCerCalc / p.cerPrecio - 1;
-    const diasCal = Math.round((p.vto - liq) / 86400000);
-
-    // TIR Real del CER (info, no usada en el cálculo)
-    let tirRealCer = null;
-    try {
-      const { valor: cerLiqVal } = getCERLiq(liq);
-      const r = calcCERMetrics(p.cer, p.cerDef, p.cerPrecio, liq, cerLiqVal);
-      tirRealCer = r?.tirReal;
-    } catch(e) {}
+    const msTramo = p.vto - fechaAnchor;
+    const mesesTramo = msTramo / (30.4375 * 86400000);
+    if (mesesTramo <= 0) continue;
+    const factorTramo = p.cerVtoImpl / cerAnchor;
+    if (factorTramo <= 0) continue;
+    // Inflación encadenada (entre este vto y el anterior)
+    const inflMensualEnc = Math.pow(factorTramo, 1 / mesesTramo) - 1;
+    // Inflación "del par" (anualizada): desde hoy a este vto vs CER actual
+    const factorTotal = p.cerVtoImpl / cerActual;
+    const mesesTotal = (p.vto - fechaCerActual) / (30.4375 * 86400000);
+    const inflMensualPar = mesesTotal > 0 ? Math.pow(factorTotal, 1/mesesTotal) - 1 : null;
+    const inflAnualPar   = inflMensualPar != null ? Math.pow(1+inflMensualPar, 12) - 1 : null;
+    const inflAnualEnc   = Math.pow(1+inflMensualEnc, 12) - 1;
 
     tramos.push({
       ...p,
-      diasCal,
-      tirLecap: p.lecap.tir,
-      tnaLecap: p.lecap.tna,
-      teaLecap: p.lecap.tir,
-      tirRealCer,
-      cerLiqImpl: cerFinalCalc, // "CER de liquidación implícito" en jerga del usuario
-      cerFinalCalc,
-      retornoLecap,
-      retornoCer,
-      inflMensual: pi_opt,
-      mesesTramo,            // lista de "YYYY-MM" cubiertos
-      ymStart,
-      ymEnd,
+      desde: new Date(fechaAnchor),
+      hasta: new Date(p.vto),
+      mesesTramo,
+      mesesTotal,
+      cerDesde: cerAnchor,
+      cerHasta: p.cerVtoImpl,
+      inflMensualEnc,
+      inflMensualPar,
+      inflAnualEnc,
+      inflAnualPar,
       pair: `${p.fija}↔${p.cer}`,
     });
-
-    mesPrev = mesesTramo[mesesTramo.length - 1];
+    cerAnchor = p.cerVtoImpl;
+    fechaAnchor = p.vto;
   }
-
-  return {
-    cerActual, fechaCerActual,
-    periodos, tramos,
-    inflaSeries, // Map completo: meses conocidos + implícitos
-  };
-}
-
-// avanzar 1 mes una clave "YYYY-MM"
-function avanzarMes(ym) {
-  const [y, m] = ym.split('-').map(Number);
-  const next = new Date(y, m, 1); // m es 1-12; new Date(y, m, 1) = primer día del mes siguiente
-  return `${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`;
+  return { cerActual, fechaCerActual, periodos, tramos };
 }
 
 function buildInflacionImplicitaChart() {
@@ -8066,35 +7936,39 @@ function buildInflacionImplicitaChart() {
   INFLA_STATE.data = result;
   const tramos = result.tramos;
 
-  console.log('[Infla] Tramos bootstrap:', tramos.length);
-  tramos.forEach(t => console.log(`  ${t.pair}: ${t.ymStart}→${t.ymEnd} (${t.mesesTramo.length} mes${t.mesesTramo.length>1?'es':''}) | π=${(t.inflMensual*100).toFixed(3)}% mensual | retLecap=${(t.retornoLecap*100).toFixed(2)}% retCer=${(t.retornoCer*100).toFixed(2)}%`));
+  console.log('[Infla] Tramos:', tramos.length);
+  tramos.forEach(t => console.log(`  ${t.pair}: ${t.desde.toLocaleDateString('es-AR')} → ${t.hasta.toLocaleDateString('es-AR')} (${t.mesesTramo.toFixed(2)}m) | ${(t.inflMensualEnc*100).toFixed(2)}% TEM (enc.)`));
 
-  // Construir puntos: UN punto por mes (fecha = mid del mes para tooltip)
-  // Sólo los meses IMPLÍCITOS (los del bootstrap), no los pasados conocidos por INDEC
-  // (esos van en el dataset histórico aparte).
-  const mesesImplicitos = new Set();
-  for (const t of tramos) for (const ym of t.mesesTramo) mesesImplicitos.add(ym);
-
-  const puntosOrdenados = [];
-  for (const ym of [...mesesImplicitos].sort()) {
-    const pi = result.inflaSeries.get(ym);
-    if (pi == null) continue;
-    const [y, m] = ym.split('-').map(Number);
-    puntosOrdenados.push({
-      x: new Date(y, m-1, 15), // mid-mes para tooltip claro
-      tem: pi,
-      tna: pi * 12,
-      ym,
-    });
+  // Generar UN punto por mes (1° de cada mes); evitar duplicados en bordes
+  // El valor de cada mes = inflación mensual del tramo en el que cae ese mes
+  // (un mes pertenece al tramo cuyo "hasta" >= primer día del siguiente mes — o más simple:
+  //  buscar el primer tramo cuyo "hasta" >= 1° del próximo mes)
+  const puntosMap = new Map(); // key: YYYY-MM → {x, y, tramo}
+  for (const t of tramos) {
+    // Iterar meses contenidos: desde el mes del 'desde' hasta el mes del 'hasta'
+    const mStart = new Date(t.desde.getFullYear(), t.desde.getMonth(), 1);
+    const mEnd   = new Date(t.hasta.getFullYear(), t.hasta.getMonth(), 1);
+    const cur = new Date(mStart);
+    while (cur <= mEnd) {
+      const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+      // El mes "pertenece" al tramo cuyo 'hasta' está en/después de este mes
+      // → si ya hay un punto para este mes, sólo sobreescribir si este tramo termina ANTES (el más cercano)
+      const prev = puntosMap.get(key);
+      // Si dos tramos pisan el mismo mes, gana el que termina MÁS TARDE
+      // (más cercano a fin de mes / siguiente período)
+      if (!prev || t.hasta > prev._hasta) {
+        puntosMap.set(key, { x: new Date(cur), _hasta: t.hasta, tem: t.inflMensualEnc, tna: t.inflMensualEnc * 12 });
+      }
+      cur.setMonth(cur.getMonth() + 1);
+    }
   }
-  puntosOrdenados.sort((a,b) => a.x - b.x);
+  const puntosOrdenados = [...puntosMap.values()].sort((a,b) => a.x - b.x);
 
   // Datos según unidad seleccionada
   const unit = INFLA_STATE.unidad; // 'TEM' o 'TNA'
   const pointsScatter = puntosOrdenados.map(p => ({
     x: p.x,
     y: (unit === 'TNA' ? p.tna : p.tem) * 100,
-    ym: p.ym,
   }));
 
   // Fit polinomial grado 2: X = días desde el primer punto, Y = %
@@ -8173,25 +8047,16 @@ function buildInflacionImplicitaChart() {
     data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'point', intersect: true },
+      interaction: { mode: 'nearest', intersect: false, axis: 'x' },
       plugins: {
         legend: { labels: { color: tc, font: { size: 11 }, boxWidth: 12 } },
         tooltip: {
-          mode: 'point',
-          intersect: true,
           callbacks: {
             title: ctx => {
-              if (!ctx.length) return '';
-              const raw = ctx[0]?.raw;
-              const d = raw?.x;
-              if (!(d instanceof Date)) return '';
-              return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+              const d = ctx[0]?.raw?.x;
+              return d instanceof Date ? d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : '';
             },
-            label: ctx => {
-              const v = ctx.parsed?.y;
-              if (v == null || !isFinite(v)) return null;
-              return `${ctx.dataset.label}: ${v.toFixed(2)}%`;
-            }
+            label: ctx => `${unit}: ${ctx.parsed.y.toFixed(2)}%`,
           }
         },
       },
@@ -8223,35 +8088,31 @@ function setInflaImplicitaUnit(unit) {
 
 // ─── Tabla debug de Inflación Implícita (consola) ────────────
 // Uso: en consola, escribir: debugInflaTable()
-// Imprime un resumen del bootstrap GoalSeek estilo Excel.
+// Devuelve una tabla bonita con todos los pares y datos de bootstrap.
 window.debugInflaTable = function() {
   const r = computeInflacionImplicita();
   if (!r) { console.warn('[Infla] Sin datos para debug'); return; }
-  console.log('CER actual:', r.cerActual.toFixed(4), 'al', r.fechaCerActual.toLocaleDateString('es-AR'));
   const rows = r.tramos.map(t => ({
     Fijo: t.fija,
     CER: t.cer,
-    Vto: new Date(t.vto).toLocaleDateString('es-AR'),
     'Días vto': t.diasCal,
     'Precio CER': t.cerPrecio.toFixed(2),
-    'Precio Fijo': t.precioLecap.toFixed(2),
-    'VF Fijo': t.vfLecap.toFixed(4),
-    'TEA Fijo': (t.teaLecap*100).toFixed(2)+'%',
+    'TEA fijo': (t.teaLecap*100).toFixed(2)+'%',
+    'TNA fijo': (t.tnaLecap*100).toFixed(2)+'%',
     'TIR real CER': t.tirRealCer != null ? (t.tirRealCer*100).toFixed(2)+'%' : '—',
-    'CER LIQ impl.': t.cerLiqImpl.toFixed(2),
-    'Retorno CER': (t.retornoCer*100).toFixed(2)+'%',
-    'Retorno Fijo': (t.retornoLecap*100).toFixed(2)+'%',
-    'Tramo (meses)': t.mesesTramo.join(', '),
-    'π mensual': (t.inflMensual*100).toFixed(2)+'%',
-    'π anual': (Math.pow(1+t.inflMensual, 12) - 1 * 100).toFixed(2)+'%',
+    'CER LIQ impl.': t.cerVtoImpl.toFixed(2),
+    'Meses tramo': t.mesesTramo.toFixed(2),
+    'Mensual (enc)': (t.inflMensualEnc*100).toFixed(2)+'%',
+    'Anual (enc)': (t.inflAnualEnc*100).toFixed(2)+'%',
+    'Mensual (del par)': t.inflMensualPar != null ? (t.inflMensualPar*100).toFixed(2)+'%' : '—',
+    'Anual (del par)': t.inflAnualPar != null ? (t.inflAnualPar*100).toFixed(2)+'%' : '—',
   }));
+  console.log('CER actual:', r.cerActual.toFixed(4), 'al', r.fechaCerActual.toLocaleDateString('es-AR'));
   console.table(rows);
-  console.log('\nMetodología (estilo Excel):\n' +
-    '  1. Proyectar CER día por día con CER(d) = CER(d-1) × (1 + π_m)^(1/días_del_mes)\n' +
-    '  2. CER_final = CER proyectado al WORKDAY(vto, -10)\n' +
-    '  3. VF_CER en pesos = 100 × CER_final / CER_emision\n' +
-    '  4. GoalSeek: ajustar π_m del tramo para que VF_CER/Precio_CER = VF_Fijo/Precio_Fijo\n' +
-    '  5. El π_m se fija para los meses del tramo, y se pasa al siguiente bono.');
+  console.log('\nFórmulas:\n' +
+    '  CER LIQ impl = precio_CER × (1+TIR_LECAP)^(días/365) × CER_emisión / 100\n' +
+    '  Mensual encadenada = (CER_LIQ_impl_curr / CER_anchor_prev)^(1/meses_tramo) - 1\n' +
+    '  Mensual del par    = (CER_LIQ_impl_curr / CER_actual)^(1/meses_total) - 1');
   return rows;
 };
 
