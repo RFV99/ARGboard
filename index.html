@@ -1099,6 +1099,10 @@
         <div class="chart-title">CER — Todos</div>
         <div class="chart-wrap" style="height:230px"><canvas id="c-cer-curve" role="img" aria-label="Curva CER TIR Real"></canvas></div>
       </div>
+      <div class="chart-card">
+        <div class="chart-title">Inflación Implícita</div>
+        <div class="chart-wrap" style="height:230px"><canvas id="c-infla-implicit" role="img" aria-label="Curva de inflación implícita por bootstrapping CER vs Tasa fija"></canvas></div>
+      </div>
     </div>
   </div>
 
@@ -1128,12 +1132,14 @@ let PROXY_URL = ''; // Netlify Functions — mismo dominio
 function getT1() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
+  d.setHours(0,0,0,0); // normalizar a medianoche para evitar drift por horario
   // Skip weekends
   if (d.getDay() === 6) d.setDate(d.getDate() + 2);
   if (d.getDay() === 0) d.setDate(d.getDate() + 1);
   return d;
 }
-const LIQ = getT1(); // T+1 settlement date (dynamic)
+let LIQ = getT1(); // T+1 settlement date — mutable, refrescable
+function refreshLIQ() { LIQ = getT1(); return LIQ; }
 
 function daysFrom(d) {
   return Math.round((new Date(d) - LIQ) / 86400000);
@@ -3798,6 +3804,7 @@ async function proxyFetch(endpoint) {
 }
 
 async function fetchAll() {
+  refreshLIQ(); // mantener LIQ al día (T+1 corriente)
   const btn = document.getElementById('refresh-btn');
   const spin = document.getElementById('spin');
   if (btn) btn.disabled = true;
@@ -3853,8 +3860,9 @@ async function fetchAll() {
     renderAllTables();
     maybeRebuildCharts();
     loadKpiHistData();
-    // Auto-init Duales in background on first load (no need to open tab)
+    // Auto-init Duales + CER en background al primer load (no hace falta abrir tabs)
     if (!_dualesInited) { _dualesInited = true; initDuales(); }
+    if (!_cerInited)    { _cerInited    = true; initCER(); }
 
   } catch(e) {
     showError('Error de conexión: ' + e.message + '. ¿Está corriendo el proxy?');
@@ -4613,6 +4621,10 @@ function buildCharts() {
   } else {
     destroyChart('c-ons-arg');
   }
+
+  // ── CER + Inflación implícita (si están listos) ──
+  try { if (typeof buildCERCurveChart === 'function') buildCERCurveChart(); } catch(e) {}
+  try { if (typeof buildInflacionImplicitaChart === 'function') buildInflacionImplicitaChart(); } catch(e) {}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -6331,7 +6343,7 @@ function calcDualFlows(def, precio, liq) {
 function renderDualesTable() {
   const tbody = document.getElementById('tbody-duales');
   if (!tbody) return;
-  const liq = getT1();
+  const liq = LIQ;
   const isCable = (typeof BOND_MODE!=='undefined'&&BOND_MODE==='CABLE');
   const fmt  = (v,d) => (v!=null&&isFinite(v)) ? v.toFixed(d) : '—';
   const fmtP = (v,d=2) => (v!=null&&isFinite(v)) ? (v*100).toFixed(d)+'%' : '—';
@@ -6386,7 +6398,7 @@ function openDualModal(ticker) {
   const def    = DUAL_DEFS.find(d=>d.ticker===ticker);
   const precio = DUAL_STATE.prices[ticker];
   if (!def||!precio) return;
-  const liq = getT1();
+  const liq = LIQ;
   const r   = calcDualFlows(def, precio, liq);
   if (!r) return;
 
@@ -6916,7 +6928,7 @@ function buildPesosCurveChart() {
   const pesPts = pes.map(b=>({x:Math.round(b.macaulay*365), y:toRateDisplayFn(b.tir,unit), ticker:b.ticker})).filter(p=>p.y!=null);
 
   // Duales — x = diasReales (desde hoy a vto), y = TEM o TNA del bono
-  const liq = getT1();
+  const liq = LIQ;
   const dualPts = [];
   if (_dualesInited || DUAL_STATE.tamarSeries.length) {
     for (const def of DUAL_DEFS.filter(d => d.vto > liq)) {
@@ -6968,10 +6980,10 @@ function buildDualesCurveChart() {
   const tc = isLight?'#6b7280':'#7a8099';
   const unit = DUALES_CURVE_UNIT;
   const yLabel = unit === 'TEM' ? 'TEM (%)' : 'TNA (%)';
-  const liq = getT1();
+  const liq = LIQ;
 
   const pts = [];
-  const liq2 = getT1();
+  const liq2 = LIQ;
   for (const def of DUAL_DEFS.filter(d => d.vto > liq2)) {
     const precio = DUAL_STATE.prices[def.ticker];
     if (!precio) continue;
@@ -7508,7 +7520,7 @@ function sortCER(col) {
 function renderCERTable() {
   const tbody = document.getElementById('tbody-cer');
   if (!tbody) return;
-  const liq = getT1();
+  const liq = LIQ;
   const { valor: cerLiqVal, fecha: fCerLiq } = getCERLiq(liq);
   CER_STATE.cerLiq = cerLiqVal;
   CER_STATE.fCerLiq = fCerLiq;
@@ -7661,10 +7673,193 @@ function buildCERCurveChart() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// INFLACIÓN IMPLÍCITA — Bootstrapping CER vs Tasa fija/capitalizable
+// ═══════════════════════════════════════════════════════════════
+// Metodología (especificada por el usuario):
+// 1. Para cada par (CER bond, LECAP/BONCAP) con mismo vto, calcular:
+//    - TIR del bono tasa fija (TIR nominal del LECAP/BONCAP)
+//    - CER implícito al vto: el CER_vto que haría que la TIR nominal del CER iguale la TIR del LECAP
+//      Fórmula (para cero cupón): CER_VTO_impl = precio_CER × (1+TIR_LECAP)^(dias/365) × CER_emision / 100
+// 2. Bootstrappar desde el más corto al más largo:
+//    - Anchor inicial: CER actual (último dato BCRA)
+//    - Por cada bono: factor_periodo = CER_VTO_impl / CER_VTO_impl_prev (o CER_actual para el primero)
+//    - meses_periodo = (vto - vto_prev) / 30.4375
+//    - inflación_mensual_periodo = factor_periodo^(1/meses) - 1
+// 3. Plottear curva escalonada: cada periodo es un valor constante; periodos largos rellenan los meses.
+//
+// Pares definidos por el usuario (de corto a largo):
+const INFLA_PAIRS = [
+  // {fija: 'TICKER_LECAP', cer: 'TICKER_CER'}  — mismo vto
+  { fija:'S29Y6', cer:'X29Y6' }, // 2026-05-29
+  { fija:'T30J6', cer:'TZX26' }, // 2026-06-30
+  { fija:'S31L6', cer:'X31L6' }, // 2026-07-31
+  { fija:'S30S6', cer:'X30S6' }, // 2026-09-30
+  { fija:'S30O6', cer:'TZXO6' }, // 2026-10-30
+  { fija:'S30N6', cer:'X30N6' }, // 2026-11-30
+  { fija:'T30A7', cer:'TZXA7' }, // 2027-04-30
+  { fija:'T31Y7', cer:'TZXY7' }, // 2027-05-31
+  { fija:'T30J7', cer:'TZX27' }, // 2027-06-30
+];
+
+function buildInflacionImplicitaChart() {
+  destroyChart('c-infla-implicit');
+  const canvas = document.getElementById('c-infla-implicit');
+  if (!canvas) { console.warn('[Infla] canvas no existe'); return; }
+
+  // Requiere CER y LECAP cargados
+  if (!CER_STATE.series.length) { console.warn('[Infla] CER series vacío, abortando'); return; }
+  if (!STATE.lecapCalc?.length)  { console.warn('[Infla] lecapCalc vacío, abortando'); return; }
+
+  // CER actual (último dato BCRA)
+  const cerActual = CER_STATE.series[CER_STATE.series.length-1].valor;
+  const fechaCerActual = CER_STATE.series[CER_STATE.series.length-1].fecha;
+  const liq = LIQ;
+
+  // Procesar cada par, computando el CER implícito al vto
+  const periodos = [];
+  for (const { fija, cer } of INFLA_PAIRS) {
+    const cerDef = CER_DEFS[cer];
+    const lecap = STATE.lecapCalc.find(l => l.ticker === fija);
+    const cerPrecio = CER_STATE.prices[cer];
+
+    if (!cerDef || !lecap || !lecap.tir || !cerPrecio) {
+      console.warn(`[Infla] Saltando ${fija}↔${cer}: falta dato`,
+        { cerDef:!!cerDef, lecap:!!lecap, lecapTir:lecap?.tir, cerPrecio });
+      continue;
+    }
+
+    const vto = new Date(cerDef.vto + 'T00:00:00');
+    if (vto <= liq) continue;
+    const dias = Math.round((vto - liq) / 86400000);
+    if (dias <= 0) continue;
+
+    // CER implícito al vto:
+    // TIR_LECAP nominal = (CF_nominal / precio_CER)^(365/dias) - 1
+    // CF_nominal = 100 × (CER_VTO_impl / CER_emision)
+    // → CER_VTO_impl = precio_CER × (1+TIR_LECAP)^(dias/365) × CER_emision / 100
+    const factor = Math.pow(1 + lecap.tir, dias / 365);
+    const cerVtoImpl = cerPrecio * factor * cerDef.cerEmision / 100;
+
+    periodos.push({
+      fija, cer, vto, dias,
+      tirLecap: lecap.tir,
+      cerPrecio,
+      cerEmision: cerDef.cerEmision,
+      cerVtoImpl,
+    });
+  }
+
+  if (!periodos.length) {
+    console.warn('[Infla] No se pudieron procesar pares; chart no construido');
+    return;
+  }
+
+  // Ordenar por vto ascendente (deberían estar ya, pero por las dudas)
+  periodos.sort((a,b) => a.vto - b.vto);
+
+  // Bootstrapping: calcular inflación mensual entre periodos consecutivos
+  // El primer periodo va desde CER actual (hoy) hasta el primer vto
+  // Los subsiguientes: entre vto_prev y vto_curr
+  let cerAnchor = cerActual;
+  let fechaAnchor = fechaCerActual;
+  const tramos = []; // [{desde, hasta, mesesTramo, inflMensual, cerDesde, cerHasta}]
+
+  for (const p of periodos) {
+    const msTramo = p.vto - fechaAnchor;
+    const mesesTramo = msTramo / (30.4375 * 86400000);
+    if (mesesTramo <= 0) continue;
+    const factorTramo = p.cerVtoImpl / cerAnchor;
+    if (factorTramo <= 0) continue;
+    const inflMensual = Math.pow(factorTramo, 1 / mesesTramo) - 1;
+    tramos.push({
+      desde: new Date(fechaAnchor),
+      hasta: new Date(p.vto),
+      mesesTramo,
+      inflMensual,
+      cerDesde: cerAnchor,
+      cerHasta: p.cerVtoImpl,
+      pair: `${p.fija}↔${p.cer}`,
+    });
+    cerAnchor = p.cerVtoImpl;
+    fechaAnchor = p.vto;
+  }
+
+  console.log('[Infla] Tramos calculados:', tramos.length);
+  tramos.forEach(t => console.log(`  ${t.pair}: ${t.desde.toLocaleDateString('es-AR')} → ${t.hasta.toLocaleDateString('es-AR')} (${t.mesesTramo.toFixed(2)} meses) | inflación mensual = ${(t.inflMensual*100).toFixed(2)}%`));
+
+  if (!tramos.length) return;
+
+  // Generar puntos mensuales: por cada tramo, replicar el valor en cada mes contenido
+  // Esto produce una curva escalonada — el eje X es la fecha del mes, el Y es la inflación mensual
+  const puntos = [];
+  for (const t of tramos) {
+    // Caminar mes a mes desde 'desde' hasta 'hasta'
+    const cur = new Date(t.desde.getFullYear(), t.desde.getMonth(), 1);
+    const fin = new Date(t.hasta.getFullYear(), t.hasta.getMonth(), 1);
+    while (cur <= fin) {
+      puntos.push({ x: new Date(cur), y: t.inflMensual * 100 });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+  }
+
+  // Tooltip y dibujo
+  const isLight = document.documentElement.classList.contains('light');
+  const gc = isLight ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.06)';
+  const tc = isLight ? '#6b7280' : '#7a8099';
+
+  charts['c-infla-implicit'] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Inflación mensual implícita',
+        data: puntos,
+        borderColor: '#fb923c',
+        backgroundColor: 'rgba(251,146,60,.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        tension: 0,
+        stepped: 'before',
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false, axis: 'x' },
+      plugins: {
+        legend: { labels: { color: tc, font: { size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            title: ctx => {
+              const d = ctx[0]?.raw?.x;
+              return d instanceof Date ? d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : '';
+            },
+            label: ctx => `Inflación mensual: ${ctx.parsed.y.toFixed(2)}%`,
+          }
+        },
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'month', displayFormats: { month: 'MMM yy' } },
+          ticks: { color: tc, font: { size: 9 } },
+          grid: { color: gc },
+        },
+        y: {
+          ticks: { color: tc, font: { size: 10 }, callback: v => v.toFixed(2) + '%' },
+          grid: { color: gc },
+          title: { display: true, text: 'Inflación mensual implícita (%)', color: tc, font: { size: 10 } },
+        }
+      }
+    }
+  });
+}
+
 // ─── CER Modal (detalle de flujos con pasados/futuros toggle) ───
 function openCERModal(ticker) {
   const def = CER_DEFS[ticker];
-  const liq = getT1();
+  const liq = LIQ;
   const precio = CER_STATE.prices[ticker];
   if (!def || !precio) return;
   const { valor: cerLiqVal } = getCERLiq(liq);
@@ -7826,6 +8021,7 @@ async function initCER() {
   renderCERTable();
   renderCERChart();
   buildCERCurveChart();
+  try { buildInflacionImplicitaChart(); } catch(e) { console.warn('[Infla] build falló:', e); }
 }
 
 // Hookear el tab CER para auto-inicializar
@@ -7844,7 +8040,14 @@ const _origRenderAllTables = renderAllTables;
 renderAllTables = function() {
   _origRenderAllTables();
   if (_cerInited) {
-    fetchCERPrices().then(() => { renderCERTable(); buildCERCurveChart(); });
+    fetchCERPrices().then(() => {
+      renderCERTable();
+      buildCERCurveChart();
+      try { buildInflacionImplicitaChart(); } catch(e) { console.warn('[Infla] rebuild falló:', e); }
+    });
+  } else {
+    // Si todavía no se inicializó CER pero ya hay LECAP, intentar build (no hará nada si CER series está vacío)
+    try { buildInflacionImplicitaChart(); } catch(e) {}
   }
 };
 
@@ -7884,7 +8087,7 @@ function pnlCerRecalc() {
   if (!pnlState.ticker || !CER_DEFS[pnlState.ticker]) return;
   const ticker = pnlState.ticker;
   const def = CER_DEFS[ticker];
-  const liq = getT1();
+  const liq = LIQ;
   const { valor: cerLiqVal } = getCERLiq(liq);
   if (!cerLiqVal) {
     console.warn('[PnL-CER] No hay CER cargado para', ticker);
