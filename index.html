@@ -1100,8 +1100,14 @@
         <div class="chart-wrap" style="height:230px"><canvas id="c-cer-curve" role="img" aria-label="Curva CER TIR Real"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Inflación Implícita</div>
-        <div class="chart-wrap" style="height:230px"><canvas id="c-infla-implicit" role="img" aria-label="Curva de inflación implícita por bootstrapping CER vs Tasa fija"></canvas></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div class="chart-title" style="margin-bottom:0;">Inflación Implícita</div>
+          <div style="display:flex;gap:4px;">
+            <button class="period-btn active" id="infla-unit-tem" onclick="setInflaImplicitaUnit('TEM')">TEM</button>
+            <button class="period-btn" id="infla-unit-tna" onclick="setInflaImplicitaUnit('TNA')">TNA</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:215px"><canvas id="c-infla-implicit" role="img" aria-label="Curva de inflación implícita por bootstrapping CER vs Tasa fija"></canvas></div>
       </div>
     </div>
   </div>
@@ -1138,6 +1144,88 @@ function getT1() {
   if (d.getDay() === 0) d.setDate(d.getDate() + 1);
   return d;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// FERIADOS GLOBAL & WORKDAY
+// Set global de feriados (cargado desde argentinadatos /v1/feriados/{año}).
+// Usado para: getT1 (settlement), días hábiles en tablas, CER de liquidación,
+// WORKDAY del Excel para cortes de cupón.
+// ═══════════════════════════════════════════════════════════════
+const FERIADOS_AR = new Set(); // Set<"YYYY-MM-DD">
+
+function isFeriadoAR(d) {
+  if (!FERIADOS_AR.size) return false;
+  const ymd = d.toISOString().slice(0,10);
+  return FERIADOS_AR.has(ymd);
+}
+
+// Es día hábil (no finde, no feriado AR)
+function isBusinessDay(d) {
+  const dow = d.getDay();
+  if (dow === 0 || dow === 6) return false;
+  return !isFeriadoAR(d);
+}
+
+// addBusinessDays: corre n días hábiles (positivo=adelante, negativo=atrás).
+// n=0: si la fecha cae en finde/feriado, avanza al siguiente hábil.
+function addBusinessDays(d, n) {
+  const r = new Date(d);
+  r.setHours(0,0,0,0);
+  if (n === 0) {
+    while (!isBusinessDay(r)) r.setDate(r.getDate()+1);
+    return r;
+  }
+  const step = n > 0 ? 1 : -1;
+  let count = 0;
+  while (count < Math.abs(n)) {
+    r.setDate(r.getDate() + step);
+    if (isBusinessDay(r)) count++;
+  }
+  return r;
+}
+
+// businessDaysBetween: cuenta días hábiles entre d1 (excluida) y d2 (incluida).
+// Si d2 > d1: positivo. Si d2 < d1: negativo.
+// Si d1 = d2: 0.
+function businessDaysBetween(d1, d2) {
+  const a = new Date(d1); a.setHours(0,0,0,0);
+  const b = new Date(d2); b.setHours(0,0,0,0);
+  if (a.getTime() === b.getTime()) return 0;
+  const sign = b > a ? 1 : -1;
+  let count = 0;
+  const cur = new Date(sign > 0 ? a : b);
+  const end = new Date(sign > 0 ? b : a);
+  cur.setDate(cur.getDate() + 1);
+  while (cur <= end) {
+    if (isBusinessDay(cur)) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count * sign;
+}
+
+// WORKDAY del Excel: alias
+const workdayGlobal = addBusinessDays;
+
+// Fetch feriados de argentinadatos /v1/feriados/{año}; años ±6
+async function fetchFeriadosGlobal() {
+  const years = [];
+  const now = new Date().getFullYear();
+  for (let y = now - 1; y <= now + 6; y++) years.push(y);
+  await Promise.all(years.map(async y => {
+    try {
+      const r = await fetch(`https://api.argentinadatos.com/v1/feriados/${y}`, {signal: AbortSignal.timeout(8000)});
+      if (!r.ok) return;
+      const arr = await r.json();
+      if (!Array.isArray(arr)) return;
+      for (const f of arr) {
+        if (f.fecha && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)) FERIADOS_AR.add(f.fecha);
+      }
+    } catch(e) { /* silenciar errores parciales */ }
+  }));
+  console.log('[Feriados] Cargados:', FERIADOS_AR.size, 'fechas');
+  return FERIADOS_AR;
+}
+
 let LIQ = getT1(); // T+1 settlement date — mutable, refrescable
 function refreshLIQ() { LIQ = getT1(); return LIQ; }
 
@@ -3812,6 +3900,8 @@ async function fetchAll() {
   hideError();
 
   try {
+    // Cargar feriados globales si aún no están (lo hacemos en paralelo con el resto)
+    const feriadosP = FERIADOS_AR.size ? Promise.resolve() : fetchFeriadosGlobal();
     // Fetch in parallel — bonds + corp(ONs) + lecaps + dólar
     const [bondsRaw, corpRaw, lecapsRaw, dolarRaw, rpRaw] = await Promise.allSettled([
       proxyFetch('/api/bonds'),
@@ -3820,6 +3910,8 @@ async function fetchAll() {
       proxyFetch('/api/dolar'),
       proxyFetch('/api/riesgo_pais'),
     ]);
+    // Esperar feriados (no falla si tarda)
+    try { await feriadosP; } catch(e) {}
 
     if (bondsRaw.status === 'fulfilled') {
       STATE.bonds = bondsRaw.value;
@@ -4034,9 +4126,16 @@ function processLecaps(rawArr) {
       const precio = item ? parseFloat(item.c || item.px_bid || 0) : null;
       if (!precio) return {...def, precio: null, tir:null, tem:null, tna:null, tePlazo:null, live:false};
       // Compute dias dynamically from vto and current LIQ (not hardcoded)
-      const diasDyn = Math.round((new Date(def.vto) - LIQ) / 86400000);
+      // Días calendario (para TIR calc — base 365)
+      const vtoD = new Date(def.vto + 'T00:00:00');
+      const diasDyn = Math.round((vtoD - LIQ) / 86400000);
+      // Días hábiles (para display, consistente con CER)
+      const diasHab = businessDaysBetween(LIQ, vtoD);
       const {tir, tem, tna, tePlazo} = calcLecapMetrics(precio, def.vpv, diasDyn > 0 ? diasDyn : def.dias);
-      return {...def, precio, tir, tem, tna, tePlazo, dias: diasDyn > 0 ? diasDyn : def.dias, live: true};
+      return {...def, precio, tir, tem, tna, tePlazo,
+              dias: diasHab > 0 ? diasHab : def.dias,
+              diasCal: diasDyn > 0 ? diasDyn : def.dias,
+              live: true};
     });
 }
 
@@ -7458,13 +7557,15 @@ function calcCERMetrics(ticker, def, precioDirtyARS, liqDate, cerLiqVal) {
   }
 
   const paridad = precioDirtyARS / vt;
-  const diasReales = Math.round((vto - liq) / 86400000);
+  // Días HÁBILES desde liq a vto (consistente con LECAP/Tasa fija)
+  const diasReales = businessDaysBetween(liq, vto);
+  const diasCal = Math.round((vto - liq) / 86400000);
 
   return {
     ticker, tirReal, macaulay: dur.macaulay, modified: dur.modified, convex,
     vt, vrResidLiq, intCorr, vrInicial,
     cerLiq: cerLiqVal,
-    diasReales,
+    diasReales, diasCal,
     precio: precioDirtyARS, vto: def.vto, tipo: def.tipo,
     paridad,
     flowsAll, // para mostrar en modal
@@ -7543,7 +7644,7 @@ function renderCERTable() {
       // Mostrar sin métricas si no hay CER
       results.push({
         ticker, def, precio, vto: def.vto,
-        diasReales: Math.round((new Date(def.vto) - liq) / 86400000),
+        diasReales: businessDaysBetween(liq, new Date(def.vto + 'T00:00:00')),
         tirReal: null, macaulay: null, modified: null, vt: null, paridad: null, cerLiq: null
       });
       continue;
@@ -7676,21 +7777,18 @@ function buildCERCurveChart() {
 // ═══════════════════════════════════════════════════════════════
 // INFLACIÓN IMPLÍCITA — Bootstrapping CER vs Tasa fija/capitalizable
 // ═══════════════════════════════════════════════════════════════
-// Metodología (especificada por el usuario):
-// 1. Para cada par (CER bond, LECAP/BONCAP) con mismo vto, calcular:
-//    - TIR del bono tasa fija (TIR nominal del LECAP/BONCAP)
-//    - CER implícito al vto: el CER_vto que haría que la TIR nominal del CER iguale la TIR del LECAP
-//      Fórmula (para cero cupón): CER_VTO_impl = precio_CER × (1+TIR_LECAP)^(dias/365) × CER_emision / 100
-// 2. Bootstrappar desde el más corto al más largo:
-//    - Anchor inicial: CER actual (último dato BCRA)
-//    - Por cada bono: factor_periodo = CER_VTO_impl / CER_VTO_impl_prev (o CER_actual para el primero)
-//    - meses_periodo = (vto - vto_prev) / 30.4375
-//    - inflación_mensual_periodo = factor_periodo^(1/meses) - 1
-// 3. Plottear curva escalonada: cada periodo es un valor constante; periodos largos rellenan los meses.
+// Metodología:
+// 1. Pares (CER bond, LECAP/BONCAP) con MISMO vto, AMBOS cero cupón (LECAP/BONCAP & LECER/BONCER):
+//    - Excluir BONCER con cupón (TX26/TX28/TX31) y bonos con cupón (TO26, TY30P).
+// 2. Por cada par: CER implícito al vto = precio_CER × (1+TIR_LECAP)^(dias/365) × CER_emision / 100
+// 3. Bootstrapping de tramos consecutivos (anchor inicial = CER actual):
+//    - factor_tramo = CER_VTO_impl_curr / CER_anchor
+//    - meses_tramo = días_entre_anchors / 30.4375
+//    - inflación_mensual_tramo = factor_tramo^(1/meses) - 1
+// 4. Plot: UN punto por mes (1° del mes); curva fit polinomial grado 2.
 //
-// Pares definidos por el usuario (de corto a largo):
+// Pares EXACTOS (mismo vto, ambos cero cupón):
 const INFLA_PAIRS = [
-  // {fija: 'TICKER_LECAP', cer: 'TICKER_CER'}  — mismo vto
   { fija:'S29Y6', cer:'X29Y6' }, // 2026-05-29
   { fija:'T30J6', cer:'TZX26' }, // 2026-06-30
   { fija:'S31L6', cer:'X31L6' }, // 2026-07-31
@@ -7702,68 +7800,70 @@ const INFLA_PAIRS = [
   { fija:'T30J7', cer:'TZX27' }, // 2027-06-30
 ];
 
-function buildInflacionImplicitaChart() {
-  destroyChart('c-infla-implicit');
-  const canvas = document.getElementById('c-infla-implicit');
-  if (!canvas) { console.warn('[Infla] canvas no existe'); return; }
+// Estado de la curva infla (unidad TEM/TNA)
+let INFLA_STATE = { unidad: 'TEM', data: null };
 
-  // Requiere CER y LECAP cargados
-  if (!CER_STATE.series.length) { console.warn('[Infla] CER series vacío, abortando'); return; }
-  if (!STATE.lecapCalc?.length)  { console.warn('[Infla] lecapCalc vacío, abortando'); return; }
+// Calcula los tramos del bootstrap (devuelve datos crudos para debug también)
+function computeInflacionImplicita() {
+  if (!CER_STATE.series.length || !STATE.lecapCalc?.length) return null;
 
-  // CER actual (último dato BCRA)
-  const cerActual = CER_STATE.series[CER_STATE.series.length-1].valor;
+  const cerActual    = CER_STATE.series[CER_STATE.series.length-1].valor;
   const fechaCerActual = CER_STATE.series[CER_STATE.series.length-1].fecha;
   const liq = LIQ;
 
-  // Procesar cada par, computando el CER implícito al vto
+  // Procesar cada par
   const periodos = [];
   for (const { fija, cer } of INFLA_PAIRS) {
     const cerDef = CER_DEFS[cer];
     const lecap = STATE.lecapCalc.find(l => l.ticker === fija);
     const cerPrecio = CER_STATE.prices[cer];
-
     if (!cerDef || !lecap || !lecap.tir || !cerPrecio) {
-      console.warn(`[Infla] Saltando ${fija}↔${cer}: falta dato`,
-        { cerDef:!!cerDef, lecap:!!lecap, lecapTir:lecap?.tir, cerPrecio });
+      console.warn(`[Infla] Falta dato ${fija}↔${cer}`, {cerDef:!!cerDef, lecap:!!lecap, tir:lecap?.tir, precio:cerPrecio});
       continue;
     }
+    // Validar: ambos vto deben coincidir exactamente
+    if (cerDef.vto !== lecap.vto) {
+      console.warn(`[Infla] Vtos no coinciden ${fija}=${lecap.vto} vs ${cer}=${cerDef.vto}, saltando`);
+      continue;
+    }
+    // Validar: no BONCER con cupón (LECER/BONCER zero cupón, LECAP/BONCAP)
+    if (cerDef.tipo === 'BONCER_CUP') continue;
 
     const vto = new Date(cerDef.vto + 'T00:00:00');
     if (vto <= liq) continue;
-    const dias = Math.round((vto - liq) / 86400000);
-    if (dias <= 0) continue;
+    const diasCal = Math.round((vto - liq) / 86400000);
 
-    // CER implícito al vto:
-    // TIR_LECAP nominal = (CF_nominal / precio_CER)^(365/dias) - 1
-    // CF_nominal = 100 × (CER_VTO_impl / CER_emision)
-    // → CER_VTO_impl = precio_CER × (1+TIR_LECAP)^(dias/365) × CER_emision / 100
-    const factor = Math.pow(1 + lecap.tir, dias / 365);
-    const cerVtoImpl = cerPrecio * factor * cerDef.cerEmision / 100;
+    // TIR del LECAP/BONCAP (TIR efectiva anual, calendar days)
+    const tirLecap = lecap.tir;
+    const teaLecap = tirLecap; // ya es e.a.
+    const tnaLecap = Math.pow(1 + tirLecap, 30/365) * 12 - 12; // aproximación 12 * TEM
+    const tnaLecapDirect = lecap.tna; // ya viene = TEM * 12
+
+    // TIR Real del CER (con CER_liq actual)
+    const { valor: cerLiqVal } = getCERLiq(liq);
+    let tirRealCer = null;
+    if (cerLiqVal) {
+      const r = calcCERMetrics(cer, cerDef, cerPrecio, liq, cerLiqVal);
+      tirRealCer = r?.tirReal ?? null;
+    }
+
+    // CER implícito al vto: CER_VTO_impl = precio_CER × (1+TIR_LECAP)^(dias/365) × CER_emision / 100
+    const cerVtoImpl = cerPrecio * Math.pow(1 + tirLecap, diasCal/365) * cerDef.cerEmision / 100;
 
     periodos.push({
-      fija, cer, vto, dias,
-      tirLecap: lecap.tir,
-      cerPrecio,
-      cerEmision: cerDef.cerEmision,
-      cerVtoImpl,
+      fija, cer, vto, diasCal,
+      tirLecap, tnaLecap: tnaLecapDirect, teaLecap,
+      tirRealCer, cerPrecio, cerEmision: cerDef.cerEmision, cerVtoImpl,
+      duration: diasCal / 365, // Mac duration ≈ t para bullet
     });
   }
-
-  if (!periodos.length) {
-    console.warn('[Infla] No se pudieron procesar pares; chart no construido');
-    return;
-  }
-
-  // Ordenar por vto ascendente (deberían estar ya, pero por las dudas)
+  if (!periodos.length) return null;
   periodos.sort((a,b) => a.vto - b.vto);
 
-  // Bootstrapping: calcular inflación mensual entre periodos consecutivos
-  // El primer periodo va desde CER actual (hoy) hasta el primer vto
-  // Los subsiguientes: entre vto_prev y vto_curr
+  // Bootstrap encadenado
   let cerAnchor = cerActual;
   let fechaAnchor = fechaCerActual;
-  const tramos = []; // [{desde, hasta, mesesTramo, inflMensual, cerDesde, cerHasta}]
+  const tramos = [];
 
   for (const p of periodos) {
     const msTramo = p.vto - fechaAnchor;
@@ -7771,59 +7871,127 @@ function buildInflacionImplicitaChart() {
     if (mesesTramo <= 0) continue;
     const factorTramo = p.cerVtoImpl / cerAnchor;
     if (factorTramo <= 0) continue;
-    const inflMensual = Math.pow(factorTramo, 1 / mesesTramo) - 1;
+    // Inflación encadenada (entre este vto y el anterior)
+    const inflMensualEnc = Math.pow(factorTramo, 1 / mesesTramo) - 1;
+    // Inflación "del par" (anualizada): desde hoy a este vto vs CER actual
+    const factorTotal = p.cerVtoImpl / cerActual;
+    const mesesTotal = (p.vto - fechaCerActual) / (30.4375 * 86400000);
+    const inflMensualPar = mesesTotal > 0 ? Math.pow(factorTotal, 1/mesesTotal) - 1 : null;
+    const inflAnualPar   = inflMensualPar != null ? Math.pow(1+inflMensualPar, 12) - 1 : null;
+    const inflAnualEnc   = Math.pow(1+inflMensualEnc, 12) - 1;
+
     tramos.push({
+      ...p,
       desde: new Date(fechaAnchor),
       hasta: new Date(p.vto),
       mesesTramo,
-      inflMensual,
+      mesesTotal,
       cerDesde: cerAnchor,
       cerHasta: p.cerVtoImpl,
+      inflMensualEnc,
+      inflMensualPar,
+      inflAnualEnc,
+      inflAnualPar,
       pair: `${p.fija}↔${p.cer}`,
     });
     cerAnchor = p.cerVtoImpl;
     fechaAnchor = p.vto;
   }
+  return { cerActual, fechaCerActual, periodos, tramos };
+}
 
-  console.log('[Infla] Tramos calculados:', tramos.length);
-  tramos.forEach(t => console.log(`  ${t.pair}: ${t.desde.toLocaleDateString('es-AR')} → ${t.hasta.toLocaleDateString('es-AR')} (${t.mesesTramo.toFixed(2)} meses) | inflación mensual = ${(t.inflMensual*100).toFixed(2)}%`));
+function buildInflacionImplicitaChart() {
+  destroyChart('c-infla-implicit');
+  const canvas = document.getElementById('c-infla-implicit');
+  if (!canvas) { console.warn('[Infla] canvas no existe'); return; }
 
-  if (!tramos.length) return;
+  if (!CER_STATE.series.length) { console.warn('[Infla] CER vacío, abortando'); return; }
+  if (!STATE.lecapCalc?.length)  { console.warn('[Infla] lecapCalc vacío, abortando'); return; }
 
-  // Generar puntos mensuales: por cada tramo, replicar el valor en cada mes contenido
-  // Esto produce una curva escalonada — el eje X es la fecha del mes, el Y es la inflación mensual
-  const puntos = [];
+  const result = computeInflacionImplicita();
+  if (!result || !result.tramos.length) { console.warn('[Infla] sin tramos'); return; }
+  INFLA_STATE.data = result;
+  const tramos = result.tramos;
+
+  console.log('[Infla] Tramos:', tramos.length);
+  tramos.forEach(t => console.log(`  ${t.pair}: ${t.desde.toLocaleDateString('es-AR')} → ${t.hasta.toLocaleDateString('es-AR')} (${t.mesesTramo.toFixed(2)}m) | ${(t.inflMensualEnc*100).toFixed(2)}% TEM (enc.)`));
+
+  // Generar UN punto por mes (1° de cada mes); evitar duplicados en bordes
+  // El valor de cada mes = inflación mensual del tramo en el que cae ese mes
+  // (un mes pertenece al tramo cuyo "hasta" >= primer día del siguiente mes — o más simple:
+  //  buscar el primer tramo cuyo "hasta" >= 1° del próximo mes)
+  const puntosMap = new Map(); // key: YYYY-MM → {x, y, tramo}
   for (const t of tramos) {
-    // Caminar mes a mes desde 'desde' hasta 'hasta'
-    const cur = new Date(t.desde.getFullYear(), t.desde.getMonth(), 1);
-    const fin = new Date(t.hasta.getFullYear(), t.hasta.getMonth(), 1);
-    while (cur <= fin) {
-      puntos.push({ x: new Date(cur), y: t.inflMensual * 100 });
+    // Iterar meses contenidos: desde el mes del 'desde' hasta el mes del 'hasta'
+    const mStart = new Date(t.desde.getFullYear(), t.desde.getMonth(), 1);
+    const mEnd   = new Date(t.hasta.getFullYear(), t.hasta.getMonth(), 1);
+    const cur = new Date(mStart);
+    while (cur <= mEnd) {
+      const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+      // El mes "pertenece" al tramo cuyo 'hasta' está en/después de este mes
+      // → si ya hay un punto para este mes, sólo sobreescribir si este tramo termina ANTES (el más cercano)
+      const prev = puntosMap.get(key);
+      if (!prev || t.hasta < prev._hasta) {
+        puntosMap.set(key, { x: new Date(cur), _hasta: t.hasta, tem: t.inflMensualEnc, tna: t.inflMensualEnc * 12 });
+      }
       cur.setMonth(cur.getMonth() + 1);
     }
   }
+  const puntosOrdenados = [...puntosMap.values()].sort((a,b) => a.x - b.x);
 
-  // Tooltip y dibujo
+  // Datos según unidad seleccionada
+  const unit = INFLA_STATE.unidad; // 'TEM' o 'TNA'
+  const pointsScatter = puntosOrdenados.map(p => ({
+    x: p.x,
+    y: (unit === 'TNA' ? p.tna : p.tem) * 100,
+  }));
+
+  // Fit polinomial grado 2: X = días desde el primer punto, Y = %
+  let curveData = [];
+  if (pointsScatter.length >= 3) {
+    const x0 = pointsScatter[0].x.getTime();
+    const xs = pointsScatter.map(p => (p.x.getTime() - x0) / 86400000); // días
+    const ys = pointsScatter.map(p => p.y);
+    const coef = polyFit(xs, ys);
+    const xmin = 0, xmax = Math.max(...xs);
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const x = xmin + (xmax - xmin) * i / steps;
+      const d = new Date(x0 + x * 86400000);
+      curveData.push({ x: d, y: coef[0] + coef[1]*x + coef[2]*x*x });
+    }
+  }
+
+  // Theme
   const isLight = document.documentElement.classList.contains('light');
   const gc = isLight ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.06)';
   const tc = isLight ? '#6b7280' : '#7a8099';
 
+  const datasets = [];
+  if (curveData.length) {
+    datasets.push({
+      label: `Fit polinomial grado 2`,
+      data: curveData,
+      type: 'line',
+      borderColor: 'rgba(251,146,60,.55)',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0,
+      fill: false,
+    });
+  }
+  datasets.push({
+    label: `Inflación mensual implícita (${unit})`,
+    data: pointsScatter,
+    type: 'scatter',
+    backgroundColor: '#fb923c',
+    borderColor: '#fb923c',
+    pointRadius: 5,
+    pointHoverRadius: 7,
+  });
+
   charts['c-infla-implicit'] = new Chart(canvas, {
-    type: 'line',
-    data: {
-      datasets: [{
-        label: 'Inflación mensual implícita',
-        data: puntos,
-        borderColor: '#fb923c',
-        backgroundColor: 'rgba(251,146,60,.08)',
-        borderWidth: 2,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        tension: 0,
-        stepped: 'before',
-        fill: true,
-      }]
-    },
+    data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'nearest', intersect: false, axis: 'x' },
@@ -7835,7 +8003,7 @@ function buildInflacionImplicitaChart() {
               const d = ctx[0]?.raw?.x;
               return d instanceof Date ? d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : '';
             },
-            label: ctx => `Inflación mensual: ${ctx.parsed.y.toFixed(2)}%`,
+            label: ctx => `${unit}: ${ctx.parsed.y.toFixed(2)}%`,
           }
         },
       },
@@ -7849,12 +8017,45 @@ function buildInflacionImplicitaChart() {
         y: {
           ticks: { color: tc, font: { size: 10 }, callback: v => v.toFixed(2) + '%' },
           grid: { color: gc },
-          title: { display: true, text: 'Inflación mensual implícita (%)', color: tc, font: { size: 10 } },
+          title: { display: true, text: `Inflación implícita ${unit} (%)`, color: tc, font: { size: 10 } },
         }
       }
     }
   });
 }
+
+// Toggle TNA/TEM en infla implícita
+function setInflaImplicitaUnit(unit) {
+  INFLA_STATE.unidad = unit;
+  document.querySelectorAll('#infla-unit-tem,#infla-unit-tna').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(unit === 'TNA' ? 'infla-unit-tna' : 'infla-unit-tem');
+  if (btn) btn.classList.add('active');
+  buildInflacionImplicitaChart();
+}
+
+// ─── Tabla debug de Inflación Implícita (consola) ────────────
+// Uso: en consola, escribir: debugInflaTable()
+// Devuelve una tabla bonita con todos los pares y datos de bootstrap.
+window.debugInflaTable = function() {
+  const r = computeInflacionImplicita();
+  if (!r) { console.warn('[Infla] Sin datos para debug'); return; }
+  const rows = r.tramos.map(t => ({
+    Fijo: t.fija,
+    CER: t.cer,
+    Duration: t.duration.toFixed(2),
+    'TNA fijo': (t.tnaLecap*100).toFixed(2)+'%',
+    'TEA fijo': (t.teaLecap*100).toFixed(2)+'%',
+    'TIR real CER': t.tirRealCer != null ? (t.tirRealCer*100).toFixed(2)+'%' : '—',
+    'Anual (del par)': t.inflAnualPar != null ? (t.inflAnualPar*100).toFixed(2)+'%' : '—',
+    'Anual (encadenada)': (t.inflAnualEnc*100).toFixed(2)+'%',
+    'Mensual': (t.inflMensualEnc*100).toFixed(2)+'%',
+    'CER VTO impl.': t.cerVtoImpl.toFixed(2),
+    'Meses tramo': t.mesesTramo.toFixed(2),
+  }));
+  console.log('CER actual:', r.cerActual.toFixed(4), 'al', r.fechaCerActual.toLocaleDateString('es-AR'));
+  console.table(rows);
+  return rows;
+};
 
 // ─── CER Modal (detalle de flujos con pasados/futuros toggle) ───
 function openCERModal(ticker) {
@@ -7978,22 +8179,9 @@ function openCERModal(ticker) {
 // ─── Fetch feriados ──────────────────────────────────────────
 // Usa argentinadatos.com /v1/feriados/{año}; carga años suficientes para cubrir todos los vtos.
 async function fetchFeriados() {
-  const years = [];
-  const now = new Date().getFullYear();
-  for (let y = now - 1; y <= now + 6; y++) years.push(y);
-  const set = new Set();
-  await Promise.all(years.map(async y => {
-    try {
-      const r = await fetch(`https://api.argentinadatos.com/v1/feriados/${y}`, {signal: AbortSignal.timeout(8000)});
-      if (!r.ok) return;
-      const arr = await r.json();
-      if (!Array.isArray(arr)) return;
-      for (const f of arr) {
-        if (f.fecha && /^\d{4}-\d{2}-\d{2}$/.test(f.fecha)) set.add(f.fecha);
-      }
-    } catch(e) { /* silenciar errores parciales */ }
-  }));
-  return set;
+  // Delegado a la versión global; mantiene compatibilidad
+  await fetchFeriadosGlobal();
+  return FERIADOS_AR;
 }
 
 // ─── initCER ────────────────────────────────────────────────────
@@ -8001,8 +8189,9 @@ async function initCER() {
   const setStatus = s => { const el=document.getElementById('cer-status'); if(el) el.textContent=s; };
   setStatus('Cargando feriados…');
   try {
-    CER_STATE.feriados = await fetchFeriados();
-    console.log('[CER] Feriados cargados:', CER_STATE.feriados.size);
+    if (!FERIADOS_AR.size) await fetchFeriadosGlobal();
+    CER_STATE.feriados = FERIADOS_AR; // alias para código viejo
+    console.log('[CER] Feriados disponibles:', FERIADOS_AR.size);
   } catch(e) {
     console.warn('[CER] Feriados:', e.message);
   }
